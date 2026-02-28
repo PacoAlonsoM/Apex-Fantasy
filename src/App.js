@@ -410,7 +410,7 @@ function PredictionsPage({user,openAuth}){
   const [allPicks,setAllPicks]=useState({});
   const [tab,setTab]=useState("race");
   const [saved,setSaved]=useState(false);
-
+// eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{loadPicks();},[user]);
   const loadPicks=async()=>{if(!user)return;try{const r=await window.storage.get(`pk:${user.email}`).catch(()=>null);if(r){const p=JSON.parse(r.value);setAllPicks(p);if(p[race.r])setPicks(p[race.r]);}}catch{}};
   const selRace=r=>{setRace(r);setSaved(false);setPicks(allPicks[r.r]||{});setTab("race");};
@@ -462,7 +462,7 @@ function PredictionsPage({user,openAuth}){
       </div>
     </div>
   );
-
+// eslint-disable-next-line no-unused-vars
   const savedPicks=Object.keys(allPicks);
   const done=Object.values(picks).filter(Boolean).length;
   const color=rc(race);
@@ -667,6 +667,7 @@ function CommunityPage({user,openAuth}){
   const [showForm,setShowForm]=useState(false);
   const [replyText,setReplyText]=useState({});
   const [liked,setLiked]=useState({});
+
 
   useEffect(()=>{loadLeagues();},[user]);
   const loadLeagues=async()=>{if(!user)return;try{const r=await window.storage.get(`lg:${user.email}`).catch(()=>null);if(r)setLeagues(JSON.parse(r.value));}catch{}};
