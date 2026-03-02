@@ -4,7 +4,6 @@ import { fetchRaceData } from "../openf1";
 import { scoreRace } from "../scoring";
 import { CAL } from "../constants/calendar";
 
-// Tu user ID de Supabase — lo reemplazas con el tuyo
 const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
 
 export default function AdminPage({ user }) {
@@ -31,14 +30,13 @@ export default function AdminPage({ user }) {
   const race = CAL.find(r => r.r === round);
 
   const fetchFromAPI = async () => {
-    setLoading(true); setResult(null); setSaved(false);
+    setLoading(true); setResult(null); setSaved(false); setScoreResult(null);
     try {
       const data = await fetchRaceData(2026, round);
       if (!data) {
         setResult({ error: "No data found. Race may not have happened yet or API doesn't have results." });
       } else {
         setResult(data);
-        if (data.winner) setPole("");
       }
     } catch (e) {
       setResult({ error: e.message });
@@ -68,7 +66,13 @@ export default function AdminPage({ user }) {
     else setSaved(true);
   };
 
-  const inp = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 8, color: "#fff", padding: "10px 13px", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "inherit" };
+  const inp = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.11)",
+    borderRadius: 8, color: "#fff", padding: "10px 13px",
+    fontSize: 13, outline: "none", width: "100%",
+    boxSizing: "border-box", fontFamily: "inherit"
+  };
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "52px 28px", position: "relative", zIndex: 1 }}>
@@ -81,9 +85,14 @@ export default function AdminPage({ user }) {
         <p style={{ color: "rgba(255,255,255,0.38)", margin: 0, fontSize: 13 }}>Fetch live results from OpenF1 and save to database</p>
       </div>
 
+      {/* STEP 1 — Fetch & Save */}
       <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24, marginBottom: 20 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Select Race</div>
-        <select value={round} onChange={e => { setRound(Number(e.target.value)); setResult(null); setSaved(false); }} style={{ ...inp, marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Step 1 — Select Race & Fetch</div>
+        <select
+          value={round}
+          onChange={e => { setRound(Number(e.target.value)); setResult(null); setSaved(false); setScoreResult(null); }}
+          style={{ ...inp, marginBottom: 16 }}
+        >
           {CAL.map(r => (
             <option key={r.r} value={r.r} style={{ background: "#08081A" }}>Round {r.r} — {r.n}</option>
           ))}
@@ -94,10 +103,10 @@ export default function AdminPage({ user }) {
         </button>
       </div>
 
+      {/* Results from API */}
       {result && !result.error && (
         <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24, marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>Results from OpenF1</div>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             {[
               ["🏆 Winner", result.winner],
@@ -115,8 +124,7 @@ export default function AdminPage({ user }) {
             ))}
           </div>
 
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Manual Fields (OpenF1 doesn't provide these)</div>
-
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Manual Fields</div>
           <div style={{ marginBottom: 11 }}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Pole Position Driver</div>
             <input style={inp} placeholder="e.g. Max Verstappen" value={pole} onChange={e => setPole(e.target.value)} />
@@ -129,38 +137,43 @@ export default function AdminPage({ user }) {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Best Constructor</div>
             <input style={inp} placeholder="e.g. McLaren" value={ctor} onChange={e => setCtor(e.target.value)} />
           </div>
-
           <button onClick={saveResults} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#6366F1,#8B5CF6)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14 }}>
             {saved ? "✅ Results Saved!" : "💾 Save to Database"}
           </button>
         </div>
       )}
-{saved && (
-  <div style={{ marginTop: 12 }}>
-    <button
-      onClick={async () => {
-        setScoring(true); setScoreResult(null);
-        const res = await scoreRace(round);
-        setScoreResult(res);
-        setScoring(false);
-      }}
-      disabled={scoring}
-      style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: scoring ? 0.6 : 1 }}
-    >
-      {scoring ? "Calculating..." : "⚡ Calculate & Award Points"}
-    </button>
-    {scoreResult && (
-      <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: scoreResult.error ? "rgba(239,68,68,0.1)" : "rgba(52,211,153,0.1)", border: `1px solid ${scoreResult.error ? "rgba(239,68,68,0.28)" : "rgba(52,211,153,0.28)"}`, fontSize: 13, color: scoreResult.error ? "#F87171" : "#34D399" }}>
-        {scoreResult.error ? `❌ ${scoreResult.error}` : `✅ Scored ${scoreResult.scored} users successfully!`}
-      </div>
-    )}
-  </div>
-)}
+
+      {/* Error */}
       {result?.error && (
-        <div style={{ padding: 20, borderRadius: 11, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.08)", color: "#F87171", fontSize: 13 }}>
+        <div style={{ padding: 20, borderRadius: 11, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.08)", color: "#F87171", fontSize: 13, marginBottom: 20 }}>
           ⚠️ {result.error}
         </div>
       )}
+
+      {/* STEP 2 — Score */}
+      <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 2 — Award Points</div>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
+          Run this after saving results. Calculates and awards points to all users who made predictions for the selected round.
+        </p>
+        <button
+          onClick={async () => {
+            setScoring(true); setScoreResult(null);
+            const res = await scoreRace(round);
+            setScoreResult(res);
+            setScoring(false);
+          }}
+          disabled={scoring}
+          style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: scoring ? 0.6 : 1 }}
+        >
+          {scoring ? "Calculating..." : "⚡ Calculate & Award Points"}
+        </button>
+        {scoreResult && (
+          <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: scoreResult.error ? "rgba(239,68,68,0.1)" : "rgba(52,211,153,0.1)", border: `1px solid ${scoreResult.error ? "rgba(239,68,68,0.28)" : "rgba(52,211,153,0.28)"}`, fontSize: 13, color: scoreResult.error ? "#F87171" : "#34D399" }}>
+            {scoreResult.error ? `❌ ${scoreResult.error}` : `✅ Scored ${scoreResult.scored} users successfully!`}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
