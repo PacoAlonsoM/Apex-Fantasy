@@ -8,6 +8,7 @@ import CalendarPage from "./components/CalendarPage";
 import PredictionsPage from "./components/PredictionsPage";
 import StandingsPage from "./components/StandingsPage";
 import CommunityPage from "./components/CommunityPage";
+import AdminPage from "./components/AdminPage";
 
 export default function ApexFantasy() {
   const [page, setPage] = useState("home");
@@ -46,6 +47,7 @@ export default function ApexFantasy() {
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
         {page === "standings" && <StandingsPage />}
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
+        {page === "admin" && <AdminPage user={user} />}
       </div>
     </div>
   );

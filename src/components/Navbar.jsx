@@ -1,9 +1,9 @@
 
 export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
   const tabs = [
-    ["home", "Home"], ["calendar", "Calendar"], ["predictions", "Predictions"],
-    ["standings", "Standings"], ["community", "Community"]
-  ];
+  ["home", "Home"], ["calendar", "Calendar"], ["predictions", "Predictions"],
+  ["standings", "Standings"], ["community", "Community"], ["admin", "Admin"]
+];
   return (
     <nav style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(8,8,26,0.8)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.07)", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setPage("home")}>
