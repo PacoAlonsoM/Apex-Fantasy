@@ -147,7 +147,7 @@ export default function CalendarPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap", marginBottom: 16 }}>
           <div style={{ maxWidth: 720 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "#101a2d", border: "1px solid rgba(148,163,184,0.14)", marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#2dd4bf" }} />
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--team-accent)" }} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>2026 calendar</span>
             </div>
             <h1 style={{ fontSize: 42, lineHeight: 1, margin: "0 0 10px", letterSpacing: -2 }}>
@@ -271,7 +271,7 @@ export default function CalendarPage() {
         {sel && (
           <aside style={{ position: "sticky", top: 84 }}>
             <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-              <div style={{ height: 4, background: `linear-gradient(90deg,${rc(sel)},#2dd4bf)` }} />
+              <div style={{ height: 4, background: `linear-gradient(90deg,${rc(sel)},var(--team-accent))` }} />
 
               <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${HAIRLINE}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>

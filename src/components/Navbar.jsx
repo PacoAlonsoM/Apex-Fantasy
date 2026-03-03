@@ -26,11 +26,11 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
         <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: -0.5 }}>APEX<span style={{ color: SUBTLE_TEXT, fontWeight: 600, marginLeft: 3 }}>FANTASY</span></span>
       </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: 4, background: PANEL_BG_ALT, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: 5, background: PANEL_BG_ALT, borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.02)" }}>
         {tabs.map(([id, lb]) => (
-          <button key={id} onClick={() => setPage(id)} style={{ background: page === id ? "#111c30" : "transparent", border: page === id ? "1px solid rgba(148,163,184,0.14)" : "1px solid transparent", cursor: "pointer", padding: "9px 14px", fontSize: 13, fontWeight: page === id ? 800 : 650, color: page === id ? "#fff" : "rgba(226,232,240,0.58)", position: "relative", borderRadius: 12 }}>
+          <button key={id} onClick={() => setPage(id)} style={{ background: page === id ? "#111c30" : "transparent", border: page === id ? "1px solid rgba(148,163,184,0.14)" : "1px solid transparent", cursor: "pointer", padding: "10px 16px", fontSize: 13, fontWeight: page === id ? 800 : 650, color: page === id ? "#fff" : "rgba(226,232,240,0.58)", position: "relative", borderRadius: 13 }}>
             {lb}
-            {page === id && <div style={{ position: "absolute", bottom: 2, left: 12, right: 12, height: 2, background: BRAND_GRADIENT, borderRadius: 1 }} />}
+            {page === id && <div style={{ position: "absolute", bottom: 2, left: 12, right: 12, height: 2, background: `linear-gradient(90deg,var(--team-accent),#facc15)`, borderRadius: 1 }} />}
           </button>
         ))}
       </div>
@@ -38,12 +38,12 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {user ? (
           <div style={{ position: "relative" }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 14, background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.14)", cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 13px", borderRadius: 15, background: PANEL_BG_ALT, border: "1px solid var(--team-accent-border)", cursor: "pointer", boxShadow: "0 10px 26px var(--team-accent-ghost)" }}>
               <div style={{ width: 26, height: 26, borderRadius: 8, background: userTheme.fill, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: userTheme.text, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
                 {user.username?.slice(0, 2).toUpperCase()}
               </div>
               <span style={{ fontSize: 13, fontWeight: 700 }}>{user.username}</span>
-              <span style={{ color: "#ff9d2f", fontWeight: 900, fontSize: 13 }}>{user.points || 0}pt</span>
+              <span style={{ color: "var(--team-accent)", fontWeight: 900, fontSize: 13 }}>{user.points || 0}pt</span>
               <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ transition: "transform 0.2s", transform: dropOpen ? "rotate(180deg)" : "none" }}>
                 <path d="M1 1l4 4 4-4" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>

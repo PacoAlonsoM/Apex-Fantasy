@@ -1,5 +1,7 @@
 alter table public.profiles
-  add column if not exists avatar_color text;
+  add column if not exists avatar_color text,
+  add column if not exists favorite_team text,
+  add column if not exists favorite_driver text;
 
 update public.profiles
 set avatar_color = 'ember'
@@ -37,3 +39,20 @@ alter table public.profiles
       'support-cadillac'
     )
   );
+
+update public.profiles
+set favorite_team = case avatar_color
+  when 'support-mclaren' then 'McLaren'
+  when 'support-ferrari' then 'Ferrari'
+  when 'support-mercedes' then 'Mercedes'
+  when 'support-red-bull' then 'Red Bull Racing'
+  when 'support-aston' then 'Aston Martin'
+  when 'support-alpine' then 'Alpine'
+  when 'support-haas' then 'Haas'
+  when 'support-rb' then 'Racing Bulls'
+  when 'support-williams' then 'Williams'
+  when 'support-audi' then 'Audi'
+  when 'support-cadillac' then 'Cadillac'
+  else favorite_team
+end
+where favorite_team is null;

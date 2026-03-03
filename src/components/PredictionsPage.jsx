@@ -72,12 +72,11 @@ function DriverCard({ driver, selected, onClick }) {
         padding: "8px 9px",
         cursor: "pointer",
         textAlign: "left",
-        minHeight: 66,
+        minHeight: 76,
         boxShadow: selected ? `0 10px 22px ${hexToRgba(team.c, 0.1)}` : "none",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        gap: 7,
+        display: "grid",
+        gridTemplateRows: "auto 1fr auto",
+        gap: 6,
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -85,10 +84,12 @@ function DriverCard({ driver, selected, onClick }) {
           <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: selected ? team.c : SUBTLE_TEXT }}>
             {driver.s}
           </div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: selected ? "#dbeafe" : MUTED_TEXT, marginTop: 4, lineHeight: 1.1 }}>{first || driver.n}</div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginTop: 2, lineHeight: 1.1, letterSpacing: -0.2 }}>{first ? last : ""}</div>
         </div>
         <div style={{ fontSize: 9, fontWeight: 900, color: selected ? team.c : MUTED_TEXT }}>{driver.nb ? `#${driver.nb}` : "NEW"}</div>
+      </div>
+      <div style={{ minHeight: 30 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: selected ? "#dbeafe" : MUTED_TEXT, lineHeight: 1.05 }}>{first || driver.n}</div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", marginTop: 3, lineHeight: 1.04, letterSpacing: -0.2 }}>{first ? last : ""}</div>
       </div>
       <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
         <div style={{ width: 7, height: 7, borderRadius: "50%", background: team.c }} />
@@ -112,14 +113,13 @@ function ConstructorCard({ teamName, selected, onClick }) {
         cursor: "pointer",
         textAlign: "left",
         boxShadow: selected ? `0 10px 22px ${hexToRgba(team.c, 0.1)}` : "none",
-        minHeight: 60,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
+        minHeight: 68,
+        display: "grid",
+        gridTemplateRows: "auto 1fr",
       }}
     >
       <div style={{ width: 18, height: 3, borderRadius: 999, background: team.c, marginBottom: 8 }} />
-      <div style={{ fontSize: 11, fontWeight: 800, color: "#fff", lineHeight: 1.18 }}>{teamName}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", lineHeight: 1.18, display: "flex", alignItems: "flex-end" }}>{teamName}</div>
     </button>
   );
 }
@@ -136,10 +136,12 @@ function BinaryCard({ label, selected, activeColor, onClick }) {
         cursor: "pointer",
         textAlign: "left",
         boxShadow: selected ? `0 10px 20px ${activeColor}12` : "none",
-        minHeight: 48,
+        minHeight: 52,
+        display: "flex",
+        alignItems: "center",
       }}
     >
-      <div style={{ fontSize: 11, fontWeight: 800, color: selected ? activeColor : "#fff" }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: selected ? activeColor : "#fff" }}>{label}</div>
     </button>
   );
 }
@@ -148,7 +150,7 @@ function DriverPicker({ label, field, pts, picks, setPick }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <PromptHeader label={label} pts={pts} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(118px,1fr))", gap: 7 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(126px,1fr))", gap: 8, gridAutoRows: "1fr" }}>
         {DRV.map((driver) => (
           <DriverCard
             key={`${field}-${driver.n}`}
@@ -166,7 +168,7 @@ function ConstructorPicker({ picks, setPick }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <PromptHeader label="Constructor with Most Points" pts={PTS.ctor} color="#34d399" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(132px,1fr))", gap: 7 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(136px,1fr))", gap: 8, gridAutoRows: "1fr" }}>
         {CONSTRUCTORS.map((teamName) => (
           <ConstructorCard
             key={teamName}
@@ -184,7 +186,7 @@ function BinaryPicker({ field, label, pts, picks, setPick }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <PromptHeader label={label} pts={pts} color="#facc15" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, gridAutoRows: "1fr" }}>
         <BinaryCard label="Yes" selected={picks[field] === "Yes"} activeColor="#34d399" onClick={() => setPick(field, picks[field] === "Yes" ? null : "Yes")} />
         <BinaryCard label="No" selected={picks[field] === "No"} activeColor="#f87171" onClick={() => setPick(field, picks[field] === "No" ? null : "No")} />
       </div>
@@ -360,8 +362,8 @@ export default function PredictionsPage({ user, openAuth }) {
       </aside>
 
       <main>
-        <div style={{ borderRadius: 20, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-          <div style={{ height: 4, background: `linear-gradient(90deg,${color},#2dd4bf)` }} />
+        <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+          <div style={{ height: 4, background: `linear-gradient(90deg,${color},var(--team-accent))` }} />
           <div style={{ padding: "18px 20px 16px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div>

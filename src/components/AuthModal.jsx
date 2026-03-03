@@ -1,15 +1,34 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { ensureProfileForUser, isUsernameTaken, sanitizeUsername } from "../authProfile";
-import { PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SUBTLE_TEXT } from "../constants/design";
+import { PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
+import { DRV } from "../constants/teams";
 import BrandMark from "./BrandMark";
 
 export default function AuthModal({ mode, setMode, onClose, onAuth }) {
-  const [f, setF] = useState({ username: "", email: "", pass: "", confirm: "" });
+  const [f, setF] = useState({
+    username: "",
+    email: "",
+    pass: "",
+    confirm: "",
+    favoriteTeam: TEAM_AVATAR_OPTIONS[0]?.team || "",
+    favoriteDriver: DRV[0]?.n || "",
+  });
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const upd = (k, v) => setF((current) => ({ ...current, [k]: v }));
+  const supportDrivers = useMemo(
+    () => DRV.filter((driver) => driver.t === f.favoriteTeam),
+    [f.favoriteTeam]
+  );
+
+  useEffect(() => {
+    if (mode !== "register") return;
+    if (!supportDrivers.find((driver) => driver.n === f.favoriteDriver)) {
+      upd("favoriteDriver", supportDrivers[0]?.n || "");
+    }
+  }, [mode, supportDrivers, f.favoriteDriver]);
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -120,7 +139,14 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         const { data, error } = await supabase.auth.signUp({
           email: f.email,
           password: f.pass,
-          options: { data: { username } },
+          options: {
+            data: {
+              username,
+              avatar_color: teamSupportKey(f.favoriteTeam),
+              favorite_team: f.favoriteTeam,
+              favorite_driver: f.favoriteDriver,
+            },
+          },
         });
 
         if (error) {
@@ -130,7 +156,12 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         }
 
         if (data.user && data.session) {
-          const profile = await ensureProfileForUser(data.user, username);
+          const profile = await ensureProfileForUser(data.user, {
+            username,
+            avatarColor: teamSupportKey(f.favoriteTeam),
+            favoriteTeam: f.favoriteTeam,
+            favoriteDriver: f.favoriteDriver,
+          });
           onAuth(profile || { id: data.user.id, username, points: 0 });
           onClose();
           setLoading(false);
@@ -195,6 +226,18 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
           <>
             <label style={labelStyle}>Username</label>
             <input style={{ ...inputStyle, marginBottom: 14 }} placeholder="YourUsername" value={f.username} onChange={(event) => upd("username", event.target.value)} />
+            <label style={labelStyle}>Supported team</label>
+            <select style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteTeam} onChange={(event) => upd("favoriteTeam", event.target.value)}>
+              {TEAM_AVATAR_OPTIONS.map((option) => (
+                <option key={option.key} value={option.team}>{option.label}</option>
+              ))}
+            </select>
+            <label style={labelStyle}>Supported driver</label>
+            <select style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteDriver} onChange={(event) => upd("favoriteDriver", event.target.value)}>
+              {supportDrivers.map((driver) => (
+                <option key={driver.n} value={driver.n}>{driver.n}</option>
+              ))}
+            </select>
           </>
         )}
 

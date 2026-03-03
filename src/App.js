@@ -12,6 +12,7 @@ import CommunityPage from "./components/CommunityPage";
 import AdminPage from "./components/AdminPage";
 import ProfilePage from "./components/ProfilePage";
 import { ensureProfileForUser } from "./authProfile";
+import { getUserAccentTheme } from "./constants/design";
 
 export default function ApexFantasy() {
   const [page, setPage] = useState("home");
@@ -46,16 +47,30 @@ export default function ApexFantasy() {
 
   const openAuth = m => { setAuthMode(m || "login"); setAuthOpen(true); };
   const logout = async () => { await supabase.auth.signOut(); setUser(null); };
+  const accentTheme = getUserAccentTheme(user);
 
   return (
-    <div style={{ minHeight: "100vh", color: "var(--text)", fontFamily: "var(--font-body)" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        color: "var(--text)",
+        fontFamily: "var(--font-body)",
+        background: "radial-gradient(circle at top left, var(--team-accent-ghost), transparent 28%), radial-gradient(circle at top right, rgba(45, 212, 191, 0.06), transparent 22%)",
+        "--team-accent": accentTheme.accent,
+        "--team-accent-soft": accentTheme.accentSoft,
+        "--team-accent-ghost": accentTheme.accentGhost,
+        "--team-accent-border": accentTheme.accentBorder,
+        "--team-accent-text": accentTheme.text,
+        "--interactive-edge": accentTheme.accentBorder,
+      }}
+    >
       <style>{`textarea{font-family:inherit;} h1,h2,h3{font-family:var(--font-display);}`}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />
         {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onAuth={(profile) => { setUser(profile); setAuthOpen(false); }} />}
         {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} />}
-        {page === "calendar" && <CalendarPage />}
+        {page === "calendar" && <CalendarPage user={user} />}
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
         {page === "news" && <NewsPage />}
         {page === "standings" && <StandingsPage />}

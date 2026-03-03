@@ -21,7 +21,7 @@ const scoring = [
   ["Safety Car", "5"],
 ];
 
-export default function HomePage({ setPage }) {
+export default function HomePage({ user, setPage }) {
   const next = nextRace();
   const cd = next ? countdown(next.date) : null;
 
@@ -32,8 +32,8 @@ export default function HomePage({ setPage }) {
           <div style={{ position: "absolute", top: -42, left: "50%", transform: "translateX(-50%)", opacity: 0.12 }}>
             <BrandMark size={176} ghost />
           </div>
-          <div style={{ position: "absolute", right: 48, top: 42, width: 140, height: 140, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,189,248,0.12), rgba(56,189,248,0))" }} />
-          <div style={{ position: "absolute", left: 60, bottom: 28, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.12), rgba(249,115,22,0))" }} />
+          <div style={{ position: "absolute", right: 48, top: 42, width: 140, height: 140, borderRadius: "50%", background: "radial-gradient(circle, var(--team-accent-soft), rgba(56,189,248,0))" }} />
+          <div style={{ position: "absolute", left: 60, bottom: 28, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, var(--team-accent-ghost), rgba(249,115,22,0))" }} />
         </div>
 
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -41,6 +41,11 @@ export default function HomePage({ setPage }) {
             <BrandMark size={58} />
             <div style={{ textAlign: "left" }}>
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color: "#e2e8f0" }}>Apex Fantasy</div>
+              {user?.favorite_team && (
+                <div style={{ fontSize: 11, color: "var(--team-accent)", fontWeight: 700, marginTop: 4 }}>
+                  Supporting {user.favorite_team}{user.favorite_driver ? ` · ${user.favorite_driver}` : ""}
+                </div>
+              )}
             </div>
           </div>
 

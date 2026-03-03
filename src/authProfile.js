@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { DEFAULT_AVATAR_COLOR } from "./constants/design";
+
 export function sanitizeUsername(value) {
   return (value || "")
     .trim()
@@ -20,6 +22,24 @@ function fallbackUsername(authUser, preferredUsername) {
   return `player_${String(authUser?.id || "").slice(0, 8)}`;
 }
 
+function normalizeProfileSeed(authUser, preferredProfile) {
+  if (typeof preferredProfile === "string") {
+    return {
+      username: preferredProfile,
+      avatarColor: authUser?.user_metadata?.avatar_color || DEFAULT_AVATAR_COLOR,
+      favoriteTeam: authUser?.user_metadata?.favorite_team || null,
+      favoriteDriver: authUser?.user_metadata?.favorite_driver || null,
+    };
+  }
+
+  return {
+    username: preferredProfile?.username || authUser?.user_metadata?.username || null,
+    avatarColor: preferredProfile?.avatarColor || authUser?.user_metadata?.avatar_color || DEFAULT_AVATAR_COLOR,
+    favoriteTeam: preferredProfile?.favoriteTeam || authUser?.user_metadata?.favorite_team || null,
+    favoriteDriver: preferredProfile?.favoriteDriver || authUser?.user_metadata?.favorite_driver || null,
+  };
+}
+
 export async function isUsernameTaken(username, excludeUserId = null) {
   const normalized = sanitizeUsername(username);
   if (!normalized) return false;
@@ -34,8 +54,9 @@ export async function isUsernameTaken(username, excludeUserId = null) {
   return (data || []).some((profile) => profile.id !== excludeUserId);
 }
 
-export async function ensureProfileForUser(authUser, preferredUsername) {
+export async function ensureProfileForUser(authUser, preferredProfile) {
   if (!authUser?.id) return null;
+  const seed = normalizeProfileSeed(authUser, preferredProfile);
 
   const { data: existing } = await supabase
     .from("profiles")
@@ -43,9 +64,34 @@ export async function ensureProfileForUser(authUser, preferredUsername) {
     .eq("id", authUser.id)
     .maybeSingle();
 
-  if (existing) return existing;
+  if (existing) {
+    const merged = {
+      ...existing,
+      avatar_color: existing.avatar_color || seed.avatarColor || DEFAULT_AVATAR_COLOR,
+      favorite_team: existing.favorite_team || seed.favoriteTeam || null,
+      favorite_driver: existing.favorite_driver || seed.favoriteDriver || null,
+    };
+    const updates = {};
 
-  const base = fallbackUsername(authUser, preferredUsername);
+    if (!existing.avatar_color && seed.avatarColor) updates.avatar_color = seed.avatarColor;
+    if (!existing.favorite_team && seed.favoriteTeam) updates.favorite_team = seed.favoriteTeam;
+    if (!existing.favorite_driver && seed.favoriteDriver) updates.favorite_driver = seed.favoriteDriver;
+
+    if (Object.keys(updates).length) {
+      const { data: updated, error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", authUser.id)
+        .select("*")
+        .maybeSingle();
+
+      if (!error && updated) return updated;
+    }
+
+    return merged;
+  }
+
+  const base = fallbackUsername(authUser, seed.username);
   const candidates = [
     base,
     `${base}_${String(authUser.id).slice(0, 4)}`,
@@ -55,15 +101,51 @@ export async function ensureProfileForUser(authUser, preferredUsername) {
   let lastError = null;
 
   for (const username of candidates) {
+    const fullPayload = {
+      id: authUser.id,
+      username,
+      points: 0,
+      avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
+      favorite_team: seed.favoriteTeam,
+      favorite_driver: seed.favoriteDriver,
+    };
+
     const { data, error } = await supabase
       .from("profiles")
-      .insert({ id: authUser.id, username, points: 0 })
+      .insert(fullPayload)
       .select("*")
       .single();
 
     if (!error && data) return data;
 
     lastError = error;
+    if (error?.message?.includes("favorite_team") || error?.message?.includes("favorite_driver")) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("profiles")
+        .insert({
+          id: authUser.id,
+          username,
+          points: 0,
+          avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
+        })
+        .select("*")
+        .single();
+
+      if (!fallbackError && fallbackData) return fallbackData;
+      lastError = fallbackError;
+    }
+
+    if (error?.message?.includes("avatar_color")) {
+      const { data: bareData, error: bareError } = await supabase
+        .from("profiles")
+        .insert({ id: authUser.id, username, points: 0 })
+        .select("*")
+        .single();
+
+      if (!bareError && bareData) return bareData;
+      lastError = bareError;
+    }
+
     if (error?.code !== "23505") break;
   }
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { CAL } from "../constants/calendar";
-import { AVATAR_THEMES, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, avatarTheme } from "../constants/design";
+import { DRV } from "../constants/teams";
+import { AVATAR_THEMES, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, avatarTheme, getUserAccentTheme, teamSupportKey } from "../constants/design";
 import { isUsernameTaken, sanitizeUsername } from "../authProfile";
 
 export default function ProfilePage({ user, setUser }) {
@@ -10,18 +11,31 @@ export default function ProfilePage({ user, setUser }) {
   const [editing, setEditing] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || "");
   const [pendingColor, setPendingColor] = useState(user?.avatar_color || DEFAULT_AVATAR_COLOR);
+  const [pendingTeam, setPendingTeam] = useState(user?.favorite_team || TEAM_AVATAR_OPTIONS[0]?.team || "");
+  const [pendingDriver, setPendingDriver] = useState(user?.favorite_driver || "");
   const [saving, setSaving] = useState(false);
+  const [supportSaving, setSupportSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const supportOptions = TEAM_AVATAR_OPTIONS;
+  const supportDrivers = useMemo(() => DRV.filter((driver) => driver.t === pendingTeam), [pendingTeam]);
 
   useEffect(() => {
     if (user) {
       setNewUsername(user.username || "");
       setPendingColor(user.avatar_color || DEFAULT_AVATAR_COLOR);
+      setPendingTeam(user.favorite_team || TEAM_AVATAR_OPTIONS[0]?.team || "");
+      setPendingDriver(user.favorite_driver || "");
       fetchData();
     }
   }, [user]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!supportDrivers.find((driver) => driver.n === pendingDriver)) {
+      setPendingDriver(supportDrivers[0]?.n || "");
+    }
+  }, [supportDrivers, pendingDriver]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -54,13 +68,27 @@ export default function ProfilePage({ user, setUser }) {
 
       const { data, error: updateError } = await supabase
         .from("profiles")
-        .update({ username, avatar_color: pendingColor })
+        .update({
+          username,
+          avatar_color: pendingColor,
+          favorite_team: pendingTeam,
+          favorite_driver: pendingDriver,
+        })
         .eq("id", user.id)
         .select("*")
         .single();
 
       if (updateError) {
-        if (String(updateError.message || "").includes("avatar_color")) {
+        if (
+          String(updateError.message || "").includes("avatar_color") ||
+          String(updateError.message || "").includes("favorite_team") ||
+          String(updateError.message || "").includes("favorite_driver")
+        ) {
+          await persistSupportMetadata({
+            avatar_color: pendingColor,
+            favorite_team: pendingTeam,
+            favorite_driver: pendingDriver,
+          });
           const { data: fallbackData, error: fallbackError } = await supabase
             .from("profiles")
             .update({ username })
@@ -71,9 +99,14 @@ export default function ProfilePage({ user, setUser }) {
           if (fallbackError) {
             setError(fallbackError.message);
           } else if (fallbackData) {
-            setUser({ ...fallbackData, avatar_color: user.avatar_color || DEFAULT_AVATAR_COLOR });
+            setUser({
+              ...fallbackData,
+              avatar_color: pendingColor || user.avatar_color || DEFAULT_AVATAR_COLOR,
+              favorite_team: pendingTeam || user.favorite_team || null,
+              favorite_driver: pendingDriver || user.favorite_driver || null,
+            });
             setEditing(false);
-            setNote("Username updated. Run the avatar-color migration to save color choices.");
+            setNote("Username updated. Support preferences were kept locally, but you still need the latest profile migration for full database sync.");
           }
         } else {
           setError(updateError.message);
@@ -93,7 +126,7 @@ export default function ProfilePage({ user, setUser }) {
   const totalRaces = predictions.filter((prediction) => prediction.score > 0).length;
   const bestRace = predictions.reduce((best, prediction) => ((prediction.score || 0) > (best?.score || 0) ? prediction : best), null);
   const theme = avatarTheme(pendingColor);
-  const supportOptions = [{ key: DEFAULT_AVATAR_COLOR, label: "Apex" }, ...TEAM_AVATAR_OPTIONS];
+  const accentTheme = getUserAccentTheme({ avatar_color: pendingColor, favorite_team: pendingTeam });
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -107,13 +140,76 @@ export default function ProfilePage({ user, setUser }) {
     boxSizing: "border-box",
   };
 
+  const persistSupportMetadata = async (payload) => {
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: {
+        avatar_color: payload.avatar_color,
+        favorite_team: payload.favorite_team,
+        favorite_driver: payload.favorite_driver,
+      },
+    });
+
+    return metadataError || null;
+  };
+
+  const saveSupportPreferences = async (nextTeam, nextDriver) => {
+    if (!user) return;
+    setSupportSaving(true);
+    setError("");
+    setNote("");
+
+    const nextColor = teamSupportKey(nextTeam);
+    setPendingTeam(nextTeam);
+    setPendingDriver(nextDriver);
+    setPendingColor(nextColor);
+
+    const { data, error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        avatar_color: nextColor,
+        favorite_team: nextTeam,
+        favorite_driver: nextDriver,
+      })
+      .eq("id", user.id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      if (
+        String(updateError.message || "").includes("avatar_color") ||
+        String(updateError.message || "").includes("favorite_team") ||
+        String(updateError.message || "").includes("favorite_driver")
+      ) {
+        await persistSupportMetadata({
+          avatar_color: nextColor,
+          favorite_team: nextTeam,
+          favorite_driver: nextDriver,
+        });
+        setUser({
+          ...user,
+          avatar_color: nextColor,
+          favorite_team: nextTeam,
+          favorite_driver: nextDriver,
+        });
+        setNote("Support updated locally. Run the latest profile migration to sync it to the profiles table.");
+      } else {
+        setError(updateError.message);
+      }
+    } else if (data) {
+      setUser(data);
+      setNote("Support preferences updated.");
+    }
+
+    setSupportSaving(false);
+  };
+
   if (!user) return null;
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 28px 80px", position: "relative", zIndex: 1 }}>
       <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, padding: "24px 26px 24px", marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 22, flexWrap: "wrap" }}>
-          <div style={{ width: 78, height: 78, borderRadius: 18, background: theme.fill, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: theme.text, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
+          <div style={{ width: 78, height: 78, borderRadius: 18, background: theme.fill, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: theme.text, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 16px 36px var(--team-accent-ghost)" }}>
             {user.username?.slice(0, 2).toUpperCase()}
           </div>
 
@@ -132,31 +228,42 @@ export default function ProfilePage({ user, setUser }) {
               </div>
             )}
             <div style={{ fontSize: 13, color: MUTED_TEXT }}>2026 season player profile</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: accentTheme.text, background: accentTheme.accentSoft, border: `1px solid ${accentTheme.accentBorder}`, borderRadius: 999, padding: "6px 10px" }}>
+                Supporting {pendingTeam}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#dbe4f0", background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.16)", borderRadius: 999, padding: "6px 10px" }}>
+                Driver: {pendingDriver || "Choose one"}
+              </span>
+            </div>
             {error && <div style={{ marginTop: 10, fontSize: 12, color: "#fca5a5" }}>{error}</div>}
             {note && <div style={{ marginTop: 10, fontSize: 12, color: "#67e8f9" }}>{note}</div>}
           </div>
         </div>
 
         <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid rgba(148,163,184,0.14)" }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Support badge</div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Support identity</div>
           <div style={{ fontSize: 13, color: MUTED_TEXT, marginBottom: 12 }}>
-            Pick the team colors you want attached to your profile, leagues and forum identity.
+            Pick the team and driver attached to your profile, leagues and forum identity.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(136px,1fr))", gap: 10 }}>
-            {supportOptions.map(({ key, label }) => {
+            {supportOptions.map(({ key, label, team }) => {
               const option = AVATAR_THEMES[key];
               if (!option) return null;
 
               return (
               <button
                 key={key}
-                onClick={() => { setPendingColor(key); if (!editing) setEditing(true); }}
+                onClick={() => {
+                  const nextDriver = pendingTeam === team && pendingDriver ? pendingDriver : (DRV.find((driver) => driver.t === team)?.n || "");
+                  saveSupportPreferences(team, nextDriver);
+                }}
                 style={{
                   borderRadius: 14,
-                  border: pendingColor === key ? "1px solid rgba(248,250,252,0.64)" : `1px solid ${option.border}`,
-                  background: pendingColor === key ? option.fill : PANEL_BG_ALT,
+                  border: pendingTeam === team ? "1px solid rgba(248,250,252,0.64)" : `1px solid ${option.border}`,
+                  background: pendingTeam === team ? option.fill : PANEL_BG_ALT,
                   cursor: "pointer",
-                  boxShadow: pendingColor === key ? "0 0 0 3px rgba(148,163,184,0.14)" : "none",
+                  boxShadow: pendingTeam === team ? "0 0 0 3px rgba(148,163,184,0.14)" : "none",
                   padding: "10px 11px",
                   textAlign: "left",
                   display: "flex",
@@ -170,13 +277,28 @@ export default function ProfilePage({ user, setUser }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{label}</div>
-                  <div style={{ fontSize: 10, color: pendingColor === key ? "rgba(248,250,252,0.78)" : SUBTLE_TEXT }}>
-                    {key === DEFAULT_AVATAR_COLOR ? "Default" : "Team support"}
+                  <div style={{ fontSize: 10, color: pendingTeam === team ? "rgba(248,250,252,0.78)" : SUBTLE_TEXT }}>
+                    {pendingTeam === team ? "Selected" : "Team support"}
                   </div>
                 </div>
               </button>
               );
             })}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 170px", gap: 12, marginTop: 14 }}>
+            <select
+              style={{ ...inputStyle, background: PANEL_BG_ALT }}
+              value={pendingDriver}
+              onChange={(event) => saveSupportPreferences(pendingTeam, event.target.value)}
+              disabled={!pendingTeam || supportSaving}
+            >
+              {supportDrivers.map((driver) => (
+                <option key={driver.n} value={driver.n}>{driver.n}</option>
+              ))}
+            </select>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, fontSize: 12, color: MUTED_TEXT }}>
+              {supportSaving ? "Saving support..." : "Support updates live"}
+            </div>
           </div>
         </div>
       </div>
