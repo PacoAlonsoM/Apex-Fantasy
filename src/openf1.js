@@ -1,17 +1,32 @@
 const BASE = "https://api.openf1.org/v1";
 
+export async function fetchRaceSessions(year) {
+  try {
+    const res = await fetch(`${BASE}/sessions?year=${year}&session_name=Race`);
+    const data = await res.json();
+    return data.sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
+  } catch (e) {
+    console.error("fetchRaceSessions error:", e);
+    return [];
+  }
+}
+
+export async function fetchMeetingSessions(meetingKey) {
+  try {
+    const res = await fetch(`${BASE}/sessions?meeting_key=${meetingKey}`);
+    const data = await res.json();
+    return data.sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
+  } catch (e) {
+    console.error("fetchMeetingSessions error:", e);
+    return [];
+  }
+}
+
 // Busca la session_key de una carrera específica por año y número de ronda
 export async function getSessionKey(year, round) {
   try {
-    const res = await fetch(`${BASE}/meetings?year=${year}`);
-    const meetings = await res.json();
-    const meeting = meetings[round - 1];
-    if (!meeting) return null;
-
-    const sRes = await fetch(`${BASE}/sessions?meeting_key=${meeting.meeting_key}&session_name=Race`);
-    const sessions = await sRes.json();
-    if (!sessions.length) return null;
-    return sessions[0].session_key;
+    const races = await fetchRaceSessions(year);
+    return races[round - 1]?.session_key || null;
   } catch (e) {
     console.error("getSessionKey error:", e);
     return null;

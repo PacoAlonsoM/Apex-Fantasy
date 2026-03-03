@@ -3,8 +3,7 @@ import { supabase } from "../supabase";
 import { fetchRaceData } from "../openf1";
 import { scoreRace } from "../scoring";
 import { CAL } from "../constants/calendar";
-
-const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+import { ADMIN_ID, BRAND_GRADIENT, PANEL_BG, PANEL_BORDER } from "../constants/design";
 
 export default function AdminPage({ user }) {
   const [round, setRound] = useState(1);
@@ -77,16 +76,16 @@ export default function AdminPage({ user }) {
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "52px 28px", position: "relative", zIndex: 1 }}>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 20, background: "rgba(232,0,45,0.14)", border: "1px solid rgba(232,0,45,0.28)", marginBottom: 16 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#E8002D" }} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#FF6B6B" }}>Admin Panel</span>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 999, background: "rgba(255,90,54,0.14)", border: "1px solid rgba(255,138,61,0.24)", marginBottom: 16 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#ff8a3d" }} />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ffd166" }}>Admin Panel</span>
         </div>
         <h1 style={{ fontSize: 34, fontWeight: 900, margin: "0 0 6px", letterSpacing: -1 }}>Import Race Results</h1>
         <p style={{ color: "rgba(255,255,255,0.38)", margin: 0, fontSize: 13 }}>Fetch live results from OpenF1 and save to database</p>
       </div>
 
       {/* STEP 1 — Fetch & Save */}
-      <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24, marginBottom: 20 }}>
+      <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginBottom: 20, backdropFilter: "blur(16px)" }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Step 1 — Select Race & Fetch</div>
         <select
           value={round}
@@ -98,14 +97,14 @@ export default function AdminPage({ user }) {
           ))}
         </select>
         {race && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>{race.circuit} · {race.date}</div>}
-        <button onClick={fetchFromAPI} disabled={loading} style={{ background: "linear-gradient(135deg,#E8002D,#FF6B35)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: loading ? 0.6 : 1 }}>
+        <button onClick={fetchFromAPI} disabled={loading} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14, opacity: loading ? 0.6 : 1 }}>
           {loading ? "Fetching from OpenF1..." : "🔄 Fetch Results from OpenF1"}
         </button>
       </div>
 
       {/* Results from API */}
       {result && !result.error && (
-        <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24, marginBottom: 20 }}>
+        <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginBottom: 20, backdropFilter: "blur(16px)" }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>Results from OpenF1</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             {[
@@ -137,7 +136,7 @@ export default function AdminPage({ user }) {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Best Constructor</div>
             <input style={inp} placeholder="e.g. McLaren" value={ctor} onChange={e => setCtor(e.target.value)} />
           </div>
-          <button onClick={saveResults} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#6366F1,#8B5CF6)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14 }}>
+          <button onClick={saveResults} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#0ea5e9,#2dd4bf)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14 }}>
             {saved ? "✅ Results Saved!" : "💾 Save to Database"}
           </button>
         </div>
@@ -151,7 +150,7 @@ export default function AdminPage({ user }) {
       )}
 
       {/* STEP 2 — Score */}
-      <div style={{ borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: 24 }}>
+      <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, backdropFilter: "blur(16px)" }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 2 — Award Points</div>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
           Run this after saving results. Calculates and awards points to all users who made predictions for the selected round.

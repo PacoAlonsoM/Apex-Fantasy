@@ -6,9 +6,12 @@ import AuthModal from "./components/AuthModal";
 import HomePage from "./components/HomePage";
 import CalendarPage from "./components/CalendarPage";
 import PredictionsPage from "./components/PredictionsPage";
+import NewsPage from "./components/NewsPage";
 import StandingsPage from "./components/StandingsPage";
 import CommunityPage from "./components/CommunityPage";
 import AdminPage from "./components/AdminPage";
+import ProfilePage from "./components/ProfilePage";
+import { ensureProfileForUser } from "./authProfile";
 
 export default function ApexFantasy() {
   const [page, setPage] = useState("home");
@@ -18,26 +21,35 @@ export default function ApexFantasy() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) loadProfile(session.user.id);
+      if (session?.user) loadProfile(session.user);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session) loadProfile(session.user.id);
-      else setUser(null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthMode("reset");
+        setAuthOpen(true);
+      }
+      if (session?.user) loadProfile(session.user);
+      else if (event !== "PASSWORD_RECOVERY") setUser(null);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadProfile = async (id) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", id).single();
-    if (data) setUser(data);
+  const loadProfile = async (authUser) => {
+    try {
+      const profile = await ensureProfileForUser(authUser);
+      if (profile) setUser(profile);
+    } catch (error) {
+      console.error("loadProfile error:", error);
+      setUser(null);
+    }
   };
 
   const openAuth = m => { setAuthMode(m || "login"); setAuthOpen(true); };
   const logout = async () => { await supabase.auth.signOut(); setUser(null); };
 
   return (
-    <div style={{ background: "#08081A", minHeight: "100vh", color: "#fff", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" }}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:rgba(232,0,45,0.28);border-radius:2px;}input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.16);}button:hover{opacity:0.84;}textarea{font-family:inherit;}`}</style>
+    <div style={{ minHeight: "100vh", color: "var(--text)", fontFamily: "var(--font-body)" }}>
+      <style>{`textarea{font-family:inherit;} h1,h2,h3{font-family:var(--font-display);}`}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />
@@ -45,9 +57,11 @@ export default function ApexFantasy() {
         {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} />}
         {page === "calendar" && <CalendarPage />}
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
+        {page === "news" && <NewsPage />}
         {page === "standings" && <StandingsPage />}
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
         {page === "admin" && <AdminPage user={user} />}
+        {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
       </div>
     </div>
   );

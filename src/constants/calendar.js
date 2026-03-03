@@ -36,12 +36,66 @@ export const CAL = [
   { r:24, n:"Abu Dhabi GP", circuit:"Yas Marina Circuit", city:"Abu Dhabi", cc:"UAE", date:"2026-12-06", type:"Permanent", len:5.281, laps:58, rec:"1:26.103", recBy:"M. Verstappen", recY:2021, drs:2, sprint:false, turns:16, elev:3, flagKey:"UAE" },
 ];
 
-export const rc = r => FLAG[r.flagKey] || "#6366F1";
-export const nextRace = () => CAL.find(r => new Date(r.date) >= new Date()) || CAL[CAL.length - 1];
-export const fmt = d => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-export const fmtFull = d => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-export const countdown = s => {
-  const diff = new Date(s) - new Date();
+export const rc = (r) => FLAG[r.flagKey] || "#fb923c";
+
+export function parseDate(value) {
+  if (value instanceof Date) return value;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
+export function shiftDate(value, days) {
+  const date = parseDate(value);
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+export function fmt(value) {
+  return parseDate(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+export function fmtFull(value) {
+  return parseDate(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+export function monthLabel(value) {
+  return parseDate(value).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+export function nextRace() {
+  const now = new Date();
+  return CAL.find((race) => parseDate(race.date) >= now) || CAL[CAL.length - 1];
+}
+
+export function countdown(value) {
+  const diff = parseDate(value) - new Date();
   if (diff < 0) return null;
-  return { d: Math.floor(diff / 86400000), h: Math.floor(diff % 86400000 / 3600000), m: Math.floor(diff % 3600000 / 60000) };
-};
+  return {
+    d: Math.floor(diff / 86400000),
+    h: Math.floor((diff % 86400000) / 3600000),
+    m: Math.floor((diff % 3600000) / 60000),
+  };
+}
+
+export function raceSessions(race) {
+  if (!race) return [];
+
+  if (race.sprint) {
+    return [
+      { key: "fp1", label: "FP1", detail: "Practice", date: shiftDate(race.date, -2), tone: "practice" },
+      { key: "sprint-quali", label: "Sprint Qualifying", detail: "SQ1 · SQ2 · SQ3", date: shiftDate(race.date, -2), tone: "qualifying" },
+      { key: "sprint", label: "Sprint", detail: "Points session", date: shiftDate(race.date, -1), tone: "sprint" },
+      { key: "qualifying", label: "Qualifying", detail: "Q1 · Q2 · Q3", date: shiftDate(race.date, -1), tone: "qualifying" },
+      { key: "race", label: "Race", detail: "Grand Prix", date: shiftDate(race.date, 0), tone: "race" },
+    ];
+  }
+
+  return [
+    { key: "fp1", label: "FP1", detail: "Practice 1", date: shiftDate(race.date, -2), tone: "practice" },
+    { key: "fp2", label: "FP2", detail: "Practice 2", date: shiftDate(race.date, -2), tone: "practice" },
+    { key: "fp3", label: "FP3", detail: "Practice 3", date: shiftDate(race.date, -1), tone: "practice" },
+    { key: "qualifying", label: "Qualifying", detail: "Q1 · Q2 · Q3", date: shiftDate(race.date, -1), tone: "qualifying" },
+    { key: "race", label: "Race", detail: "Grand Prix", date: shiftDate(race.date, 0), tone: "race" },
+  ];
+}
