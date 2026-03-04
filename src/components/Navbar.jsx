@@ -34,8 +34,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
 
   const admin = isAdminUser(user);
   const menuItems = admin
-    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Terms & Conditions", "terms"], ["Privacy Policy", "privacy"], ["Admin", "admin"]]
-    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Terms & Conditions", "terms"], ["Privacy Policy", "privacy"]];
+    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
+    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"]];
 
   const handleMouseEnter = () => {
     clearTimeout(timeout.current);
@@ -52,12 +52,13 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
         <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr auto" : "auto 1fr auto", gap: isMobile ? 14 : 24, alignItems: "center" }}>
           <button
             onClick={() => setPage("home")}
-            style={{ display: "inline-flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, cursor: "pointer", color: "#fff", justifySelf: "start" }}
+            data-clickable="true"
+            style={{ display: "inline-flex", alignItems: "center", gap: 13, background: "none", border: "none", padding: "7px 10px", borderRadius: 20, cursor: "pointer", color: "#fff", justifySelf: "start" }}
           >
-            <BrandMark size={40} />
+            <BrandMark size={48} />
             <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-              <span style={{ fontWeight: 900, fontSize: 20, letterSpacing: -0.8 }}>{BRAND_WORDMARK}</span>
-              {!isMobile && <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>{BRAND_DESCRIPTOR}</span>}
+              <span style={{ fontWeight: 900, fontSize: 26, letterSpacing: -1 }}>{BRAND_WORDMARK}</span>
+              {!isMobile && <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>{BRAND_DESCRIPTOR}</span>}
             </div>
           </button>
 

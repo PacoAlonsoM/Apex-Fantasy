@@ -5,7 +5,7 @@ export const BRAND_NAME = "Stint";
 export const BRAND_WORDMARK = "STINT";
 export const BRAND_DESCRIPTOR = "F1 Predictions";
 export const BRAND_TAGLINE = "Make your picks. Track the weekend. Win your league.";
-export const SUPPORT_EMAIL = "hello@stint.app";
+export const SUPPORT_EMAIL = "suppor@stint-web.com";
 export const LEGAL_DISCLAIMER = "Stint is an independent prediction platform and is not affiliated with, endorsed by, or officially connected to Formula 1, Formula One group companies, FIA, or any F1 team.";
 
 export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#f59e0b 100%)";
