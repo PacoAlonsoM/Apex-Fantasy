@@ -21,6 +21,7 @@ const scoringRows = [
   ["2nd Place", "18 pts"],
   ["3rd Place", "15 pts"],
   ["Pole Position", "10 pts"],
+  ["Constructor with Most Points", "8 pts"],
   ["DNF Driver", "12 pts"],
   ["Fastest Lap", "7 pts"],
   ["Driver of the Day", "6 pts"],

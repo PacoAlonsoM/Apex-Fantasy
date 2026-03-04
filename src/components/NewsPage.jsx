@@ -227,7 +227,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           .limit(30),
         supabase
           .from("ai_insights")
-          .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,model,metadata")
+          .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,metadata")
           .eq("scope", "upcoming_race")
           .order("generated_at", { ascending: false })
           .limit(1)
@@ -444,14 +444,6 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                       </div>
                       <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>
                         {insight.source_count || sourceCount || 0} sources
-                      </div>
-                    </div>
-                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
-                        Model
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.3 }}>
-                        {insight.model || "OpenAI"}
                       </div>
                     </div>
                   </div>
