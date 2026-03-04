@@ -1,5 +1,4 @@
 import {
-  BRAND_GRADIENT,
   CARD_RADIUS,
   CONTENT_MAX,
   EDGE_RING,
@@ -63,7 +62,7 @@ const faqs = [
   },
 ];
 
-export default function GameGuidePage({ setPage }) {
+export default function GameGuidePage() {
   const { isMobile, isTablet } = useViewport();
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
@@ -106,37 +105,7 @@ export default function GameGuidePage({ setPage }) {
           </div>
 
           <div style={{ background: PANEL_BG, padding: 24 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-              Quick actions
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              {[
-                ["Open Predictions", "predictions", BRAND_GRADIENT],
-                ["View Calendar", "calendar", PANEL_BG_ALT],
-                ["Read AI Brief", "ai-brief", PANEL_BG_ALT],
-                ["Open Community", "community", PANEL_BG_ALT],
-              ].map(([label, target, background]) => (
-                <button
-                  key={target}
-                  onClick={() => setPage(target)}
-                  style={{
-                    background,
-                    border: background === BRAND_GRADIENT ? "none" : "1px solid rgba(148,163,184,0.16)",
-                    borderRadius: 14,
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 800,
-                    padding: "14px 16px",
-                    textAlign: "left",
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 14, borderRadius: CARD_RADIUS, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 16px 14px", boxShadow: EDGE_RING }}>
+            <div style={{ borderRadius: CARD_RADIUS, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 16px 14px", boxShadow: EDGE_RING }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                 Need help?
               </div>
