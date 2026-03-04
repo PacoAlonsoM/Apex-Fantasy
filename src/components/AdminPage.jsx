@@ -278,7 +278,7 @@ export default function AdminPage({ user }) {
       <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginTop: 20, backdropFilter: "blur(16px)" }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 3 — Sync News</div>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
-          Pull the latest stories into `news_articles` before generating a new AI brief.
+          Pull the latest stories into `news_articles` before generating a new AI insight.
         </p>
         <button
           onClick={syncNews}
@@ -298,7 +298,7 @@ export default function AdminPage({ user }) {
       </div>
 
       <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginTop: 20, backdropFilter: "blur(16px)" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 4 — Generate AI Race Brief</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 4 — Generate AI Race Insight</div>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
           Builds one AI insight using the latest ingested news plus upcoming race context from OpenF1. This is the first layer for AI analytics on the product.
         </p>
@@ -307,12 +307,12 @@ export default function AdminPage({ user }) {
           disabled={insightLoading}
           style={{ background: "linear-gradient(135deg,#22c55e,#14b8a6)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: insightLoading ? 0.6 : 1 }}
         >
-          {insightLoading ? "Generating AI Brief..." : "Generate AI Race Brief"}
+          {insightLoading ? "Generating AI Insight..." : "Generate AI Race Insight"}
         </button>
 
         {insightResult && (
           <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: insightResult.error ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)", border: `1px solid ${insightResult.error ? "rgba(239,68,68,0.28)" : "rgba(34,197,94,0.28)"}`, fontSize: 13, color: insightResult.error ? "#F87171" : "#34D399" }}>
-            {insightResult.error ? `❌ ${insightResult.error}` : `✅ ${insightResult.headline || "AI brief generated successfully."}`}
+            {insightResult.error ? `❌ ${insightResult.error}` : `✅ ${insightResult.headline || "AI insight generated successfully."}`}
           </div>
         )}
       </div>

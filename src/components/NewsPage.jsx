@@ -283,7 +283,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
             <div style={{ maxWidth: 760 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                {tab === "news" ? "Newswire" : "AI Brief"}
+                {tab === "news" ? "Newswire" : "AI Insight"}
               </div>
               <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
                 {tab === "news" ? (
@@ -305,7 +305,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   ? "Loading race-week feed..."
                   : tab === "news"
                     ? hasTable ? `${visibleArticles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
-                    : insight ? "AI summary and category picks generated from news + OpenF1 context" : "Generate one AI brief from Admin to unlock this tab"}
+                    : insight ? "AI summary and category picks generated from news + OpenF1 context" : "Generate one AI insight from Admin to unlock this tab"}
               </div>
             </div>
 
@@ -326,7 +326,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
         {!lockedTab && (
           <div style={{ padding: "12px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["news", "News Feed"], ["ai", "AI Brief"]].map(([value, label]) => (
+            {[["news", "News Feed"], ["ai", "AI Insight"]].map(([value, label]) => (
               <button
                 key={value}
                 onClick={() => setTab(value)}
@@ -413,7 +413,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.25fr) 280px", gap: 18, alignItems: "start" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
-                      AI Race Brief
+                      AI Race Insight
                     </div>
                     <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1, marginBottom: 10 }}>
                       {insight.headline}
@@ -656,9 +656,9 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
         ) : (
           <div style={{ padding: 24 }}>
             <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: 22 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No AI brief generated yet</div>
+              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No AI insight generated yet</div>
               <div style={{ fontSize: 13, lineHeight: 1.72, color: MUTED_TEXT }}>
-                Generate an AI brief from the Admin page and this tab will show the race summary plus AI picks for the main categories.
+                Generate an AI insight from the Admin page and this tab will show the race summary plus AI picks for the main categories.
               </div>
             </div>
           </div>

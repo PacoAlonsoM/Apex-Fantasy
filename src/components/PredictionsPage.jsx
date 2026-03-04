@@ -921,7 +921,7 @@ export default function PredictionsPage({ user, openAuth }) {
                           Board status
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.7, color: MUTED_TEXT }}>
-                          {done}/{totalPrompts} locked. {aiTargetsRace ? `AI lean: ${activeAi ? activeAi.pick : "available in this race brief"}.` : "AI brief is tied to the next race."}
+                          {done}/{totalPrompts} locked. {aiTargetsRace ? `AI lean: ${activeAi ? activeAi.pick : "available in this race insight"}.` : "AI Insight is tied to the next race."}
                         </div>
                         <div style={{ fontSize: 10.5, color: SUBTLE_TEXT }}>
                           Predictions close right before qualifying starts.

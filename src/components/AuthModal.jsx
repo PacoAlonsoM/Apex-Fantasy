@@ -218,7 +218,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
               {[
                 ["Predictions", "Lock the full board before qualifying starts."],
                 ["Leagues", "Compete privately without losing the global race."],
-                ["AI Brief", "Use one long-form weekend read before you submit picks."],
+                ["AI Insight", "Use one long-form weekend read before you submit picks."],
               ].map(([label, copy]) => (
                 <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "14px 15px 13px", boxShadow: EDGE_RING }}>
                   <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 5 }}>{label}</div>

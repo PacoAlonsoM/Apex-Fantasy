@@ -25,7 +25,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
     ["home", "Home"],
     ["calendar", "Calendar"],
     ["predictions", "Predictions"],
-    ["ai-brief", "AI Brief"],
+    ["ai-brief", "AI Insight"],
     ["news", "News"],
     ["standings", "Standings"],
     ["community", "Leagues"],

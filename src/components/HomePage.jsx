@@ -115,15 +115,15 @@ export default function HomePage({ setPage }) {
             </div>
 
             <h1 style={{ fontSize: isMobile ? 56 : isTablet ? 74 : 96, lineHeight: 0.87, margin: "0 0 18px", letterSpacing: isMobile ? -2.6 : isTablet ? -3.8 : -5.2, maxWidth: 860 }}>
-              Make better
+              Compete hard.
               <br />
-              race-week
+              Predict sharp.
               <br />
-              decisions.
+              Win your league.
             </h1>
 
             <div style={{ maxWidth: 620, fontSize: isMobile ? 14 : 17, lineHeight: 1.9, color: MUTED_TEXT, marginBottom: 30 }}>
-              Read the weekend, submit the board, and compete where every category matters. Apex is built to help you think before lock, not guess after it.
+              Build your board with live schedule context, race-week news and AI Insight. Every category matters, and better reads should translate into league wins.
             </div>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -217,7 +217,7 @@ export default function HomePage({ setPage }) {
 
       <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 14 }}>
         {[
-          ["Read", "Use News and AI Brief to turn race-week information into cleaner decisions before lock."],
+          ["Read", "Use News and AI Insight to turn race-week information into cleaner decisions before lock."],
           ["Predict", "The board is category-based, so a strong weekend comes from structure, not one lucky call."],
           ["Compete", "Private leagues and the global table make every round feel like pressure, not passive play."],
         ].map(([title, copy]) => (
