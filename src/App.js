@@ -11,6 +11,8 @@ import StandingsPage from "./components/StandingsPage";
 import CommunityPage from "./components/CommunityPage";
 import AdminPage from "./components/AdminPage";
 import ProfilePage from "./components/ProfilePage";
+import GameGuidePage from "./components/GameGuidePage";
+import SupportPage from "./components/SupportPage";
 import { ensureProfileForUser } from "./authProfile";
 import { getUserAccentTheme } from "./constants/design";
 
@@ -78,6 +80,8 @@ export default function ApexFantasy() {
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
         {page === "admin" && <AdminPage user={user} />}
         {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
+        {page === "game-guide" && <GameGuidePage setPage={setPage} />}
+        {page === "support" && <SupportPage />}
       </div>
     </div>
   );

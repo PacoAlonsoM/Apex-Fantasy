@@ -1,6 +1,7 @@
 import { TEAMS } from "./teams";
 
 export const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+export const SUPPORT_EMAIL = "support@apexfantasy.app";
 
 export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#fb923c 52%,#facc15 100%)";
 export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(250,204,21,0.03))";

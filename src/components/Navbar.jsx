@@ -16,8 +16,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
   const handleMouseLeave = () => { timeout.current = setTimeout(() => setDropOpen(false), 200); };
   const admin = isAdminUser(user);
   const menuItems = admin
-    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Admin", "admin"]]
-    : [["My Profile", "profile"], ["My Leagues", "community"]];
+    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
+    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"]];
 
   return (
     <nav style={{ position: "sticky", top: 0, zIndex: 200, background: PANEL_BG_STRONG, borderBottom: "1px solid rgba(148,163,184,0.12)", minHeight: 72, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 28px", gap: 16, flexWrap: "wrap" }}>

@@ -41,11 +41,6 @@ export default function HomePage({ user, setPage }) {
             <BrandMark size={58} />
             <div style={{ textAlign: "left" }}>
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color: "#e2e8f0" }}>Apex Fantasy</div>
-              {user?.favorite_team && (
-                <div style={{ fontSize: 11, color: "var(--team-accent)", fontWeight: 700, marginTop: 4 }}>
-                  Supporting {user.favorite_team}{user.favorite_driver ? ` · ${user.favorite_driver}` : ""}
-                </div>
-              )}
             </div>
           </div>
 
