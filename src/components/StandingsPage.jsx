@@ -110,9 +110,9 @@ export default function StandingsPage() {
               </div>
 
               <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.8 }}>
-                Championship standings
+                Board hierarchy
                 <br />
-                with actual hierarchy.
+                after the latest rounds.
               </h1>
               <div style={{ maxWidth: 640, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
                 This is still mock data by design, but the layout is now built like a product dashboard instead of a placeholder: big signals up top, dense ranking table in the center, and a side rail for momentum and race context.

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 import { ensureProfileForUser, isUsernameTaken, sanitizeUsername } from "../authProfile";
-import { EDGE_RING, MUTED_TEXT, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SOFT_SHADOW, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
+import { BRAND_DESCRIPTOR, BRAND_WORDMARK, EDGE_RING, MUTED_TEXT, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SOFT_SHADOW, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
 import BrandMark from "./BrandMark";
 import useViewport from "../useViewport";
 
@@ -191,7 +191,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         : "Welcome back";
 
   const subtitle = mode === "register"
-    ? "Join Apex Fantasy and start locking picks."
+    ? "Join Stint and start locking picks."
     : mode === "forgot"
       ? "We will send you a recovery link by email."
       : mode === "reset"
@@ -206,8 +206,8 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
               <BrandMark size={44} />
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Apex Fantasy</div>
-                <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.6 }}>Race-week board</div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>{BRAND_WORDMARK}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.6 }}>{BRAND_DESCRIPTOR}</div>
               </div>
             </div>
 
@@ -218,7 +218,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
               {[
                 ["Predictions", "Lock the full board before qualifying starts."],
                 ["Leagues", "Compete privately without losing the global race."],
-                ["AI Insight", "Use one long-form weekend read before you submit picks."],
+                ["Race Brief", "Use one long-form weekend read before you submit picks."],
               ].map(([label, copy]) => (
                 <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "14px 15px 13px", boxShadow: EDGE_RING }}>
                   <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 5 }}>{label}</div>

@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import {
+  BRAND_DESCRIPTOR,
+  BRAND_WORDMARK,
   BRAND_GRADIENT,
   EDGE_RING,
   PANEL_BG,
@@ -22,19 +24,18 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
   const { isMobile, isTablet } = useViewport();
 
   const tabs = [
-    ["home", "Home"],
     ["calendar", "Calendar"],
-    ["predictions", "Predictions"],
-    ["ai-brief", "AI Insight"],
-    ["news", "News"],
-    ["standings", "Standings"],
+    ["predictions", "Picks"],
+    ["ai-brief", "Brief"],
+    ["news", "Wire"],
+    ["standings", "Board"],
     ["community", "Leagues"],
   ];
 
   const admin = isAdminUser(user);
   const menuItems = admin
-    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
-    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"]];
+    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Terms & Conditions", "terms"], ["Privacy Policy", "privacy"], ["Admin", "admin"]]
+    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Terms & Conditions", "terms"], ["Privacy Policy", "privacy"]];
 
   const handleMouseEnter = () => {
     clearTimeout(timeout.current);
@@ -55,8 +56,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
           >
             <BrandMark size={40} />
             <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-              <span style={{ fontWeight: 900, fontSize: 18, letterSpacing: -0.7 }}>APEX FANTASY</span>
-              {!isMobile && <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Race-week intelligence board</span>}
+              <span style={{ fontWeight: 900, fontSize: 20, letterSpacing: -0.8 }}>{BRAND_WORDMARK}</span>
+              {!isMobile && <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>{BRAND_DESCRIPTOR}</span>}
             </div>
           </button>
 

@@ -22,6 +22,11 @@ const FEEDS = [
     priority: 4,
   },
   {
+    source: "ESPN F1",
+    url: "https://www.espn.com/espn/rss/f1/news",
+    priority: 4,
+  },
+  {
     source: "Autosport",
     url: "https://www.autosport.com/rss/f1/news/",
     priority: 4,
@@ -35,6 +40,21 @@ const FEEDS = [
     source: "RACER",
     url: "https://racer.com/category/f1/feed/",
     priority: 3,
+  },
+  {
+    source: "Crash F1",
+    url: "https://www.crash.net/f1/rss",
+    priority: 3,
+  },
+  {
+    source: "PlanetF1",
+    url: "https://www.planetf1.com/feed",
+    priority: 2,
+  },
+  {
+    source: "Motorsport Week",
+    url: "https://www.motorsportweek.com/feed/",
+    priority: 2,
   },
 ];
 
@@ -330,7 +350,7 @@ Deno.serve(async (req: Request) => {
   await supabase.from("news_articles").delete().eq("source", "Formula1.com");
 
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 60);
+  cutoff.setDate(cutoff.getDate() - 365);
   await supabase.from("news_articles").delete().lt("published_at", cutoff.toISOString());
 
   await supabase.from("news_ingest_runs").insert({

@@ -528,7 +528,7 @@ export default function CommunityPage({ user, openAuth }) {
           <div style={{ maxWidth: 760 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Community</span>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Leagues</span>
             </div>
             <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.7 }}>
               League spaces, member standings

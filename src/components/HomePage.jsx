@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { countdown, fmtFull, nextRace, raceSessions, rc } from "../constants/calendar";
 import {
+  BRAND_NAME,
+  BRAND_TAGLINE,
   BRAND_GRADIENT,
   CARD_RADIUS,
   CONTENT_MAX,
@@ -110,20 +112,20 @@ export default function HomePage({ setPage }) {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 24 }}>
               <BrandMark size={20} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
-                Apex Fantasy
+                {BRAND_NAME}
               </span>
             </div>
 
             <h1 style={{ fontSize: isMobile ? 56 : isTablet ? 74 : 96, lineHeight: 0.87, margin: "0 0 18px", letterSpacing: isMobile ? -2.6 : isTablet ? -3.8 : -5.2, maxWidth: 860 }}>
-              Compete hard.
+              Make your picks.
               <br />
-              Predict sharp.
+              Track the weekend.
               <br />
               Win your league.
             </h1>
 
             <div style={{ maxWidth: 620, fontSize: isMobile ? 14 : 17, lineHeight: 1.9, color: MUTED_TEXT, marginBottom: 30 }}>
-              Build your board with live schedule context, race-week news and AI Insight. Every category matters, and better reads should translate into league wins.
+              {BRAND_TAGLINE} Use Calendar, Wire and Brief together to build stronger calls before lock.
             </div>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -142,7 +144,7 @@ export default function HomePage({ setPage }) {
                   boxShadow: "0 18px 42px rgba(249,115,22,0.18)",
                 }}
               >
-                Open Predictions
+                Make your picks
               </button>
               <button
                 onClick={() => setPage("calendar")}
@@ -217,7 +219,7 @@ export default function HomePage({ setPage }) {
 
       <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 14 }}>
         {[
-          ["Read", "Use News and AI Insight to turn race-week information into cleaner decisions before lock."],
+          ["Read", "Use Wire and Brief to turn race-week information into cleaner decisions before lock."],
           ["Predict", "The board is category-based, so a strong weekend comes from structure, not one lucky call."],
           ["Compete", "Private leagues and the global table make every round feel like pressure, not passive play."],
         ].map(([title, copy]) => (

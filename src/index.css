@@ -1,31 +1,31 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap");
 
 :root {
-  --bg: #040814;
-  --bg-elevated: #08111d;
-  --bg-mesh: rgba(16, 24, 44, 0.96);
-  --panel: #0a1220;
-  --panel-alt: #0f182c;
-  --panel-muted: #121d33;
+  --bg: #070b12;
+  --bg-elevated: #09090b;
+  --bg-mesh: rgba(9, 14, 24, 0.96);
+  --panel: #070b12;
+  --panel-alt: #0f1723;
+  --panel-muted: #131d2d;
   --border: rgba(148, 163, 184, 0.16);
   --border-soft: rgba(148, 163, 184, 0.1);
-  --text: #f8fafc;
+  --text: #fafafa;
   --text-muted: rgba(226, 232, 240, 0.72);
   --text-subtle: rgba(148, 163, 184, 0.76);
   --accent: #f97316;
-  --accent-2: #fb923c;
-  --accent-3: #facc15;
-  --teal: #2dd4bf;
-  --success: #34d399;
-  --danger: #f87171;
+  --accent-2: #f59e0b;
+  --accent-3: #fbbf24;
+  --teal: #06b6d4;
+  --success: #22c55e;
+  --danger: #ef4444;
   --team-accent: #f97316;
   --team-accent-soft: rgba(249, 115, 22, 0.14);
   --team-accent-ghost: rgba(249, 115, 22, 0.08);
   --team-accent-border: rgba(249, 115, 22, 0.28);
   --interactive-edge: rgba(249, 115, 22, 0.26);
-  --font-body: "Geist", "Avenir Next", sans-serif;
-  --font-display: "Sora", "Geist", sans-serif;
-  --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+  --font-body: "Outfit", "Avenir Next", sans-serif;
+  --font-display: "Outfit", "Avenir Next", sans-serif;
+  --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --content-width: 1180px;
   --shell-width: 1280px;
 }
@@ -44,10 +44,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 8% 10%, rgba(249, 115, 22, 0.18), transparent 18%),
-    radial-gradient(circle at 88% 16%, rgba(45, 212, 191, 0.08), transparent 16%),
-    radial-gradient(circle at 78% 72%, rgba(99, 102, 241, 0.08), transparent 20%),
-    linear-gradient(180deg, #030713 0%, #060d18 26%, #091220 100%);
+    radial-gradient(circle at 8% 10%, rgba(249, 115, 22, 0.08), transparent 18%),
+    radial-gradient(circle at 88% 16%, rgba(6, 182, 212, 0.06), transparent 16%),
+    radial-gradient(circle at 78% 72%, rgba(30, 58, 95, 0.14), transparent 20%),
+    linear-gradient(180deg, #060a11 0%, #070b12 30%, #09090b 100%);
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;

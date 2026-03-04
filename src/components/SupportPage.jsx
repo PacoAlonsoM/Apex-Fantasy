@@ -80,7 +80,7 @@ export default function SupportPage() {
               Best for support tickets, scoring questions, league issues and bug reports. Include enough context so support can reproduce the problem quickly.
             </div>
             <a
-              href={`mailto:${SUPPORT_EMAIL}?subject=Apex%20Fantasy%20Support`}
+              href={`mailto:${SUPPORT_EMAIL}?subject=Stint%20Support`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -129,7 +129,7 @@ export default function SupportPage() {
                 {topic.detail}
               </div>
               <a
-                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Apex Fantasy - ${topic.subject}`)}`}
+                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Stint - ${topic.subject}`)}`}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

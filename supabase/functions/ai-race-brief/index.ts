@@ -3,8 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENF1_BASE = "https://api.openf1.org/v1";
 const OPENAI_BASE = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_MODEL = "gpt-4.1";
 const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+const NEWS_LOOKBACK_DAYS = 365;
+const NEWS_FETCH_LIMIT = 180;
+const NEWS_CONTEXT_LIMIT = 72;
+const NEWS_SUMMARY_CONTEXT_MAX = 360;
 const DRIVER_OPTIONS = [
   "Lando Norris",
   "Oscar Piastri",
@@ -128,6 +132,40 @@ function pickOutputText(payload: Record<string, unknown>) {
   }
 
   return null;
+}
+
+function truncateText(value: string, max: number) {
+  if (!value) return value;
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1).trim()}…`;
+}
+
+function balanceNewsBySource(articles: Array<Record<string, unknown>>, maxItems: number) {
+  const buckets = new Map<string, Array<Record<string, unknown>>>();
+  for (const article of articles) {
+    const source = String(article.source || "Unknown");
+    if (!buckets.has(source)) buckets.set(source, []);
+    buckets.get(source)?.push(article);
+  }
+
+  const sources = [...buckets.keys()];
+  const picked: Array<Record<string, unknown>> = [];
+
+  while (picked.length < maxItems) {
+    let addedInRound = false;
+
+    for (const source of sources) {
+      const queue = buckets.get(source) || [];
+      if (!queue.length) continue;
+      picked.push(queue.shift()!);
+      addedInRound = true;
+      if (picked.length >= maxItems) break;
+    }
+
+    if (!addedInRound) break;
+  }
+
+  return picked;
 }
 
 async function fetchOpenF1(path: string) {
@@ -456,18 +494,21 @@ Deno.serve(async (req: Request) => {
 
     raceName = String(upcomingRace.meeting_name || upcomingRace.country_name || "Upcoming race");
 
+    const newsCutoff = new Date(Date.now() - NEWS_LOOKBACK_DAYS * 86400000).toISOString();
+
     const [meetingSessions, articleResponse] = await Promise.all([
       fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`),
       supabase
         .from("news_articles")
         .select("id,title,summary,url,source,published_at")
+        .gte("published_at", newsCutoff)
         .order("published_at", { ascending: false })
-        .limit(24),
+        .limit(NEWS_FETCH_LIMIT),
     ]);
 
     if (articleResponse.error) throw new Error(articleResponse.error.message);
 
-    const articles = (articleResponse.data || []).map((article) => ({
+    const rawArticles = (articleResponse.data || []).map((article) => ({
       id: article.id,
       title: article.title,
       summary: article.summary,
@@ -476,8 +517,10 @@ Deno.serve(async (req: Request) => {
       url: article.url,
     }));
 
-    articleCount = articles.length;
-    sourceCount = new Set(articles.map((article) => article.source).filter(Boolean)).size;
+    const articles = balanceNewsBySource(rawArticles, NEWS_CONTEXT_LIMIT);
+
+    articleCount = rawArticles.length;
+    sourceCount = new Set(rawArticles.map((article) => article.source).filter(Boolean)).size;
 
     let previousRaceSummary = null;
     let previousRaceWeather = null;
@@ -522,7 +565,7 @@ Deno.serve(async (req: Request) => {
       previous_race_strategy: previousRaceStrategy,
       recent_news: articles.map((article) => ({
         title: article.title,
-        summary: article.summary,
+        summary: truncateText(String(article.summary || ""), NEWS_SUMMARY_CONTEXT_MAX),
         source: article.source,
         published_at: article.published_at,
       })),

@@ -1,4 +1,5 @@
 import {
+  BRAND_NAME,
   CARD_RADIUS,
   CONTENT_MAX,
   EDGE_RING,
@@ -35,7 +36,7 @@ const coreSteps = [
   },
   {
     title: "Track the calendar and news flow",
-    detail: "Use Calendar, News and AI Insight together. Calendar tells you what is coming, News shows what is changing, and AI Insight turns that into a sharper race read.",
+    detail: "Use Calendar, Wire and Brief together. Calendar tells you what is coming, Wire shows what is changing, and Brief turns that into a sharper race read.",
   },
   {
     title: "Compete across leagues and global rank",
@@ -53,8 +54,8 @@ const faqs = [
     answer: "Each category has a fixed score. Correct high-impact calls like podium, pole and DNF picks move your score much more than low-volatility categories.",
   },
   {
-    question: "Why should I use AI Insight and News together?",
-    answer: "News gives you the raw flow of information. AI Insight turns that into a race-week read, category-level picks and what to watch before you lock your board.",
+    question: "Why should I use Brief and Wire together?",
+    answer: "Wire gives you the raw flow of information. Brief turns that into a race-week read, category-level picks and what to watch before you lock your board.",
   },
   {
     question: "How do leagues work?",
@@ -80,7 +81,7 @@ export default function GameGuidePage() {
             Win with better reads.
           </h1>
           <div style={{ maxWidth: 760, fontSize: 14, lineHeight: 1.8, color: MUTED_TEXT }}>
-            Apex Fantasy is built around race-week decisions. Use the guide below to understand lock timing, scoring, league play and how the product surfaces information before you submit picks.
+            {BRAND_NAME} is built around race-week decisions. Use the guide below to understand lock timing, scoring, league play and how the product surfaces information before you submit picks.
           </div>
         </div>
 
@@ -112,7 +113,7 @@ export default function GameGuidePage() {
               <div style={{ fontSize: 13, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 10 }}>
                 If a rule is unclear or something looks off in scoring or league behavior, contact support and include your username plus the race weekend involved.
               </div>
-              <a href={`mailto:${SUPPORT_EMAIL}?subject=Apex%20Fantasy%20Support`} style={{ color: "var(--team-accent)", fontSize: 13, fontWeight: 800, textDecoration: "none" }}>
+              <a href={`mailto:${SUPPORT_EMAIL}?subject=Stint%20Support`} style={{ color: "var(--team-accent)", fontSize: 13, fontWeight: 800, textDecoration: "none" }}>
                 {SUPPORT_EMAIL}
               </a>
             </div>

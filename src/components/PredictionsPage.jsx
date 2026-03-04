@@ -731,7 +731,7 @@ export default function PredictionsPage({ user, openAuth }) {
                   </span>
                   {aiTargetsRace && (
                     <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "#93c5fd", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 999, padding: "5px 9px" }}>
-                      AI live
+                      Brief live
                     </span>
                   )}
                   {race.sprint && (
@@ -836,7 +836,7 @@ export default function PredictionsPage({ user, openAuth }) {
                         {activeAi && (
                           <div style={{ borderRadius: 16, border: "1px solid rgba(96,165,250,0.2)", background: "rgba(59,130,246,0.08)", padding: "11px 12px 10px" }}>
                             <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 5 }}>
-                              AI lean
+                              Brief lean
                             </div>
                             <div style={{ fontSize: 13.5, fontWeight: 900, marginBottom: 5 }}>{activeAi.pick}</div>
                             <div style={{ fontSize: 10.5, lineHeight: 1.65, color: "#dbeafe" }}>{previewText(activeAi.reason, 120)}</div>
@@ -921,7 +921,7 @@ export default function PredictionsPage({ user, openAuth }) {
                           Board status
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.7, color: MUTED_TEXT }}>
-                          {done}/{totalPrompts} locked. {aiTargetsRace ? `AI lean: ${activeAi ? activeAi.pick : "available in this race insight"}.` : "AI Insight is tied to the next race."}
+                          {done}/{totalPrompts} locked. {aiTargetsRace ? `Brief lean: ${activeAi ? activeAi.pick : "available in this race brief"}.` : "Race Brief is tied to the next race."}
                         </div>
                         <div style={{ fontSize: 10.5, color: SUBTLE_TEXT }}>
                           Predictions close right before qualifying starts.

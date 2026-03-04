@@ -1,13 +1,18 @@
 import { TEAMS } from "./teams";
 
 export const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
-export const SUPPORT_EMAIL = "support@apexfantasy.app";
+export const BRAND_NAME = "Stint";
+export const BRAND_WORDMARK = "STINT";
+export const BRAND_DESCRIPTOR = "F1 Predictions";
+export const BRAND_TAGLINE = "Make your picks. Track the weekend. Win your league.";
+export const SUPPORT_EMAIL = "hello@stint.app";
+export const LEGAL_DISCLAIMER = "Stint is an independent prediction platform and is not affiliated with, endorsed by, or officially connected to Formula 1, Formula One group companies, FIA, or any F1 team.";
 
-export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#fb923c 48%,#facc15 100%)";
-export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.1),rgba(250,204,21,0.02))";
-export const PANEL_BG = "#0a1220";
-export const PANEL_BG_ALT = "#0f182c";
-export const PANEL_BG_STRONG = "#07101b";
+export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#f59e0b 100%)";
+export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(245,158,11,0.03))";
+export const PANEL_BG = "#070b12";
+export const PANEL_BG_ALT = "#0f1723";
+export const PANEL_BG_STRONG = "#09090b";
 export const PANEL_BORDER = "1px solid rgba(148,163,184,0.16)";
 export const MUTED_TEXT = "rgba(226,232,240,0.72)";
 export const SUBTLE_TEXT = "rgba(148,163,184,0.76)";

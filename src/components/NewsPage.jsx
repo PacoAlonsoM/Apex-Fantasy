@@ -13,6 +13,12 @@ const SOURCE_CARDS = [
     url: "https://www.bbc.com/sport/formula1",
   },
   {
+    name: "ESPN F1",
+    role: "Wire",
+    detail: "Fast race-week updates and broad international coverage.",
+    url: "https://www.espn.com/f1/",
+  },
+  {
     name: "Autosport RSS",
     role: "Fast wire",
     detail: "Useful for quick race-week reporting and headline developments.",
@@ -29,6 +35,24 @@ const SOURCE_CARDS = [
     role: "Paddock",
     detail: "Helpful for team, grid and weekend storylines with a U.S. racing lens.",
     url: "https://racer.com/category/f1/",
+  },
+  {
+    name: "Crash F1",
+    role: "Coverage",
+    detail: "Supplemental race-week headlines and team developments.",
+    url: "https://www.crash.net/f1",
+  },
+  {
+    name: "PlanetF1",
+    role: "Digest",
+    detail: "Extra opinion and week-to-week narrative context for fantasy angles.",
+    url: "https://www.planetf1.com/",
+  },
+  {
+    name: "Motorsport Week",
+    role: "Editorial",
+    detail: "Additional long-form and analysis coverage around race weekends.",
+    url: "https://www.motorsportweek.com/",
   },
 ];
 
@@ -157,7 +181,7 @@ function NewsVisual({ article, height = 128, compact = false }) {
 function detailOverlayPayload(section, item) {
   if (section === "digest") {
     return {
-      eyebrow: "AI News Digest",
+      eyebrow: "Brief Digest",
       title: item.headline,
       fields: [
         ["What this means", item.detail],
@@ -224,7 +248,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           .from("news_articles")
           .select("id,title,summary,url,source,published_at,image_url")
           .order("published_at", { ascending: false })
-          .limit(30),
+          .limit(80),
         supabase
           .from("ai_insights")
           .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,metadata")
@@ -283,7 +307,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
             <div style={{ maxWidth: 760 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                {tab === "news" ? "Newswire" : "AI Insight"}
+                {tab === "news" ? "Wire" : "Race Brief"}
               </div>
               <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
                 {tab === "news" ? (
@@ -294,7 +318,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </>
                 ) : (
                   <>
-                    One AI read on the weekend.
+                    One brief read on the weekend.
                     <br />
                     Plus category-level picks.
                   </>
@@ -305,7 +329,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   ? "Loading race-week feed..."
                   : tab === "news"
                     ? hasTable ? `${visibleArticles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
-                    : insight ? "AI summary and category picks generated from news + OpenF1 context" : "Generate one AI insight from Admin to unlock this tab"}
+                    : insight ? "Race Brief summary and category picks generated from Wire + OpenF1 context" : "Generate one race brief from Admin to unlock this tab"}
               </div>
             </div>
 
@@ -326,7 +350,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
         {!lockedTab && (
           <div style={{ padding: "12px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["news", "News Feed"], ["ai", "AI Insight"]].map(([value, label]) => (
+            {[["news", "Wire"], ["ai", "Brief"]].map(([value, label]) => (
               <button
                 key={value}
                 onClick={() => setTab(value)}
@@ -413,7 +437,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.25fr) 280px", gap: 18, alignItems: "start" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
-                      AI Race Insight
+                      Race Brief
                     </div>
                     <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1, marginBottom: 10 }}>
                       {insight.headline}
@@ -455,7 +479,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   How to use this read
                 </div>
                 <div style={{ fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 920 }}>
-                  Start with the long race summary for the full weekend picture, then open the factor, edge and watchlist cards below for the deeper read behind the AI category picks. The goal is to give you enough usable context here that you only open individual articles if you want the full source detail.
+                  Start with the long race summary for the full weekend picture, then open the factor, edge and watchlist cards below for the deeper read behind the brief category picks. The goal is to give you enough usable context here that you only open individual articles if you want the full source detail.
                 </div>
               </div>
 
@@ -468,7 +492,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
                 <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                    AI Race Summary
+                    Race Summary
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
                     The full weekend read
@@ -564,7 +588,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
             <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
               <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                  AI Category Picks
+                  Brief Category Picks
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
                   Suggested picks for the current categories
@@ -579,7 +603,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                         {item.category}
                       </div>
                       <div style={{ fontSize: 10, fontWeight: 800, color: "#dbeafe", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 999, padding: "4px 8px" }}>
-                        {typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}% confidence` : "AI pick"}
+                        {typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}% confidence` : "Brief pick"}
                       </div>
                     </div>
                     <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, marginBottom: 8 }}>{item.pick}</div>
@@ -656,9 +680,9 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
         ) : (
           <div style={{ padding: 24 }}>
             <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: 22 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No AI insight generated yet</div>
+              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No race brief generated yet</div>
               <div style={{ fontSize: 13, lineHeight: 1.72, color: MUTED_TEXT }}>
-                Generate an AI insight from the Admin page and this tab will show the race summary plus AI picks for the main categories.
+                Generate a race brief from the Admin page and this tab will show the race summary plus picks for the main categories.
               </div>
             </div>
           </div>

@@ -13,10 +13,13 @@ import AdminPage from "./components/AdminPage";
 import ProfilePage from "./components/ProfilePage";
 import GameGuidePage from "./components/GameGuidePage";
 import SupportPage from "./components/SupportPage";
+import TermsPage from "./components/TermsPage";
+import PrivacyPage from "./components/PrivacyPage";
+import LegalFooter from "./components/LegalFooter";
 import { ensureProfileForUser } from "./authProfile";
 import { getUserAccentTheme } from "./constants/design";
 
-export default function ApexFantasy() {
+export default function StintApp() {
   const [page, setPage] = useState("home");
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -82,6 +85,9 @@ export default function ApexFantasy() {
         {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
         {page === "game-guide" && <GameGuidePage setPage={setPage} />}
         {page === "support" && <SupportPage />}
+        {page === "terms" && <TermsPage />}
+        {page === "privacy" && <PrivacyPage />}
+        <LegalFooter setPage={setPage} />
       </div>
     </div>
   );
