@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { supabase } from "../supabase";
 import { ensureProfileForUser, isUsernameTaken, sanitizeUsername } from "../authProfile";
 import { PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
-import { DRV } from "../constants/teams";
 import BrandMark from "./BrandMark";
 
 export default function AuthModal({ mode, setMode, onClose, onAuth }) {
@@ -12,23 +11,11 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
     pass: "",
     confirm: "",
     favoriteTeam: TEAM_AVATAR_OPTIONS[0]?.team || "",
-    favoriteDriver: DRV[0]?.n || "",
   });
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const upd = (k, v) => setF((current) => ({ ...current, [k]: v }));
-  const supportDrivers = useMemo(
-    () => DRV.filter((driver) => driver.t === f.favoriteTeam),
-    [f.favoriteTeam]
-  );
-
-  useEffect(() => {
-    if (mode !== "register") return;
-    if (!supportDrivers.find((driver) => driver.n === f.favoriteDriver)) {
-      upd("favoriteDriver", supportDrivers[0]?.n || "");
-    }
-  }, [mode, supportDrivers, f.favoriteDriver]);
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -144,7 +131,6 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
               username,
               avatar_color: teamSupportKey(f.favoriteTeam),
               favorite_team: f.favoriteTeam,
-              favorite_driver: f.favoriteDriver,
             },
           },
         });
@@ -160,7 +146,6 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             username,
             avatarColor: teamSupportKey(f.favoriteTeam),
             favoriteTeam: f.favoriteTeam,
-            favoriteDriver: f.favoriteDriver,
           });
           onAuth(profile || { id: data.user.id, username, points: 0 });
           onClose();
@@ -230,12 +215,6 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             <select style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteTeam} onChange={(event) => upd("favoriteTeam", event.target.value)}>
               {TEAM_AVATAR_OPTIONS.map((option) => (
                 <option key={option.key} value={option.team}>{option.label}</option>
-              ))}
-            </select>
-            <label style={labelStyle}>Supported driver</label>
-            <select style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteDriver} onChange={(event) => upd("favoriteDriver", event.target.value)}>
-              {supportDrivers.map((driver) => (
-                <option key={driver.n} value={driver.n}>{driver.n}</option>
               ))}
             </select>
           </>

@@ -72,7 +72,8 @@ export default function ApexFantasy() {
         {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} />}
         {page === "calendar" && <CalendarPage user={user} />}
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
-        {page === "news" && <NewsPage />}
+        {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
+        {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
         {page === "standings" && <StandingsPage />}
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
         {page === "admin" && <AdminPage user={user} />}

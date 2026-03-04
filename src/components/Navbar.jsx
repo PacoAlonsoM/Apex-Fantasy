@@ -8,7 +8,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
   const userTheme = avatarTheme(user?.avatar_color);
 
   const tabs = [
-    ["home", "Home"], ["calendar", "Calendar"], ["predictions", "Predictions"], ["news", "News"],
+    ["home", "Home"], ["calendar", "Calendar"], ["predictions", "Predictions"], ["ai-brief", "AI Brief"], ["news", "News"],
     ["standings", "Standings"], ["community", "Community"]
   ];
 
@@ -21,24 +21,29 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
 
   return (
     <nav style={{ position: "sticky", top: 0, zIndex: 200, background: PANEL_BG_STRONG, borderBottom: "1px solid rgba(148,163,184,0.12)", minHeight: 72, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 28px", gap: 16, flexWrap: "wrap" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setPage("home")}>
+      <button
+        onClick={() => setPage("home")}
+        style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", background: "none", border: "none", padding: 0, color: "#fff" }}
+      >
         <BrandMark size={36} />
         <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: -0.5 }}>APEX<span style={{ color: SUBTLE_TEXT, fontWeight: 600, marginLeft: 3 }}>FANTASY</span></span>
-      </div>
+      </button>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: 5, background: PANEL_BG_ALT, borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.02)" }}>
-        {tabs.map(([id, lb]) => (
-          <button key={id} onClick={() => setPage(id)} style={{ background: page === id ? "#111c30" : "transparent", border: page === id ? "1px solid rgba(148,163,184,0.14)" : "1px solid transparent", cursor: "pointer", padding: "10px 16px", fontSize: 13, fontWeight: page === id ? 800 : 650, color: page === id ? "#fff" : "rgba(226,232,240,0.58)", position: "relative", borderRadius: 13 }}>
+        {tabs.map(([id, lb]) => {
+          const active = page === id;
+          return (
+          <button key={id} onClick={() => setPage(id)} style={{ background: active ? "linear-gradient(180deg,var(--team-accent-soft),#111c30)" : "transparent", border: active ? "1px solid var(--team-accent-border)" : "1px solid transparent", cursor: "pointer", padding: "10px 16px", fontSize: 13, fontWeight: active ? 800 : 650, color: active ? "#fff" : "rgba(226,232,240,0.58)", position: "relative", borderRadius: 13 }}>
             {lb}
-            {page === id && <div style={{ position: "absolute", bottom: 2, left: 12, right: 12, height: 2, background: `linear-gradient(90deg,var(--team-accent),#facc15)`, borderRadius: 1 }} />}
+            {active && <div style={{ position: "absolute", bottom: 2, left: 12, right: 12, height: 2, background: `linear-gradient(90deg,var(--team-accent),#facc15)`, borderRadius: 1 }} />}
           </button>
-        ))}
+        )})}
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {user ? (
           <div style={{ position: "relative" }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 13px", borderRadius: 15, background: PANEL_BG_ALT, border: "1px solid var(--team-accent-border)", cursor: "pointer", boxShadow: "0 10px 26px var(--team-accent-ghost)" }}>
+            <div data-clickable="true" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 13px", borderRadius: 15, background: PANEL_BG_ALT, border: "1px solid var(--team-accent-border)", cursor: "pointer", boxShadow: "0 10px 26px var(--team-accent-ghost)" }}>
               <div style={{ width: 26, height: 26, borderRadius: 8, background: userTheme.fill, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: userTheme.text, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
                 {user.username?.slice(0, 2).toUpperCase()}
               </div>

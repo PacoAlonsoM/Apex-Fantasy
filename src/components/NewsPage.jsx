@@ -10,6 +10,12 @@ const SOURCE_CARDS = [
     url: "https://www.formula1.com/",
   },
   {
+    name: "BBC Sport F1",
+    role: "General",
+    detail: "Useful for broad race-week coverage and clean headline summaries.",
+    url: "https://www.bbc.com/sport/formula1",
+  },
+  {
     name: "Autosport RSS",
     role: "Fast wire",
     detail: "Useful for quick race-week reporting and headline developments.",
@@ -21,6 +27,28 @@ const SOURCE_CARDS = [
     detail: "Strong for deeper features, context and weekend follow-up stories.",
     url: "https://www.motorsport.com/rss/f1/news/",
   },
+  {
+    name: "RACER",
+    role: "Paddock",
+    detail: "Helpful for team, grid and weekend storylines with a U.S. racing lens.",
+    url: "https://racer.com/category/f1/",
+  },
+];
+const AI_CATEGORY_ORDER = [
+  "pole",
+  "winner",
+  "p2",
+  "p3",
+  "dnf",
+  "fl",
+  "dotd",
+  "ctor",
+  "sc",
+  "rf",
+  "sp_pole",
+  "sp_winner",
+  "sp_p2",
+  "sp_p3",
 ];
 
 function formatPublished(value) {
@@ -33,21 +61,103 @@ function formatPublished(value) {
   }).format(new Date(value));
 }
 
-export default function NewsPage() {
+function previewText(value, max = 140) {
+  if (!value) return "";
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1).trim()}…`;
+}
+
+function pickFeaturedArticle(items) {
+  if (!items.length) return null;
+
+  const pool = items.slice(0, 8);
+  return [...pool].sort((left, right) => {
+    const leftSummary = left.summary?.length || 0;
+    const rightSummary = right.summary?.length || 0;
+    const leftScore = leftSummary + (left.image_url ? 260 : 0);
+    const rightScore = rightSummary + (right.image_url ? 260 : 0);
+    return rightScore - leftScore;
+  })[0] || items[0];
+}
+
+function detailOverlayPayload(section, item) {
+  if (section === "digest") {
+    return {
+      eyebrow: "AI News Digest",
+      title: item.headline,
+      fields: [
+        ["What this means", item.detail],
+        ["Why it matters", item.why_it_matters],
+      ],
+    };
+  }
+
+  if (section === "factor") {
+    return {
+      eyebrow: "Key Factor",
+      title: item.title,
+      fields: [
+        ["Context", item.detail],
+        ["Why it matters", item.why_it_matters],
+        ["Fantasy take", item.fantasy_take],
+      ],
+    };
+  }
+
+  if (section === "edge") {
+    return {
+      eyebrow: "Prediction Edge",
+      title: item.label,
+      fields: [
+        ["Angle", item.detail || item.take],
+        ["How to use it", item.action || "Use this as a directional edge, not an automatic lock."],
+        ["Risk level", item.risk_level || "medium"],
+      ],
+    };
+  }
+
+  return {
+    eyebrow: "Watchlist",
+    title: item.label,
+    fields: [
+      ["Trigger", item.trigger || item.reason],
+      ["What changes", item.what_changes || item.reason],
+      ["How to react", item.how_to_react || "Re-evaluate picks if this storyline strengthens during the weekend."],
+    ],
+  };
+}
+
+export default function NewsPage({ initialTab = "news", lockedTab = null }) {
   const [articles, setArticles] = useState([]);
+  const [insight, setInsight] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasTable, setHasTable] = useState(true);
+  const [tab, setTab] = useState(lockedTab || initialTab);
+  const [expandedInsight, setExpandedInsight] = useState(null);
+
+  useEffect(() => {
+    if (lockedTab) setTab(lockedTab);
+  }, [lockedTab]);
 
   useEffect(() => {
     let ignore = false;
 
     async function loadNews() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("news_articles")
-        .select("id,title,summary,url,source,published_at,image_url")
-        .order("published_at", { ascending: false })
-        .limit(30);
+      const [{ data, error }, insightResponse] = await Promise.all([
+        supabase
+          .from("news_articles")
+          .select("id,title,summary,url,source,published_at,image_url")
+          .order("published_at", { ascending: false })
+          .limit(30),
+        supabase
+          .from("ai_insights")
+          .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,model,metadata")
+          .eq("scope", "upcoming_race")
+          .order("generated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
       if (ignore) return;
 
@@ -59,6 +169,8 @@ export default function NewsPage() {
         setArticles(data || []);
       }
 
+      setInsight(insightResponse.error ? null : (insightResponse.data || null));
+
       setLoading(false);
     }
 
@@ -66,10 +178,24 @@ export default function NewsPage() {
     return () => { ignore = true; };
   }, []);
 
-  const featured = articles[0] || null;
-  const ticker = useMemo(() => articles.slice(1, 6), [articles]);
-  const feed = useMemo(() => articles.slice(1), [articles]);
+  const featured = useMemo(() => pickFeaturedArticle(articles), [articles]);
+  const remainingArticles = useMemo(
+    () => articles.filter((article) => article.id !== featured?.id),
+    [articles, featured]
+  );
+  const ticker = useMemo(() => remainingArticles.slice(0, 5), [remainingArticles]);
+  const feed = useMemo(() => remainingArticles, [remainingArticles]);
   const sourceCount = useMemo(() => new Set(articles.map((article) => article.source).filter(Boolean)).size, [articles]);
+  const aiPredictions = useMemo(
+    () => [...(insight?.metadata?.category_predictions || [])].sort((left, right) => AI_CATEGORY_ORDER.indexOf(left.key) - AI_CATEGORY_ORDER.indexOf(right.key)),
+    [insight]
+  );
+  const raceSummary = insight?.metadata?.race_summary || "";
+  const newsDigest = insight?.metadata?.news_digest || [];
+  const previousRace = insight?.metadata?.previous_race || null;
+  const previousRaceWeather = insight?.metadata?.previous_race_weather || null;
+  const previousRaceStrategy = insight?.metadata?.previous_race_strategy || null;
+  const featuredCompact = !featured?.image_url || (featured?.summary?.length || 0) < 210;
 
   return (
     <div style={{ maxWidth: 1220, margin: "0 auto", padding: "44px 28px 80px", position: "relative", zIndex: 1 }}>
@@ -78,23 +204,37 @@ export default function NewsPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
             <div style={{ maxWidth: 760 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                Newswire
+                {tab === "news" ? "Newswire" : "AI Brief"}
               </div>
               <h1 style={{ fontSize: 48, lineHeight: 0.98, margin: "0 0 8px", letterSpacing: -2.2 }}>
-                The stories that can
-                <br />
-                actually change your picks.
+                {tab === "news" ? (
+                  <>
+                    The stories that can
+                    <br />
+                    actually change your picks.
+                  </>
+                ) : (
+                  <>
+                    One AI read on the weekend.
+                    <br />
+                    Plus category-level picks.
+                  </>
+                )}
               </h1>
               <div style={{ fontSize: 13, color: MUTED_TEXT }}>
-                {loading ? "Loading race-week feed..." : hasTable ? `${articles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"}
+                {loading
+                  ? "Loading race-week feed..."
+                  : tab === "news"
+                    ? hasTable ? `${articles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
+                    : insight ? "AI summary and category picks generated from news + OpenF1 context" : "Generate one AI brief from Admin to unlock this tab"}
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,116px))", gap: 10 }}>
               {[
-                [String(articles.length || 0), "stories"],
-                [String(sourceCount || 0), "sources"],
-                [loading ? "..." : hasTable ? "live" : "setup", "status"],
+                [tab === "news" ? String(articles.length || 0) : String(aiPredictions.length || 0), tab === "news" ? "stories" : "picks"],
+                [tab === "news" ? String(sourceCount || 0) : (typeof insight?.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "n/a"), tab === "news" ? "sources" : "confidence"],
+                [loading ? "..." : tab === "news" ? (hasTable ? "live" : "setup") : (insight ? "ready" : "empty"), "status"],
               ].map(([value, label]) => (
                 <div key={label} style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "13px 14px 12px" }}>
                   <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
@@ -105,25 +245,48 @@ export default function NewsPage() {
           </div>
         </div>
 
+        {!lockedTab && (
+          <div style={{ padding: "12px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["news", "News Feed"], ["ai", "AI Brief"]].map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setTab(value)}
+                style={{
+                  background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.1),#111c30)" : PANEL_BG_ALT,
+                  border: tab === value ? "1px solid rgba(248,250,252,0.16)" : "1px solid rgba(148,163,184,0.12)",
+                  borderRadius: 12,
+                  color: tab === value ? "#fff" : MUTED_TEXT,
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 12,
+                  padding: "9px 12px",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div style={{ padding: 40, color: MUTED_TEXT, textAlign: "center" }}>Loading news feed...</div>
-        ) : articles.length > 0 ? (
+        ) : tab === "news" && articles.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.12fr) 350px", gap: 0 }}>
             <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", borderRight: `1px solid ${HAIRLINE}` }}>
-              <article style={{ padding: 22, minHeight: "100%" }}>
+              <article style={{ padding: featuredCompact ? 18 : 22, minHeight: "100%" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{featured.source || "Source"}</span>
                   {featured.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(featured.published_at)}</span>}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: featured.image_url ? "minmax(0,1.02fr) 252px" : "1fr", gap: 18, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: featured.image_url ? (featuredCompact ? "minmax(0,1fr) 214px" : "minmax(0,1.04fr) 276px") : "1fr", gap: featuredCompact ? 14 : 18, alignItems: "start" }}>
                   <div>
-                    <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, lineHeight: 1.05, marginBottom: 12 }}>{featured.title}</div>
-                    <div style={{ fontSize: 14, lineHeight: 1.75, color: MUTED_TEXT }}>
-                      {featured.summary || "Open the article for the full report."}
+                    <div style={{ fontSize: featuredCompact ? 28 : 32, fontWeight: 900, letterSpacing: -1, lineHeight: 1.05, marginBottom: 12 }}>{featured.title}</div>
+                    <div style={{ fontSize: 14, lineHeight: 1.76, color: MUTED_TEXT }}>
+                      {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 280 : 520)}
                     </div>
                   </div>
                   {featured.image_url && (
-                    <div style={{ width: "100%", height: 212, borderRadius: 18, backgroundImage: `url(${featured.image_url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+                    <div style={{ width: "100%", height: featuredCompact ? 174 : 226, borderRadius: 18, backgroundImage: `url(${featured.image_url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
                   )}
                 </div>
               </article>
@@ -151,7 +314,7 @@ export default function NewsPage() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : tab === "news" ? (
           <div style={{ padding: 24 }}>
             <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: 22 }}>
               <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No ingested stories yet</div>
@@ -160,10 +323,274 @@ export default function NewsPage() {
               </div>
             </div>
           </div>
+        ) : insight ? (
+          <div style={{ display: "grid", gap: 18, padding: 18 }}>
+            <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+              <div style={{ padding: "20px 22px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) 280px", gap: 18, alignItems: "start" }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
+                      AI Race Brief
+                    </div>
+                    <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1, marginBottom: 10 }}>
+                      {insight.headline}
+                    </div>
+                    <div style={{ fontSize: 15, lineHeight: 1.84, color: MUTED_TEXT }}>
+                      {insight.summary}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                        Target race
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>{insight.race_name || "Upcoming GP"}</div>
+                    </div>
+                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                        Confidence
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>
+                        {typeof insight.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "N/A"}
+                      </div>
+                    </div>
+                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                        Inputs used
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>
+                        {insight.source_count || sourceCount || 0} sources
+                      </div>
+                    </div>
+                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                        Model
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.3 }}>
+                        {insight.model || "OpenAI"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 22px 18px", background: PANEL_BG }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>
+                  How to use this read
+                </div>
+                <div style={{ fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 920 }}>
+                  Start with the long race summary for the full weekend picture, then open the factor, edge and watchlist cards below for the deeper read behind the AI category picks. The goal is to give you enough usable context here that you only open individual articles if you want the full source detail.
+                </div>
+              </div>
+
+              <div style={{ padding: "12px 18px", borderTop: `1px solid ${HAIRLINE}`, fontSize: 11, color: SUBTLE_TEXT }}>
+                Generated {insight.generated_at ? formatPublished(insight.generated_at) : "recently"} from recent news + OpenF1 race context.
+              </div>
+            </section>
+
+            {raceSummary && (
+              <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
+                    AI Race Summary
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
+                    The full weekend read
+                  </div>
+                </div>
+                <div style={{ padding: "18px 20px", fontSize: 14, lineHeight: 1.9, color: MUTED_TEXT, whiteSpace: "pre-wrap" }}>
+                  {raceSummary}
+                </div>
+              </section>
+            )}
+
+            {newsDigest.length > 0 && (
+              <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
+                    News Digest
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
+                    The storylines behind the brief
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, padding: 16 }}>
+                  {newsDigest.map((item, index) => (
+                    <button
+                      key={`${item.headline}-${index}`}
+                      onClick={() => setExpandedInsight(detailOverlayPayload("digest", item))}
+                      style={{ width: "100%", textAlign: "left", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 14px 13px", cursor: "pointer" }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>{item.headline}</div>
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT }}>{previewText(item.detail || item.why_it_matters, 210)}</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(previousRace || previousRaceWeather || previousRaceStrategy) && (
+              <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
+                    OpenF1 Context
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
+                    What the last race is telling us
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
+                  <div style={{ background: PANEL_BG, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>Last winner</div>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>{previousRace?.winner || "N/A"}</div>
+                  </div>
+                  <div style={{ background: PANEL_BG, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>DNFs</div>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>{previousRace?.dnfCount ?? "N/A"}</div>
+                  </div>
+                  <div style={{ background: PANEL_BG, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>Safety cars</div>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>{previousRace?.safetyCarCount ?? "N/A"}</div>
+                  </div>
+                  <div style={{ background: PANEL_BG, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>Avg stints / driver</div>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>{previousRaceStrategy?.average_stints_per_driver ?? "N/A"}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 1, background: HAIRLINE }}>
+                  <div style={{ background: PANEL_BG, padding: "16px 18px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Previous race podium</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {(previousRace?.podium || []).map((driver) => (
+                        <span key={driver} style={{ fontSize: 12, fontWeight: 800, color: "#dbeafe", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 999, padding: "6px 10px" }}>
+                          {driver}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ background: PANEL_BG, padding: "16px 18px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Weather snapshot</div>
+                    <div style={{ display: "grid", gap: 6, fontSize: 12, color: MUTED_TEXT }}>
+                      <div>Air temp avg: <span style={{ color: "#fff", fontWeight: 700 }}>{previousRaceWeather?.air_temperature_avg ?? "N/A"}</span></div>
+                      <div>Track temp avg: <span style={{ color: "#fff", fontWeight: 700 }}>{previousRaceWeather?.track_temperature_avg ?? "N/A"}</span></div>
+                      <div>Humidity avg: <span style={{ color: "#fff", fontWeight: 700 }}>{previousRaceWeather?.humidity_avg ?? "N/A"}</span></div>
+                      <div>Rain seen: <span style={{ color: "#fff", fontWeight: 700 }}>{typeof previousRaceWeather?.rainfall === "boolean" ? (previousRaceWeather.rainfall ? "Yes" : "No") : "N/A"}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+              <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
+                  AI Category Picks
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
+                  Suggested picks for the current categories
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
+                {aiPredictions.map((item, index) => (
+                  <div key={`${item.category}-${index}`} style={{ background: PANEL_BG, padding: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                        {item.category}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "#dbeafe", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 999, padding: "4px 8px" }}>
+                        {typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}% confidence` : "AI pick"}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, marginBottom: 8 }}>{item.pick}</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.76, color: MUTED_TEXT }}>{previewText(item.reason, 220)}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
+              <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                    Key factors
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>Structural reads</div>
+                </div>
+                <div style={{ display: "grid", gap: 10, padding: 14 }}>
+                  {(insight.key_factors || []).map((item, index) => (
+                    <button key={`${item.title}-${index}`} onClick={() => setExpandedInsight(detailOverlayPayload("factor", item))} style={{ width: "100%", textAlign: "left", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "13px 13px 12px", cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.impact === "positive" ? "#34d399" : item.impact === "negative" ? "#f87171" : "#67e8f9" }} />
+                        <div style={{ fontSize: 14, fontWeight: 800 }}>{item.title}</div>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.detail, 170)}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>Fantasy take: {previewText(item.fantasy_take, 96)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                    Prediction edges
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>Actionable angles</div>
+                </div>
+                <div style={{ display: "grid", gap: 10, padding: 14 }}>
+                  {(insight.prediction_edges || []).map((item, index) => (
+                    <button key={`${item.label}-${index}`} onClick={() => setExpandedInsight(detailOverlayPayload("edge", item))} style={{ width: "100%", textAlign: "left", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "13px 13px 12px", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 7, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 14, fontWeight: 800 }}>{item.label}</div>
+                        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: item.risk_level === "high" ? "#fda4af" : item.risk_level === "low" ? "#86efac" : "#93c5fd" }}>
+                          {item.risk_level || "medium"} risk
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.detail || item.take, 170)}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>Action: {previewText(item.action, 96)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                    Watchlist
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>What can still move the board</div>
+                </div>
+                <div style={{ display: "grid", gap: 10, padding: 14 }}>
+                  {(insight.watchlist || []).map((item, index) => (
+                    <button key={`${item.label}-${index}`} onClick={() => setExpandedInsight(detailOverlayPayload("watch", item))} style={{ width: "100%", textAlign: "left", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "13px 13px 12px", cursor: "pointer" }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 7 }}>{item.label}</div>
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.trigger || item.reason, 170)}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>React: {previewText(item.how_to_react, 96)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div style={{ padding: 24 }}>
+            <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: 22 }}>
+              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 8 }}>No AI brief generated yet</div>
+              <div style={{ fontSize: 13, lineHeight: 1.72, color: MUTED_TEXT }}>
+                Generate an AI brief from the Admin page and this tab will show the race summary plus AI picks for the main categories.
+              </div>
+            </div>
+          </div>
         )}
       </section>
 
-      {feed.length > 0 && (
+      {tab === "news" && feed.length > 0 && (
         <section style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18 }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
@@ -196,7 +623,7 @@ export default function NewsPage() {
         </section>
       )}
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12 }}>
+      {tab === "news" && <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
         {SOURCE_CARDS.map((source) => (
           <a key={source.name} href={source.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
             <div style={{ borderRadius: 20, border: PANEL_BORDER, background: PANEL_BG, padding: 18 }}>
@@ -208,7 +635,36 @@ export default function NewsPage() {
             </div>
           </a>
         ))}
-      </section>
+      </section>}
+
+      {expandedInsight && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(3,8,18,0.72)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "min(760px,100%)", maxHeight: "calc(100vh - 48px)", overflowY: "auto", borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, boxShadow: "0 30px 90px rgba(0,0,0,0.45)" }}>
+            <div style={{ padding: "18px 20px 16px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
+                  {expandedInsight.eyebrow}
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.9, lineHeight: 1.05 }}>{expandedInsight.title}</div>
+              </div>
+              <button onClick={() => setExpandedInsight(null)} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: 20, display: "grid", gap: 14 }}>
+              {expandedInsight.fields.map(([label, value]) => (
+                <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize: 14, lineHeight: 1.85, color: MUTED_TEXT, whiteSpace: "pre-wrap" }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

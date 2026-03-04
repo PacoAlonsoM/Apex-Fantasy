@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+
 type NewsArticleRow = {
   title: string;
   summary: string | null;
@@ -15,14 +17,29 @@ type NewsArticleRow = {
 
 const FEEDS = [
   {
+    source: "Formula1.com",
+    url: "https://www.formula1.com/en/latest/all.xml",
+    priority: 5,
+  },
+  {
+    source: "BBC Sport F1",
+    url: "https://feeds.bbci.co.uk/sport/formula1/rss.xml",
+    priority: 4,
+  },
+  {
     source: "Autosport",
     url: "https://www.autosport.com/rss/f1/news/",
-    priority: 3,
+    priority: 4,
   },
   {
     source: "Motorsport",
     url: "https://www.motorsport.com/rss/f1/news/",
-    priority: 2,
+    priority: 3,
+  },
+  {
+    source: "RACER",
+    url: "https://racer.com/category/f1/feed/",
+    priority: 3,
   },
 ];
 
@@ -39,6 +56,10 @@ function respond(body: unknown, status = 200) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function decodeEntities(value: string) {
@@ -83,13 +104,44 @@ function extractImage(block: string) {
   const media = block.match(/<media:content[^>]+url="([^"]+)"/i);
   if (media?.[1]) return media[1].trim();
 
+  const thumbnail = block.match(/<media:thumbnail[^>]+url="([^"]+)"/i);
+  if (thumbnail?.[1]) return thumbnail[1].trim();
+
   const img = block.match(/<img[^>]+src="([^"]+)"/i);
   if (img?.[1]) return img[1].trim();
 
   return null;
 }
 
-function truncateSummary(value: string | null, max = 280) {
+function extractMetaContent(html: string, keys: string[]) {
+  for (const key of keys) {
+    const escaped = escapeRegExp(key);
+    const patterns = [
+      new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"),
+      new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`, "i"),
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match?.[1]) return decodeEntities(match[1].trim());
+    }
+  }
+
+  return null;
+}
+
+function extractParagraphSummary(html: string) {
+  const paragraphs = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map((match) => stripHtml(match[1] || ""))
+    .filter((paragraph) => paragraph.length > 90)
+    .filter((paragraph) => !/cookie|subscribe|newsletter|advertisement|privacy|sign up/i.test(paragraph))
+    .slice(0, 3);
+
+  if (!paragraphs.length) return null;
+  return paragraphs.join(" ");
+}
+
+function truncateSummary(value: string | null, max = 560) {
   if (!value) return null;
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1).trim()}…`;
@@ -102,13 +154,16 @@ function parsePublished(value: string | null) {
 }
 
 function parseFeed(source: string, priority: number, xml: string): NewsArticleRow[] {
-  const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  const items = [
+    ...(xml.match(/<item\b[\s\S]*?<\/item>/gi) || []),
+    ...(xml.match(/<entry\b[\s\S]*?<\/entry>/gi) || []),
+  ];
 
   return items
     .map((block) => {
       const title = extractTag(block, ["title"]);
       const url = extractLink(block);
-      const description = extractTag(block, ["description", "content:encoded"]);
+      const description = extractTag(block, ["description", "content:encoded", "summary", "content"]);
       const publishedAt = parsePublished(extractTag(block, ["pubDate", "published", "updated"], false));
       const imageUrl = extractImage(block);
 
@@ -156,19 +211,85 @@ function dedupeArticles(articles: NewsArticleRow[]) {
   });
 }
 
+async function enrichArticle(article: NewsArticleRow) {
+  const summaryLength = article.summary?.length || 0;
+  if (article.image_url && summaryLength >= 220) return article;
+
+  try {
+    const response = await fetch(article.url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml",
+        "user-agent": "apex-fantasy-news-ingest/1.0",
+      },
+    });
+
+    if (!response.ok) return article;
+
+    const html = await response.text();
+    const imageUrl =
+      article.image_url
+      || extractMetaContent(html, ["og:image", "twitter:image", "twitter:image:src"]);
+    const metaDescription = extractMetaContent(html, ["og:description", "description", "twitter:description"]);
+    const paragraphSummary = extractParagraphSummary(html);
+
+    const bestSummaryCandidate = [article.summary, paragraphSummary, metaDescription]
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => right.length - left.length)[0] || null;
+
+    return {
+      ...article,
+      summary: truncateSummary(bestSummaryCandidate, 760),
+      image_url: imageUrl || null,
+      metadata: {
+        ...article.metadata,
+        enriched_from_article: Boolean(imageUrl || bestSummaryCandidate),
+      },
+      updated_at: new Date().toISOString(),
+    };
+  } catch (_error) {
+    return article;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
   const configuredSecret = Deno.env.get("NEWS_INGEST_SECRET");
-  if (configuredSecret && req.headers.get("x-ingest-secret") !== configuredSecret) {
-    return respond({ error: "Unauthorized" }, 401);
-  }
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || serviceRoleKey;
+  const adminId = Deno.env.get("AI_ADMIN_USER_ID") || FALLBACK_ADMIN_ID;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     return respond({ error: "Missing Supabase environment variables." }, 500);
+  }
+
+  const providedSecret = req.headers.get("x-ingest-secret");
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  let authorized = false;
+
+  if (configuredSecret && providedSecret === configuredSecret) {
+    authorized = true;
+  } else if (token) {
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser(token);
+
+    if (!authError && user?.id === adminId) {
+      authorized = true;
+    }
+  } else if (!configuredSecret) {
+    authorized = true;
+  }
+
+  if (!authorized) {
+    return respond({ error: "Unauthorized" }, 401);
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -204,9 +325,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const articles = dedupeArticles(collected);
+  const enrichedArticles = await Promise.all(
+    articles.map((article, index) => (index < 18 ? enrichArticle(article) : Promise.resolve(article)))
+  );
 
-  if (articles.length) {
-    const { error } = await supabase.from("news_articles").upsert(articles, { onConflict: "url" });
+  if (enrichedArticles.length) {
+    const { error } = await supabase.from("news_articles").upsert(enrichedArticles, { onConflict: "url" });
     if (error) errors.push(`news_articles: ${error.message}`);
   }
 
@@ -217,7 +341,7 @@ Deno.serve(async (req: Request) => {
   await supabase.from("news_ingest_runs").insert({
     source: "rss",
     fetched_count: fetchedCount,
-    upserted_count: articles.length,
+    upserted_count: enrichedArticles.length,
     status: errors.length ? "partial" : "ok",
     error_text: errors.length ? errors.join("\n") : null,
     started_at: startedAt,
@@ -226,7 +350,7 @@ Deno.serve(async (req: Request) => {
 
   return respond({
     fetchedCount,
-    upsertedCount: articles.length,
+    upsertedCount: enrichedArticles.length,
     errors,
   });
 });

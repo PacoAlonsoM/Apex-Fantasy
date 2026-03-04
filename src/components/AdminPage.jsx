@@ -15,6 +15,10 @@ export default function AdminPage({ user }) {
   const [saved, setSaved] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightResult, setInsightResult] = useState(null);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsResult, setNewsResult] = useState(null);
 
   if (!user || user.id !== ADMIN_ID) {
     return (
@@ -63,6 +67,103 @@ export default function AdminPage({ user }) {
     const { error } = await supabase.from("race_results").upsert(row, { onConflict: "race_round" });
     if (error) alert("Error saving: " + error.message);
     else setSaved(true);
+  };
+
+  const generateAiBrief = async () => {
+    setInsightLoading(true);
+    setInsightResult(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        setInsightResult({ error: "No active auth session found. Log out and log back in, then try again." });
+        setInsightLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("ai-race-brief", {
+        body: { scope: "upcoming_race" },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (error) {
+        let detail = error.message;
+        const context = error.context;
+
+        if (context) {
+          try {
+            const payload = await context.json();
+            detail = payload?.error || payload?.message || JSON.stringify(payload);
+          } catch {
+            try {
+              detail = await context.text();
+            } catch {
+              detail = error.message;
+            }
+          }
+        }
+
+        setInsightResult({ error: detail });
+      } else {
+        setInsightResult(data);
+      }
+    } catch (error) {
+      setInsightResult({ error: error instanceof Error ? error.message : "Unexpected function error." });
+    }
+
+    setInsightLoading(false);
+  };
+
+  const syncNews = async () => {
+    setNewsLoading(true);
+    setNewsResult(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        setNewsResult({ error: "No active auth session found. Log out and log back in, then try again." });
+        setNewsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("news-ingest", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (error) {
+        let detail = error.message;
+        const context = error.context;
+
+        if (context) {
+          try {
+            const payload = await context.json();
+            detail = payload?.error || payload?.message || JSON.stringify(payload);
+          } catch {
+            try {
+              detail = await context.text();
+            } catch {
+              detail = error.message;
+            }
+          }
+        }
+
+        setNewsResult({ error: detail });
+      } else {
+        setNewsResult(data);
+      }
+    } catch (error) {
+      setNewsResult({ error: error instanceof Error ? error.message : "Unexpected function error." });
+    }
+
+    setNewsLoading(false);
   };
 
   const inp = {
@@ -170,6 +271,48 @@ export default function AdminPage({ user }) {
         {scoreResult && (
           <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: scoreResult.error ? "rgba(239,68,68,0.1)" : "rgba(52,211,153,0.1)", border: `1px solid ${scoreResult.error ? "rgba(239,68,68,0.28)" : "rgba(52,211,153,0.28)"}`, fontSize: 13, color: scoreResult.error ? "#F87171" : "#34D399" }}>
             {scoreResult.error ? `❌ ${scoreResult.error}` : `✅ Scored ${scoreResult.scored} users successfully!`}
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginTop: 20, backdropFilter: "blur(16px)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 3 — Sync News</div>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
+          Pull the latest stories into `news_articles` before generating a new AI brief.
+        </p>
+        <button
+          onClick={syncNews}
+          disabled={newsLoading}
+          style={{ background: "linear-gradient(135deg,#2563eb,#06b6d4)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: newsLoading ? 0.6 : 1 }}
+        >
+          {newsLoading ? "Syncing News..." : "Sync News Feed"}
+        </button>
+
+        {newsResult && (
+          <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: newsResult.error ? "rgba(239,68,68,0.1)" : "rgba(37,99,235,0.1)", border: `1px solid ${newsResult.error ? "rgba(239,68,68,0.28)" : "rgba(37,99,235,0.28)"}`, fontSize: 13, color: newsResult.error ? "#F87171" : "#7dd3fc" }}>
+            {newsResult.error
+              ? `❌ ${newsResult.error}`
+              : `✅ Synced ${newsResult.upsertedCount || 0} stories${newsResult.errors?.length ? ` with ${newsResult.errors.length} source warnings` : ""}.`}
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginTop: 20, backdropFilter: "blur(16px)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 4 — Generate AI Race Brief</div>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
+          Builds one AI insight using the latest ingested news plus upcoming race context from OpenF1. This is the first layer for AI analytics on the product.
+        </p>
+        <button
+          onClick={generateAiBrief}
+          disabled={insightLoading}
+          style={{ background: "linear-gradient(135deg,#22c55e,#14b8a6)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: insightLoading ? 0.6 : 1 }}
+        >
+          {insightLoading ? "Generating AI Brief..." : "Generate AI Race Brief"}
+        </button>
+
+        {insightResult && (
+          <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: insightResult.error ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)", border: `1px solid ${insightResult.error ? "rgba(239,68,68,0.28)" : "rgba(34,197,94,0.28)"}`, fontSize: 13, color: insightResult.error ? "#F87171" : "#34D399" }}>
+            {insightResult.error ? `❌ ${insightResult.error}` : `✅ ${insightResult.headline || "AI brief generated successfully."}`}
           </div>
         )}
       </div>

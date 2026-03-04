@@ -27,7 +27,7 @@ export default function HomePage({ user, setPage }) {
 
   return (
     <div style={{ maxWidth: 1120, margin: "0 auto", padding: "40px 28px 72px", position: "relative", zIndex: 1 }}>
-      <section style={{ position: "relative", overflow: "hidden", borderRadius: 30, border: PANEL_BORDER, background: PANEL_BG_STRONG, padding: "38px 32px 30px", boxShadow: "0 30px 70px rgba(0,0,0,0.28)", textAlign: "center", marginBottom: 14 }}>
+      <section style={{ position: "relative", overflow: "hidden", borderRadius: 30, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(8,17,29,0.98) 32%)", padding: "38px 32px 30px", boxShadow: "0 30px 70px rgba(0,0,0,0.28)", textAlign: "center", marginBottom: 14 }}>
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <div style={{ position: "absolute", top: -42, left: "50%", transform: "translateX(-50%)", opacity: 0.12 }}>
             <BrandMark size={176} ghost />
@@ -70,8 +70,8 @@ export default function HomePage({ user, setPage }) {
 
       <section style={{ display: "grid", gridTemplateColumns: "minmax(320px,0.84fr) minmax(0,1.16fr)", gap: 18 }}>
         {next && cd && (
-          <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-            <div style={{ height: 4, background: `linear-gradient(90deg,${rc(next)},#2dd4bf)` }} />
+          <div style={{ borderRadius: 22, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(12,20,36,0.98) 20%)", overflow: "hidden" }}>
+            <div style={{ height: 4, background: `linear-gradient(90deg,var(--team-accent),${rc(next)})` }} />
             <div style={{ padding: "20px 22px 18px" }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                 Next round
@@ -93,8 +93,8 @@ export default function HomePage({ user, setPage }) {
           </div>
         )}
 
-        <section style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-          <div style={{ padding: "18px 22px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+        <section style={{ borderRadius: 22, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(12,20,36,0.98) 18%)", overflow: "hidden" }}>
+          <div style={{ padding: "18px 22px", borderBottom: `1px solid ${HAIRLINE}`, background: "linear-gradient(180deg,var(--team-accent-ghost),#101a2d)" }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Scoring</div>
             <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, marginTop: 4 }}>How points are won</div>
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { nextRace } from "../constants/calendar";
-import { BRAND_GRADIENT, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, avatarTheme } from "../constants/design";
+import { BRAND_GRADIENT, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, avatarTheme, teamSupportKey } from "../constants/design";
 import { requireActiveSession } from "../authProfile";
 
 const avatarPalette = [
@@ -29,10 +29,10 @@ function formatStamp(value) {
 
 function AvatarChip({ name, colorKey, size = 32, radius = 10, fontSize = 11 }) {
   const theme = colorKey ? avatarTheme(colorKey) : null;
-  const [bg, color] = theme ? [theme.bg, theme.text] : avatarTone(name);
+  const [bg, color] = theme ? [theme.fill, theme.text] : avatarTone(name);
   const border = theme ? theme.border : `${bg}44`;
   return (
-    <div style={{ width: size, height: size, borderRadius: radius, background: theme ? bg : `${bg}22`, border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize, fontWeight: 900, color, flexShrink: 0 }}>
+    <div style={{ width: size, height: size, borderRadius: radius, background: theme ? bg : `${bg}22`, border: `1px solid ${border}`, boxShadow: theme ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize, fontWeight: 900, color, flexShrink: 0 }}>
       {(name || "?").slice(0, 2).toUpperCase()}
     </div>
   );
@@ -45,6 +45,21 @@ function StatCard({ label, value, accent = "#e2e8f0" }) {
       <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8, color: accent }}>{value}</div>
     </div>
   );
+}
+
+function normalizeProfileIdentity(profile, currentUser = null) {
+  if (!profile) return profile;
+
+  const favoriteTeam = (currentUser?.id === profile.id ? currentUser.favorite_team : null) || profile.favorite_team || null;
+  const avatarColor = (currentUser?.id === profile.id ? currentUser.avatar_color : null)
+    || profile.avatar_color
+    || (favoriteTeam ? teamSupportKey(favoriteTeam) : DEFAULT_AVATAR_COLOR);
+
+  return {
+    ...profile,
+    favorite_team: favoriteTeam,
+    avatar_color: avatarColor,
+  };
 }
 
 export default function CommunityPage({ user, openAuth }) {
@@ -91,6 +106,25 @@ export default function CommunityPage({ user, openAuth }) {
     fetchLeaguePosts(selectedLeagueId);
   }, [selectedLeagueId, user]); // eslint-disable-line
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    setAuthorProfiles((current) => ({
+      ...current,
+      [user.id]: normalizeProfileIdentity({
+        ...(current[user.id] || {}),
+        id: user.id,
+        username: user.username,
+        avatar_color: user.avatar_color,
+        favorite_team: user.favorite_team,
+      }, user),
+    }));
+    setLeaderboard((current) => current.map((profile) => normalizeProfileIdentity(profile, user)));
+    setLeagueStandings((current) => Object.fromEntries(
+      Object.entries(current).map(([leagueId, standings]) => [leagueId, standings.map((profile) => normalizeProfileIdentity(profile, user))])
+    ));
+  }, [user]);
+
   const leagueSummary = useMemo(() => {
     if (!currentStandings.length) {
       return { leader: null, average: 0, gap: 0 };
@@ -124,19 +158,19 @@ export default function CommunityPage({ user, openAuth }) {
     const missing = ids.filter((id) => !authorProfiles[id]);
     if (!missing.length) return;
 
-    const { data } = await supabase.from("profiles").select("id,avatar_color,username").in("id", missing);
+    const { data } = await supabase.from("profiles").select("id,avatar_color,username,favorite_team").in("id", missing);
     if (!data?.length) return;
 
     setAuthorProfiles((current) => ({
       ...current,
-      ...Object.fromEntries(data.map((profile) => [profile.id, profile])),
+      ...Object.fromEntries(data.map((profile) => [profile.id, normalizeProfileIdentity(profile, user)])),
     }));
   }
 
   async function fetchLeaderboard() {
     setLoadingLB(true);
     const { data } = await supabase.from("profiles").select("*").order("points", { ascending: false }).limit(24);
-    if (data) setLeaderboard(data);
+    if (data) setLeaderboard(data.map((profile) => normalizeProfileIdentity(profile, user)));
     setLoadingLB(false);
   }
 
@@ -177,7 +211,9 @@ export default function CommunityPage({ user, openAuth }) {
     }
 
     const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-    const sorted = (profiles || []).sort((a, b) => (b.points || 0) - (a.points || 0));
+    const sorted = (profiles || [])
+      .map((profile) => normalizeProfileIdentity(profile, user))
+      .sort((a, b) => (b.points || 0) - (a.points || 0));
     setLeagueStandings((current) => ({ ...current, [leagueId]: sorted }));
   }
 
@@ -348,8 +384,20 @@ export default function CommunityPage({ user, openAuth }) {
           const postComments = comments[post.id] || [];
 
           return (
-            <div key={post.id} style={{ borderRadius: 18, border: open ? "1px solid rgba(249,115,22,0.24)" : PANEL_BORDER, background: open ? "#101a2d" : PANEL_BG, overflow: "hidden" }}>
-              <div style={{ padding: "15px 16px", cursor: "pointer" }} onClick={() => toggleThread(scope, post.id)}>
+            <div key={post.id} style={{ borderRadius: 18, border: open ? "1px solid var(--team-accent-border)" : PANEL_BORDER, background: open ? "linear-gradient(180deg,var(--team-accent-ghost),#101a2d)" : PANEL_BG, overflow: "hidden" }}>
+              <div
+                style={{ padding: "15px 16px", cursor: "pointer", borderRadius: 18 }}
+                onClick={() => toggleThread(scope, post.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleThread(scope, post.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                data-clickable="true"
+              >
                 <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <AvatarChip name={post.author_name} colorKey={authorProfiles[post.author_id]?.avatar_color} />
                   <div style={{ flex: 1 }}>
@@ -426,8 +474,8 @@ export default function CommunityPage({ user, openAuth }) {
         {[...items].reverse().map((post) => {
           const mine = post.author_id === user?.id;
           const themeKey = authorProfiles[post.author_id]?.avatar_color;
-          const bubbleBg = mine ? "linear-gradient(180deg,rgba(249,115,22,0.14),rgba(249,115,22,0.08))" : PANEL_BG_ALT;
-          const bubbleBorder = mine ? "1px solid rgba(249,115,22,0.24)" : "1px solid rgba(148,163,184,0.12)";
+          const bubbleBg = mine ? "linear-gradient(180deg,var(--team-accent-soft),rgba(12,20,36,0.94))" : PANEL_BG_ALT;
+          const bubbleBorder = mine ? "1px solid var(--team-accent-border)" : "1px solid rgba(148,163,184,0.12)";
 
           return (
             <div key={post.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -453,11 +501,11 @@ export default function CommunityPage({ user, openAuth }) {
 
   return (
     <div style={{ maxWidth: 1220, margin: "0 auto", padding: "44px 28px 80px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG_STRONG, padding: "24px 26px 22px", marginBottom: 18 }}>
+      <section style={{ borderRadius: 24, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(8,17,29,0.97) 36%)", padding: "24px 26px 22px", marginBottom: 18, boxShadow: "0 26px 70px rgba(0,0,0,0.24)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div style={{ maxWidth: 760 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "#101a2d", border: "1px solid rgba(148,163,184,0.14)", marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#2dd4bf" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "var(--team-accent-ghost)", border: "1px solid var(--team-accent-border)", marginBottom: 14 }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--team-accent)" }} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Community</span>
             </div>
             <h1 style={{ fontSize: 46, lineHeight: 0.98, margin: "0 0 10px", letterSpacing: -2 }}>
@@ -476,8 +524,8 @@ export default function CommunityPage({ user, openAuth }) {
                 key={value}
                 onClick={() => setTab(value)}
                 style={{
-                  background: tab === value ? "#17263f" : PANEL_BG_ALT,
-                  border: tab === value ? "1px solid rgba(248,250,252,0.24)" : "1px solid rgba(148,163,184,0.14)",
+                  background: tab === value ? "linear-gradient(180deg,var(--team-accent-soft),#17263f)" : PANEL_BG_ALT,
+                  border: tab === value ? "1px solid var(--team-accent-border)" : "1px solid rgba(148,163,184,0.14)",
                   borderRadius: 14,
                   color: tab === value ? "#fff" : MUTED_TEXT,
                   cursor: "pointer",
@@ -498,7 +546,7 @@ export default function CommunityPage({ user, openAuth }) {
         user ? (
           <section style={{ display: "grid", gridTemplateColumns: "296px minmax(0,1fr)", gap: 18 }}>
             <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
-              <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, padding: 18 }}>
+              <div style={{ borderRadius: 22, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(12,20,36,0.98) 22%)", padding: 18 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
                   League controls
                 </div>
@@ -549,7 +597,7 @@ export default function CommunityPage({ user, openAuth }) {
                         <button
                           key={league.id}
                           onClick={() => setSelectedLeagueId(league.id)}
-                          style={{ textAlign: "left", border: "none", background: active ? "#111c30" : PANEL_BG, padding: "14px 16px", cursor: "pointer" }}
+                          style={{ textAlign: "left", border: "none", background: active ? "linear-gradient(180deg,var(--team-accent-ghost),#111c30)" : PANEL_BG, padding: "14px 16px", cursor: "pointer" }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 4 }}>
                             <div style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{league.name}</div>
@@ -569,8 +617,8 @@ export default function CommunityPage({ user, openAuth }) {
             <div>
               {currentLeague ? (
                 <>
-                  <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16 }}>
-                    <div style={{ height: 4, background: "linear-gradient(90deg,#334155,#64748b)" }} />
+                  <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16, boxShadow: "0 18px 48px rgba(0,0,0,0.18)" }}>
+                    <div style={{ height: 4, background: "linear-gradient(90deg,var(--team-accent),#64748b)" }} />
                     <div style={{ padding: "20px 22px 18px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
@@ -665,7 +713,7 @@ export default function CommunityPage({ user, openAuth }) {
                             </div>
                           ) : (
                             <>
-                              <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: 14, marginBottom: 14 }}>
+                              <div style={{ borderRadius: 16, border: "1px solid var(--team-accent-border)", background: "linear-gradient(180deg,var(--team-accent-ghost),#101a2d)", padding: 14, marginBottom: 14 }}>
                                 <textarea
                                   style={{ ...inputStyle, minHeight: 84, resize: "vertical", marginBottom: 10 }}
                                   placeholder="Drop a message for your league..."

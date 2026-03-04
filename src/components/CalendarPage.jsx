@@ -142,12 +142,12 @@ export default function CalendarPage() {
   const selectedEventWindow = sel ? formatEventWindowLabel(sel, liveMeetings[sel.r]) : null;
 
   return (
-    <div style={{ maxWidth: 1220, margin: "0 auto", padding: "40px 28px 80px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, padding: "22px 24px 20px", marginBottom: 16 }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 26px 76px", position: "relative", zIndex: 1 }}>
+      <section style={{ borderRadius: 24, border: PANEL_BORDER, background: "linear-gradient(180deg,rgba(12,20,36,0.98),rgba(10,16,30,0.98) 28%)", padding: "20px 22px 18px", marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap", marginBottom: 16 }}>
           <div style={{ maxWidth: 720 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "#101a2d", border: "1px solid rgba(148,163,184,0.14)", marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--team-accent)" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.14)", marginBottom: 14 }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#7dd3fc" }} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>2026 calendar</span>
             </div>
             <h1 style={{ fontSize: 42, lineHeight: 1, margin: "0 0 10px", letterSpacing: -2 }}>
@@ -181,8 +181,8 @@ export default function CalendarPage() {
                 key={value}
                 onClick={() => setFilt(value)}
                 style={{
-                  background: filt === value ? "#111c30" : "#101a2d",
-                  border: filt === value ? "1px solid rgba(148,163,184,0.2)" : "1px solid rgba(148,163,184,0.12)",
+                  background: filt === value ? "linear-gradient(180deg,rgba(255,255,255,0.08),#111c30)" : "#101a2d",
+                  border: filt === value ? "1px solid rgba(248,250,252,0.16)" : "1px solid rgba(148,163,184,0.12)",
                   borderRadius: 12,
                   color: filt === value ? "#fff" : MUTED_TEXT,
                   cursor: "pointer",
@@ -202,16 +202,17 @@ export default function CalendarPage() {
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0,1fr) 292px" : "1fr", gap: 14, alignItems: "start" }}>
+      <section style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0,1fr) 352px" : "1fr", gap: 14, alignItems: "start" }}>
         <div>
           {Object.entries(months).map(([month, races]) => (
             <div key={month} style={{ marginBottom: 22 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 10 }}>
                 {month}
               </div>
-              <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gap: 8 }}>
                 {races.map((race) => {
                   const active = sel?.r === race.r;
+                  const accent = rc(race);
                   return (
                     <button
                       key={race.r}
@@ -219,24 +220,26 @@ export default function CalendarPage() {
                       style={{
                         width: "100%",
                         textAlign: "left",
-                        borderRadius: 18,
-                        border: active ? `1px solid ${rc(race)}55` : "1px solid rgba(148,163,184,0.12)",
-                        background: active ? "#111c30" : PANEL_BG,
+                        borderRadius: 16,
+                        border: active ? `1px solid ${accent}33` : "1px solid rgba(148,163,184,0.12)",
+                        background: active ? `linear-gradient(180deg,${accent}14,#111c30)` : PANEL_BG,
                         padding: 0,
                         cursor: "pointer",
                         overflow: "hidden",
                       }}
                     >
-                      <div style={{ display: "grid", gridTemplateColumns: "4px 72px minmax(0,1fr) 178px 96px", alignItems: "stretch" }}>
-                        <div style={{ background: rc(race) }} />
-                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 12px", borderRight: `1px solid ${HAIRLINE}` }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Round</div>
-                          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -1, marginTop: 3 }}>R{race.r}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0,1fr) 160px 84px", alignItems: "stretch" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 8px", borderRight: `1px solid ${HAIRLINE}` }}>
+                          <div style={{ width: "100%", borderRadius: 14, border: active ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.12)", background: active ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 0" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? accent : "rgba(148,163,184,0.5)", boxShadow: active ? `0 0 0 5px ${accent}14` : "none" }} />
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Round</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.8 }}>R{race.r}</div>
+                          </div>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", padding: "11px 14px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 15, fontWeight: 800 }}>{race.n}</span>
+                            <span style={{ fontSize: 14, fontWeight: 800 }}>{race.n}</span>
                             {race.sprint && (
                               <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "#fde68a", background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.22)", borderRadius: 999, padding: "3px 8px" }}>
                                 Sprint
@@ -250,11 +253,11 @@ export default function CalendarPage() {
                           </div>
                         </div>
 
-                        <div style={{ padding: "14px 12px", borderLeft: `1px solid ${HAIRLINE}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: MUTED_TEXT, textAlign: "center" }}>
+                        <div style={{ padding: "11px 10px", borderLeft: `1px solid ${HAIRLINE}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: MUTED_TEXT, textAlign: "center" }}>
                           {formatEventWindowLabel(race, liveMeetings[race.r])}
                         </div>
 
-                        <div style={{ padding: "14px 12px", borderLeft: `1px solid ${HAIRLINE}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ padding: "11px 10px", borderLeft: `1px solid ${HAIRLINE}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <span style={{ fontSize: 11, fontWeight: 800, color: race.type === "Street" ? "#fde68a" : "#99f6e4", background: race.type === "Street" ? "rgba(250,204,21,0.12)" : "rgba(45,212,191,0.12)", border: `1px solid ${race.type === "Street" ? "rgba(250,204,21,0.22)" : "rgba(45,212,191,0.22)"}`, borderRadius: 999, padding: "6px 10px" }}>
                             {race.type}
                           </span>
@@ -271,7 +274,7 @@ export default function CalendarPage() {
         {sel && (
           <aside style={{ position: "sticky", top: 84 }}>
             <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-              <div style={{ height: 4, background: `linear-gradient(90deg,${rc(sel)},var(--team-accent))` }} />
+              <div style={{ height: 4, background: `linear-gradient(90deg,${rc(sel)},rgba(248,250,252,0.92))` }} />
 
               <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${HAIRLINE}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
