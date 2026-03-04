@@ -1,13 +1,20 @@
 import {
   BRAND_GRADIENT,
+  CARD_RADIUS,
+  CONTENT_MAX,
+  EDGE_RING,
   HAIRLINE,
+  LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
   PANEL_BORDER,
+  SECTION_RADIUS,
+  SOFT_SHADOW,
   SUBTLE_TEXT,
   SUPPORT_EMAIL,
 } from "../constants/design";
+import useViewport from "../useViewport";
 
 const scoringRows = [
   ["Race Winner", "25 pts"],
@@ -56,14 +63,18 @@ const faqs = [
 ];
 
 export default function GameGuidePage({ setPage }) {
+  const { isMobile, isTablet } = useViewport();
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: "44px 28px 84px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: `linear-gradient(180deg,var(--team-accent-ghost),${PANEL_BG} 24%)`, overflow: "hidden", marginBottom: 18 }}>
+    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
+      <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG} 24%)`, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
         <div style={{ padding: "28px 30px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-            Game Guide
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
+              Game Guide
+            </span>
           </div>
-          <h1 style={{ fontSize: 46, lineHeight: 0.98, letterSpacing: -2.1, margin: "0 0 10px" }}>
+          <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, letterSpacing: isMobile ? -1.6 : -2.8, margin: "0 0 12px" }}>
             Learn the board.
             <br />
             Win with better reads.
@@ -73,16 +84,16 @@ export default function GameGuidePage({ setPage }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 1, background: HAIRLINE }}>
+        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1.15fr 0.85fr", gap: 1, background: HAIRLINE }}>
           <div style={{ background: PANEL_BG, padding: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
               How it works
             </div>
             <div style={{ display: "grid", gap: 12 }}>
               {coreSteps.map((item, index) => (
-                <div key={item.title} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 17px" }}>
+                <div key={item.title} style={{ borderRadius: CARD_RADIUS, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 17px", boxShadow: EDGE_RING }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <span style={{ width: 24, height: 24, borderRadius: 999, background: "var(--team-accent-soft)", border: "1px solid var(--team-accent-border)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#fff" }}>
+                    <span style={{ width: 24, height: 24, borderRadius: 999, background: "rgba(249,115,22,0.14)", border: "1px solid rgba(249,115,22,0.26)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#fff" }}>
                       {index + 1}
                     </span>
                     <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.5 }}>{item.title}</div>
@@ -124,7 +135,7 @@ export default function GameGuidePage({ setPage }) {
               ))}
             </div>
 
-            <div style={{ marginTop: 14, borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 16px 14px" }}>
+            <div style={{ marginTop: 14, borderRadius: CARD_RADIUS, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "16px 16px 14px", boxShadow: EDGE_RING }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                 Need help?
               </div>
@@ -139,15 +150,15 @@ export default function GameGuidePage({ setPage }) {
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "0.96fr 1.04fr", gap: 18, marginBottom: 18 }}>
-        <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+      <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "0.96fr 1.04fr", gap: 18, marginBottom: 18 }}>
+        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
               Scoring Map
             </div>
             <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6 }}>Where big weekends come from</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
             {scoringRows.map(([label, value]) => (
               <div key={label} style={{ background: PANEL_BG, padding: "14px 16px 13px" }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>{label}</div>
@@ -157,7 +168,7 @@ export default function GameGuidePage({ setPage }) {
           </div>
         </div>
 
-        <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
               FAQ

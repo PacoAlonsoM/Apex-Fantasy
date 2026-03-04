@@ -3,15 +3,23 @@ import { TEAMS } from "./teams";
 export const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
 export const SUPPORT_EMAIL = "support@apexfantasy.app";
 
-export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#fb923c 52%,#facc15 100%)";
-export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(250,204,21,0.03))";
-export const PANEL_BG = "#0c1424";
-export const PANEL_BG_ALT = "#101a2d";
-export const PANEL_BG_STRONG = "#08111d";
-export const PANEL_BORDER = "1px solid rgba(148,163,184,0.22)";
-export const MUTED_TEXT = "rgba(226,232,240,0.74)";
-export const SUBTLE_TEXT = "rgba(148,163,184,0.78)";
-export const HAIRLINE = "rgba(148,163,184,0.14)";
+export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#fb923c 48%,#facc15 100%)";
+export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.1),rgba(250,204,21,0.02))";
+export const PANEL_BG = "#0a1220";
+export const PANEL_BG_ALT = "#0f182c";
+export const PANEL_BG_STRONG = "#07101b";
+export const PANEL_BORDER = "1px solid rgba(148,163,184,0.16)";
+export const MUTED_TEXT = "rgba(226,232,240,0.72)";
+export const SUBTLE_TEXT = "rgba(148,163,184,0.76)";
+export const HAIRLINE = "rgba(148,163,184,0.11)";
+export const CONTENT_MAX = 1260;
+export const SHELL_MAX = 1380;
+export const HERO_TEXT_MAX = 700;
+export const SECTION_RADIUS = 34;
+export const CARD_RADIUS = 24;
+export const LIFTED_SHADOW = "0 28px 80px rgba(2,6,23,0.28)";
+export const SOFT_SHADOW = "0 16px 44px rgba(2,6,23,0.18)";
+export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.03)";
 
 export const DEFAULT_AVATAR_COLOR = "ember";
 

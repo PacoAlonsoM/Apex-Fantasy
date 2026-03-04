@@ -1,13 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap");
+
 :root {
-  --bg: #060913;
-  --bg-elevated: #0c1222;
-  --panel: #0c1424;
-  --panel-strong: #08111d;
-  --border: rgba(148, 163, 184, 0.18);
-  --border-soft: rgba(148, 163, 184, 0.12);
+  --bg: #040814;
+  --bg-elevated: #08111d;
+  --bg-mesh: rgba(16, 24, 44, 0.96);
+  --panel: #0a1220;
+  --panel-alt: #0f182c;
+  --panel-muted: #121d33;
+  --border: rgba(148, 163, 184, 0.16);
+  --border-soft: rgba(148, 163, 184, 0.1);
   --text: #f8fafc;
-  --text-muted: rgba(226, 232, 240, 0.74);
-  --text-subtle: rgba(148, 163, 184, 0.78);
+  --text-muted: rgba(226, 232, 240, 0.72);
+  --text-subtle: rgba(148, 163, 184, 0.76);
   --accent: #f97316;
   --accent-2: #fb923c;
   --accent-3: #facc15;
@@ -15,13 +19,15 @@
   --success: #34d399;
   --danger: #f87171;
   --team-accent: #f97316;
-  --team-accent-soft: rgba(249, 115, 22, 0.16);
-  --team-accent-ghost: rgba(249, 115, 22, 0.1);
-  --team-accent-border: rgba(249, 115, 22, 0.32);
-  --interactive-edge: rgba(249, 115, 22, 0.32);
-  --font-body: "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
-  --font-display: "SF Pro Display", "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
-  --font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+  --team-accent-soft: rgba(249, 115, 22, 0.14);
+  --team-accent-ghost: rgba(249, 115, 22, 0.08);
+  --team-accent-border: rgba(249, 115, 22, 0.28);
+  --interactive-edge: rgba(249, 115, 22, 0.26);
+  --font-body: "Geist", "Avenir Next", sans-serif;
+  --font-display: "Sora", "Geist", sans-serif;
+  --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+  --content-width: 1180px;
+  --shell-width: 1280px;
 }
 
 * {
@@ -31,19 +37,23 @@
 html {
   background: var(--bg);
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   background:
-    radial-gradient(circle at top left, var(--team-accent-ghost), transparent 28%),
-    radial-gradient(circle at top right, rgba(45, 212, 191, 0.06), transparent 22%),
-    linear-gradient(180deg, #060913 0%, #09101c 100%);
+    radial-gradient(circle at 8% 10%, rgba(249, 115, 22, 0.18), transparent 18%),
+    radial-gradient(circle at 88% 16%, rgba(45, 212, 191, 0.08), transparent 16%),
+    radial-gradient(circle at 78% 72%, rgba(99, 102, 241, 0.08), transparent 20%),
+    linear-gradient(180deg, #030713 0%, #060d18 26%, #091220 100%);
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
 }
 
 #root {
@@ -54,6 +64,11 @@ a {
   color: inherit;
 }
 
+img {
+  max-width: 100%;
+  display: block;
+}
+
 button,
 input,
 textarea,
@@ -61,65 +76,83 @@ select {
   font: inherit;
 }
 
-button,
-[data-clickable="true"] {
-  transition: transform 0.18s ease, opacity 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-  letter-spacing: -0.01em;
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+[data-clickable="true"],
+button:not([data-hover="minimal"]) {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease,
+    filter 220ms ease;
   position: relative;
   isolation: isolate;
 }
 
-button:hover,
-[data-clickable="true"]:hover {
+[data-clickable="true"]:hover,
+button:not([data-hover="minimal"]):hover {
   opacity: 1;
-  filter: brightness(1.08);
-  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.06);
+  transform: translateY(-2px) scale(1.026);
   z-index: 1;
 }
 
-button::after,
-[data-clickable="true"]::after {
+[data-clickable="true"]::after,
+button:not([data-hover="minimal"])::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   border: 1px solid transparent;
   pointer-events: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  transition: border-color 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
   opacity: 0;
 }
 
-button:hover::after,
-[data-clickable="true"]:hover::after {
+[data-clickable="true"]:hover::after,
+button:not([data-hover="minimal"]):hover::after {
   opacity: 1;
   border-color: var(--interactive-edge);
-  border-width: 2px;
+  border-width: 3px;
   box-shadow:
-    0 0 0 2px var(--team-accent-border),
-    0 0 0 7px var(--team-accent-ghost),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 0 0 3px rgba(249, 115, 22, 0.06),
+    0 0 0 10px var(--team-accent-ghost),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
-button:active {
+button:not([data-hover="minimal"]):active {
   transform: translateY(1px);
 }
 
 input,
 textarea,
 select {
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--interactive-edge) !important;
-  box-shadow: 0 0 0 1px var(--team-accent-soft);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(226, 232, 240, 0.2);
+  color: rgba(226, 232, 240, 0.24);
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.22);
+  color: #fff7ed;
 }
 
 ::-webkit-scrollbar {
@@ -128,7 +161,7 @@ textarea::placeholder {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 138, 61, 0.34);
+  background: rgba(255, 138, 61, 0.26);
   border-radius: 999px;
 }
 
@@ -138,4 +171,16 @@ textarea::placeholder {
 
 code {
   font-family: var(--font-mono);
+}
+
+@keyframes apex-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

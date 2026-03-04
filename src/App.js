@@ -57,7 +57,7 @@ export default function ApexFantasy() {
         minHeight: "100vh",
         color: "var(--text)",
         fontFamily: "var(--font-body)",
-        background: "radial-gradient(circle at top left, var(--team-accent-ghost), transparent 28%), radial-gradient(circle at top right, rgba(45, 212, 191, 0.06), transparent 22%)",
+        background: "radial-gradient(circle at top left, var(--team-accent-ghost), transparent 26%), radial-gradient(circle at 82% 14%, rgba(45, 212, 191, 0.05), transparent 18%), linear-gradient(180deg, rgba(4,8,20,0.82), rgba(7,16,27,0.88))",
         "--team-accent": accentTheme.accent,
         "--team-accent-soft": accentTheme.accentSoft,
         "--team-accent-ghost": accentTheme.accentGhost,
@@ -66,7 +66,7 @@ export default function ApexFantasy() {
         "--interactive-edge": accentTheme.accentBorder,
       }}
     >
-      <style>{`textarea{font-family:inherit;} h1,h2,h3{font-family:var(--font-display);}`}</style>
+      <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main,nav{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />

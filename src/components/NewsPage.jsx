@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
-import { PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE } from "../constants/design";
+import { CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, SOFT_SHADOW } from "../constants/design";
+import useViewport from "../useViewport";
+
+const BLOCKED_NEWS_SOURCES = new Set(["Formula1.com"]);
 
 const SOURCE_CARDS = [
-  {
-    name: "Formula1.com",
-    role: "Official",
-    detail: "Primary source for calendar changes, team announcements and confirmed paddock updates.",
-    url: "https://www.formula1.com/",
-  },
   {
     name: "BBC Sport F1",
     role: "General",
@@ -34,6 +31,29 @@ const SOURCE_CARDS = [
     url: "https://racer.com/category/f1/",
   },
 ];
+
+const SOURCE_VISUALS = {
+  "BBC Sport F1": {
+    glow: "rgba(249,115,22,0.18)",
+    gradient: "linear-gradient(135deg,rgba(249,115,22,0.24),rgba(15,23,42,0.94) 58%)",
+    label: "#fdba74",
+  },
+  Autosport: {
+    glow: "rgba(34,197,94,0.16)",
+    gradient: "linear-gradient(135deg,rgba(34,197,94,0.22),rgba(15,23,42,0.94) 58%)",
+    label: "#86efac",
+  },
+  Motorsport: {
+    glow: "rgba(59,130,246,0.18)",
+    gradient: "linear-gradient(135deg,rgba(59,130,246,0.22),rgba(15,23,42,0.94) 58%)",
+    label: "#93c5fd",
+  },
+  RACER: {
+    glow: "rgba(168,85,247,0.18)",
+    gradient: "linear-gradient(135deg,rgba(168,85,247,0.22),rgba(15,23,42,0.94) 58%)",
+    label: "#d8b4fe",
+  },
+};
 const AI_CATEGORY_ORDER = [
   "pole",
   "winner",
@@ -70,14 +90,68 @@ function previewText(value, max = 140) {
 function pickFeaturedArticle(items) {
   if (!items.length) return null;
 
-  const pool = items.slice(0, 8);
+  const pool = items.slice(0, 10);
   return [...pool].sort((left, right) => {
     const leftSummary = left.summary?.length || 0;
     const rightSummary = right.summary?.length || 0;
-    const leftScore = leftSummary + (left.image_url ? 260 : 0);
-    const rightScore = rightSummary + (right.image_url ? 260 : 0);
+    const leftRecency = left.published_at ? new Date(left.published_at).getTime() / 1e11 : 0;
+    const rightRecency = right.published_at ? new Date(right.published_at).getTime() / 1e11 : 0;
+    const leftScore = leftSummary + (left.image_url ? 420 : 0) + leftRecency;
+    const rightScore = rightSummary + (right.image_url ? 420 : 0) + rightRecency;
     return rightScore - leftScore;
   })[0] || items[0];
+}
+
+function articleVisualStyle(source) {
+  return SOURCE_VISUALS[source] || {
+    glow: "rgba(45,212,191,0.16)",
+    gradient: "linear-gradient(135deg,rgba(45,212,191,0.2),rgba(15,23,42,0.94) 58%)",
+    label: "#99f6e4",
+  };
+}
+
+function NewsVisual({ article, height = 128, compact = false }) {
+  const visual = articleVisualStyle(article.source);
+
+  if (article.image_url) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height,
+          borderRadius: compact ? 16 : 18,
+          backgroundImage: `linear-gradient(180deg,rgba(2,6,23,0.02),rgba(2,6,23,0.34)),url(${article.image_url})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          boxShadow: `0 20px 42px ${visual.glow}`,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height,
+        borderRadius: compact ? 16 : 18,
+        border: "1px solid rgba(148,163,184,0.12)",
+        background: visual.gradient,
+        boxShadow: `0 20px 42px ${visual.glow}`,
+        padding: compact ? "12px 12px 11px" : "16px 16px 14px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: visual.label }}>
+        {article.source || "F1 feed"}
+      </div>
+      <div style={{ fontSize: compact ? 13 : 16, fontWeight: 800, lineHeight: 1.24, color: "#f8fafc", letterSpacing: -0.3 }}>
+        {previewText(article.title, compact ? 72 : 108)}
+      </div>
+    </div>
+  );
 }
 
 function detailOverlayPayload(section, item) {
@@ -128,6 +202,7 @@ function detailOverlayPayload(section, item) {
 }
 
 export default function NewsPage({ initialTab = "news", lockedTab = null }) {
+  const { isMobile, isTablet } = useViewport();
   const [articles, setArticles] = useState([]);
   const [insight, setInsight] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -178,14 +253,18 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
     return () => { ignore = true; };
   }, []);
 
-  const featured = useMemo(() => pickFeaturedArticle(articles), [articles]);
+  const visibleArticles = useMemo(
+    () => articles.filter((article) => !BLOCKED_NEWS_SOURCES.has(article.source)),
+    [articles]
+  );
+  const featured = useMemo(() => pickFeaturedArticle(visibleArticles), [visibleArticles]);
   const remainingArticles = useMemo(
-    () => articles.filter((article) => article.id !== featured?.id),
-    [articles, featured]
+    () => visibleArticles.filter((article) => article.id !== featured?.id),
+    [visibleArticles, featured]
   );
   const ticker = useMemo(() => remainingArticles.slice(0, 5), [remainingArticles]);
   const feed = useMemo(() => remainingArticles, [remainingArticles]);
-  const sourceCount = useMemo(() => new Set(articles.map((article) => article.source).filter(Boolean)).size, [articles]);
+  const sourceCount = useMemo(() => new Set(visibleArticles.map((article) => article.source).filter(Boolean)).size, [visibleArticles]);
   const aiPredictions = useMemo(
     () => [...(insight?.metadata?.category_predictions || [])].sort((left, right) => AI_CATEGORY_ORDER.indexOf(left.key) - AI_CATEGORY_ORDER.indexOf(right.key)),
     [insight]
@@ -195,18 +274,18 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
   const previousRace = insight?.metadata?.previous_race || null;
   const previousRaceWeather = insight?.metadata?.previous_race_weather || null;
   const previousRaceStrategy = insight?.metadata?.previous_race_strategy || null;
-  const featuredCompact = !featured?.image_url || (featured?.summary?.length || 0) < 210;
+  const featuredCompact = (featured?.summary?.length || 0) < 260;
 
   return (
-    <div style={{ maxWidth: 1220, margin: "0 auto", padding: "44px 28px 80px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 26, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18 }}>
-        <div style={{ padding: "22px 24px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
+      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
+        <div style={{ padding: "28px 30px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: "linear-gradient(180deg,rgba(255,255,255,0.02),rgba(15,24,44,0.96))" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
             <div style={{ maxWidth: 760 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                 {tab === "news" ? "Newswire" : "AI Brief"}
               </div>
-              <h1 style={{ fontSize: 48, lineHeight: 0.98, margin: "0 0 8px", letterSpacing: -2.2 }}>
+              <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
                 {tab === "news" ? (
                   <>
                     The stories that can
@@ -221,22 +300,22 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </>
                 )}
               </h1>
-              <div style={{ fontSize: 13, color: MUTED_TEXT }}>
+              <div style={{ fontSize: 14, lineHeight: 1.8, color: MUTED_TEXT, maxWidth: 620 }}>
                 {loading
                   ? "Loading race-week feed..."
                   : tab === "news"
-                    ? hasTable ? `${articles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
+                    ? hasTable ? `${visibleArticles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
                     : insight ? "AI summary and category picks generated from news + OpenF1 context" : "Generate one AI brief from Admin to unlock this tab"}
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,116px))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,minmax(0,116px))", gap: 10, width: isMobile ? "100%" : "auto" }}>
               {[
-                [tab === "news" ? String(articles.length || 0) : String(aiPredictions.length || 0), tab === "news" ? "stories" : "picks"],
+                [tab === "news" ? String(visibleArticles.length || 0) : String(aiPredictions.length || 0), tab === "news" ? "stories" : "picks"],
                 [tab === "news" ? String(sourceCount || 0) : (typeof insight?.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "n/a"), tab === "news" ? "sources" : "confidence"],
                 [loading ? "..." : tab === "news" ? (hasTable ? "live" : "setup") : (insight ? "ready" : "empty"), "status"],
               ].map(([value, label]) => (
-                <div key={label} style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "13px 14px 12px" }}>
+                <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.02)", boxShadow: EDGE_RING, padding: "14px 15px 13px" }}>
                   <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
                   <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>{label}</div>
                 </div>
@@ -270,24 +349,25 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
         {loading ? (
           <div style={{ padding: 40, color: MUTED_TEXT, textAlign: "center" }}>Loading news feed...</div>
-        ) : tab === "news" && articles.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.12fr) 350px", gap: 0 }}>
+        ) : tab === "news" && visibleArticles.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) 350px", gap: 0 }}>
             <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", borderRight: `1px solid ${HAIRLINE}` }}>
-              <article style={{ padding: featuredCompact ? 18 : 22, minHeight: "100%" }}>
+              <article style={{ padding: featuredCompact ? 18 : 22 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{featured.source || "Source"}</span>
                   {featured.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(featured.published_at)}</span>}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: featured.image_url ? (featuredCompact ? "minmax(0,1fr) 214px" : "minmax(0,1.04fr) 276px") : "1fr", gap: featuredCompact ? 14 : 18, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : featuredCompact ? "minmax(0,1fr) 236px" : "minmax(0,1.06fr) 304px", gap: featuredCompact ? 14 : 20, alignItems: "start" }}>
                   <div>
-                    <div style={{ fontSize: featuredCompact ? 28 : 32, fontWeight: 900, letterSpacing: -1, lineHeight: 1.05, marginBottom: 12 }}>{featured.title}</div>
+                    <div style={{ fontSize: featuredCompact ? 28 : 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.04, marginBottom: 12 }}>{featured.title}</div>
                     <div style={{ fontSize: 14, lineHeight: 1.76, color: MUTED_TEXT }}>
-                      {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 280 : 520)}
+                      {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 420 : 760)}
+                    </div>
+                    <div style={{ marginTop: 14, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#e2e8f0" }}>
+                      Open full story
                     </div>
                   </div>
-                  {featured.image_url && (
-                    <div style={{ width: "100%", height: featuredCompact ? 174 : 226, borderRadius: 18, backgroundImage: `url(${featured.image_url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                  )}
+                  <NewsVisual article={featured} height={featuredCompact ? 198 : 254} />
                 </div>
               </article>
             </a>
@@ -302,12 +382,15 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
                 {ticker.map((article) => (
                   <a key={article.id} href={article.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                    <article style={{ padding: "14px 16px 13px", background: PANEL_BG }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 7 }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{article.source || "Source"}</span>
-                        {article.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(article.published_at)}</span>}
+                    <article style={{ padding: "14px 16px 13px", background: PANEL_BG, display: "grid", gridTemplateColumns: "96px minmax(0,1fr)", gap: 12, alignItems: "center" }}>
+                      <NewsVisual article={article} height={78} compact />
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 7, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{article.source || "Source"}</span>
+                          {article.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(article.published_at)}</span>}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>{article.title}</div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>{article.title}</div>
                     </article>
                   </a>
                 ))}
@@ -327,7 +410,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           <div style={{ display: "grid", gap: 18, padding: 18 }}>
             <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
               <div style={{ padding: "20px 22px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) 280px", gap: 18, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.25fr) 280px", gap: 18, alignItems: "start" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
                       AI Race Brief
@@ -416,7 +499,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, padding: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 12, padding: 16 }}>
                   {newsDigest.map((item, index) => (
                     <button
                       key={`${item.headline}-${index}`}
@@ -442,7 +525,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
                   <div style={{ background: PANEL_BG, padding: "14px 16px" }}>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>Last winner</div>
                     <div style={{ fontSize: 18, fontWeight: 900 }}>{previousRace?.winner || "N/A"}</div>
@@ -461,7 +544,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 1, background: HAIRLINE }}>
+                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1.2fr 1fr", gap: 1, background: HAIRLINE }}>
                   <div style={{ background: PANEL_BG, padding: "16px 18px" }}>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Previous race podium</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -496,7 +579,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
                 {aiPredictions.map((item, index) => (
                   <div key={`${item.category}-${index}`} style={{ background: PANEL_BG, padding: 18 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
@@ -514,7 +597,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               </div>
             </section>
 
-            <section style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
+            <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 14 }}>
               <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
                 <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
@@ -602,7 +685,8 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
             {feed.map((article) => (
               <a key={article.id} href={article.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                <article style={{ background: PANEL_BG, padding: "16px 18px", display: "grid", gridTemplateColumns: article.image_url ? "minmax(0,1fr) 128px" : "1fr", gap: 16, alignItems: "center" }}>
+                <article style={{ background: PANEL_BG, padding: "16px 18px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "148px minmax(0,1fr)", gap: 16, alignItems: "center" }}>
+                  {!isMobile && <NewsVisual article={article} height={108} />}
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                       <div style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -611,11 +695,9 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                       </div>
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2, letterSpacing: -0.4, marginBottom: 7 }}>{article.title}</div>
-                    <div style={{ fontSize: 13, lineHeight: 1.66, color: MUTED_TEXT }}>{article.summary || "Open the article to read more."}</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(article.summary || "Open the article to read more.", isMobile ? 220 : 320)}</div>
                   </div>
-                  {article.image_url && (
-                    <div style={{ width: "100%", height: 90, borderRadius: 14, backgroundImage: `url(${article.image_url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                  )}
+                  {isMobile && <NewsVisual article={article} height={146} />}
                 </article>
               </a>
             ))}

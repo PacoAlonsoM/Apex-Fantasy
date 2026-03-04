@@ -17,11 +17,6 @@ type NewsArticleRow = {
 
 const FEEDS = [
   {
-    source: "Formula1.com",
-    url: "https://www.formula1.com/en/latest/all.xml",
-    priority: 5,
-  },
-  {
     source: "BBC Sport F1",
     url: "https://feeds.bbci.co.uk/sport/formula1/rss.xml",
     priority: 4,
@@ -141,7 +136,7 @@ function extractParagraphSummary(html: string) {
   return paragraphs.join(" ");
 }
 
-function truncateSummary(value: string | null, max = 560) {
+function truncateSummary(value: string | null, max = 720) {
   if (!value) return null;
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1).trim()}…`;
@@ -171,7 +166,7 @@ function parseFeed(source: string, priority: number, xml: string): NewsArticleRo
 
       return {
         title,
-        summary: truncateSummary(description),
+      summary: truncateSummary(description, 820),
         url,
         source,
         published_at: publishedAt,
@@ -238,7 +233,7 @@ async function enrichArticle(article: NewsArticleRow) {
 
     return {
       ...article,
-      summary: truncateSummary(bestSummaryCandidate, 760),
+      summary: truncateSummary(bestSummaryCandidate, 1040),
       image_url: imageUrl || null,
       metadata: {
         ...article.metadata,
@@ -325,14 +320,14 @@ Deno.serve(async (req: Request) => {
   }
 
   const articles = dedupeArticles(collected);
-  const enrichedArticles = await Promise.all(
-    articles.map((article, index) => (index < 18 ? enrichArticle(article) : Promise.resolve(article)))
-  );
+  const enrichedArticles = await Promise.all(articles.map((article) => enrichArticle(article)));
 
   if (enrichedArticles.length) {
     const { error } = await supabase.from("news_articles").upsert(enrichedArticles, { onConflict: "url" });
     if (error) errors.push(`news_articles: ${error.message}`);
   }
+
+  await supabase.from("news_articles").delete().eq("source", "Formula1.com");
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 60);

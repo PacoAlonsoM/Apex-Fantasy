@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { nextRace } from "../constants/calendar";
-import { BRAND_GRADIENT, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, avatarTheme, teamSupportKey } from "../constants/design";
+import {
+  BRAND_GRADIENT,
+  CARD_RADIUS,
+  CONTENT_MAX,
+  DEFAULT_AVATAR_COLOR,
+  EDGE_RING,
+  HAIRLINE,
+  LIFTED_SHADOW,
+  MUTED_TEXT,
+  PANEL_BG,
+  PANEL_BG_ALT,
+  PANEL_BG_STRONG,
+  PANEL_BORDER,
+  SECTION_RADIUS,
+  SOFT_SHADOW,
+  SUBTLE_TEXT,
+  avatarTheme,
+  teamSupportKey,
+} from "../constants/design";
 import { requireActiveSession } from "../authProfile";
+import useViewport from "../useViewport";
 
 const avatarPalette = [
   ["#94a3b8", "#e2e8f0"],
@@ -63,7 +82,9 @@ function normalizeProfileIdentity(profile, currentUser = null) {
 }
 
 export default function CommunityPage({ user, openAuth }) {
+  const { isMobile, isTablet } = useViewport();
   const [tab, setTab] = useState("leagues");
+  const [leagueView, setLeagueView] = useState("standings");
   const [posts, setPosts] = useState([]);
   const [authorProfiles, setAuthorProfiles] = useState({});
   const [leaderboard, setLeaderboard] = useState([]);
@@ -137,6 +158,7 @@ export default function CommunityPage({ user, openAuth }) {
       gap: currentStandings.length > 1 ? (currentStandings[0].points || 0) - (currentStandings[1].points || 0) : currentStandings[0].points || 0,
     };
   }, [currentStandings]);
+  const rosterPreview = useMemo(() => currentStandings.slice(0, 8), [currentStandings]);
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -384,7 +406,7 @@ export default function CommunityPage({ user, openAuth }) {
           const postComments = comments[post.id] || [];
 
           return (
-            <div key={post.id} style={{ borderRadius: 18, border: open ? "1px solid var(--team-accent-border)" : PANEL_BORDER, background: open ? "linear-gradient(180deg,var(--team-accent-ghost),#101a2d)" : PANEL_BG, overflow: "hidden" }}>
+            <div key={post.id} style={{ borderRadius: CARD_RADIUS, border: open ? "1px solid rgba(248,250,252,0.14)" : PANEL_BORDER, background: open ? PANEL_BG_ALT : PANEL_BG, overflow: "hidden", boxShadow: open ? EDGE_RING : "none" }}>
               <div
                 style={{ padding: "15px 16px", cursor: "pointer", borderRadius: 18 }}
                 onClick={() => toggleThread(scope, post.id)}
@@ -474,8 +496,8 @@ export default function CommunityPage({ user, openAuth }) {
         {[...items].reverse().map((post) => {
           const mine = post.author_id === user?.id;
           const themeKey = authorProfiles[post.author_id]?.avatar_color;
-          const bubbleBg = mine ? "linear-gradient(180deg,var(--team-accent-soft),rgba(12,20,36,0.94))" : PANEL_BG_ALT;
-          const bubbleBorder = mine ? "1px solid var(--team-accent-border)" : "1px solid rgba(148,163,184,0.12)";
+          const bubbleBg = mine ? "linear-gradient(180deg,rgba(255,255,255,0.03),#111c30)" : PANEL_BG_ALT;
+          const bubbleBorder = mine ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.12)";
 
           return (
             <div key={post.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -500,21 +522,21 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   return (
-    <div style={{ maxWidth: 1220, margin: "0 auto", padding: "44px 28px 80px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 24, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(8,17,29,0.97) 36%)", padding: "24px 26px 22px", marginBottom: 18, boxShadow: "0 26px 70px rgba(0,0,0,0.24)" }}>
+    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
+      <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG_STRONG})`, padding: "28px 30px 24px", marginBottom: 18, boxShadow: LIFTED_SHADOW, overflow: "hidden" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div style={{ maxWidth: 760 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 999, background: "var(--team-accent-ghost)", border: "1px solid var(--team-accent-border)", marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--team-accent)" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Community</span>
             </div>
-            <h1 style={{ fontSize: 46, lineHeight: 0.98, margin: "0 0 10px", letterSpacing: -2 }}>
+            <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.7 }}>
               League spaces, member standings
               <br />
               and race-week discussion.
             </h1>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: MUTED_TEXT }}>
-              Community should feel like a workspace for each league, not just a list of join codes. This page is now built around dedicated league views.
+            <p style={{ margin: 0, maxWidth: 650, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
+              This should feel closer to a shared workspace than a forum dump: your league area, a cleaner global leaderboard, and public discussion that still fits the same product shell.
             </p>
           </div>
 
@@ -524,15 +546,15 @@ export default function CommunityPage({ user, openAuth }) {
                 key={value}
                 onClick={() => setTab(value)}
                 style={{
-                  background: tab === value ? "linear-gradient(180deg,var(--team-accent-soft),#17263f)" : PANEL_BG_ALT,
-                  border: tab === value ? "1px solid var(--team-accent-border)" : "1px solid rgba(148,163,184,0.14)",
+                  background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.05),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
+                  border: tab === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.14)",
                   borderRadius: 14,
                   color: tab === value ? "#fff" : MUTED_TEXT,
                   cursor: "pointer",
                   padding: "11px 15px",
                   fontSize: 13,
                   fontWeight: 800,
-                  boxShadow: tab === value ? "0 12px 26px rgba(0,0,0,0.2)" : "none",
+                  boxShadow: tab === value ? SOFT_SHADOW : "none",
                 }}
               >
                 {label}
@@ -544,9 +566,9 @@ export default function CommunityPage({ user, openAuth }) {
 
       {tab === "leagues" && (
         user ? (
-          <section style={{ display: "grid", gridTemplateColumns: "296px minmax(0,1fr)", gap: 18 }}>
+          <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "300px minmax(0,1fr)", gap: 18 }}>
             <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
-              <div style={{ borderRadius: 22, border: PANEL_BORDER, background: "linear-gradient(180deg,var(--team-accent-ghost),rgba(12,20,36,0.98) 22%)", padding: 18 }}>
+              <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 18, boxShadow: SOFT_SHADOW }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
                   League controls
                 </div>
@@ -580,7 +602,7 @@ export default function CommunityPage({ user, openAuth }) {
                 </div>
               </div>
 
-              <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+              <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
                 <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Your leagues</div>
                   <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>{leagues.length}</div>
@@ -617,8 +639,8 @@ export default function CommunityPage({ user, openAuth }) {
             <div>
               {currentLeague ? (
                 <>
-                  <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16, boxShadow: "0 18px 48px rgba(0,0,0,0.18)" }}>
-                    <div style={{ height: 4, background: "linear-gradient(90deg,var(--team-accent),#64748b)" }} />
+                  <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16, boxShadow: SOFT_SHADOW }}>
+                    <div style={{ height: 3, background: BRAND_GRADIENT }} />
                     <div style={{ padding: "20px 22px 18px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
@@ -645,98 +667,217 @@ export default function CommunityPage({ user, openAuth }) {
                         </div>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 10 }}>
                         <StatCard label="Members" value={String(currentStandings.length || 0)} accent="#dbe4f0" />
                         <StatCard label="Leader" value={leagueSummary.leader?.username || "No one"} accent="#cbd5e1" />
                         <StatCard label="Average" value={`${leagueSummary.average} pts`} accent="#bfdbfe" />
                         <StatCard label="Next race" value={next?.n || "TBA"} accent="#cbd5e1" />
                       </div>
+
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                        {[["standings", "Standings"], ["chat", "Chat"], ["info", "League Info"]].map(([value, label]) => (
+                          <button
+                            key={value}
+                            onClick={() => setLeagueView(value)}
+                            style={{
+                              background: leagueView === value ? "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
+                              border: leagueView === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.14)",
+                              borderRadius: 999,
+                              color: leagueView === value ? "#fff" : MUTED_TEXT,
+                              cursor: "pointer",
+                              padding: "8px 12px",
+                              fontSize: 11,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(320px,0.82fr) minmax(0,1.18fr)", gap: 16 }}>
-                    <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>League standings</div>
-                          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>Race for the top spot</div>
-                        </div>
-                        <div style={{ fontSize: 12, color: MUTED_TEXT }}>
-                          Leader gap: <span style={{ color: "#fff", fontWeight: 800 }}>{leagueSummary.gap} pts</span>
-                        </div>
-                      </div>
-
-                      {leagueStandings[currentLeague.id] === undefined ? (
-                        <div style={{ padding: 28, color: MUTED_TEXT }}>Loading league standings...</div>
-                      ) : currentStandings.length === 0 ? (
-                        <div style={{ padding: 28, color: MUTED_TEXT }}>No members found in this league yet.</div>
-                      ) : (
-                        <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
-                          {currentStandings.map((member, index) => (
-                            <div key={member.id} style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 96px", gap: 0, background: PANEL_BG }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: index === 0 ? "#e2e8f0" : index === 1 ? "#cbd5e1" : index === 2 ? "#94a3b8" : SUBTLE_TEXT }}>
-                                {index + 1}
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 12px" }}>
-                                <AvatarChip name={member.username} colorKey={member.avatar_color} />
-                                <div>
-                                  <div style={{ fontSize: 13, fontWeight: 800 }}>{member.username}</div>
-                                  <div style={{ fontSize: 11, color: MUTED_TEXT }}>{index === 0 ? "Current league leader" : "League member"}</div>
-                                </div>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, color: "#fff" }}>
-                                {member.points || 0}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: "grid", alignContent: "start" }}>
-                      <div style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+                  {leagueView === "standings" && (
+                    <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(340px,0.96fr) minmax(0,0.84fr)", gap: 16 }}>
+                      <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
                           <div>
-                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>League chat</div>
-                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>Private race room</div>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>League standings</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>Race for the top spot</div>
                           </div>
-                          <div style={{ fontSize: 12, color: MUTED_TEXT }}>Quick chat for league strategy and race banter.</div>
+                          <div style={{ fontSize: 12, color: MUTED_TEXT }}>
+                            Leader gap: <span style={{ color: "#fff", fontWeight: 800 }}>{leagueSummary.gap} pts</span>
+                          </div>
                         </div>
 
-                        <div style={{ padding: 16 }}>
-                          {leagueForumReady[currentLeague.id] === false ? (
-                            <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: 16 }}>
-                              <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>League chat backend missing</div>
-                              <div style={{ fontSize: 12, lineHeight: 1.65, color: MUTED_TEXT }}>
-                                This layout is ready for private league discussions, but the database still needs a `league_id` column on `posts` so each league can have its own forum feed.
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ borderRadius: 16, border: "1px solid var(--team-accent-border)", background: "linear-gradient(180deg,var(--team-accent-ghost),#101a2d)", padding: 14, marginBottom: 14 }}>
-                                <textarea
-                                  style={{ ...inputStyle, minHeight: 84, resize: "vertical", marginBottom: 10 }}
-                                  placeholder="Drop a message for your league..."
-                                  value={leagueMessage}
-                                  onChange={(event) => setLeagueMessage(event.target.value)}
-                                />
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                                  <div style={{ fontSize: 11, color: MUTED_TEXT }}>Messages stay inside this private league space.</div>
-                                  <button onClick={submitLeaguePost} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "10px 14px", fontSize: 12 }}>
-                                    Send
-                                  </button>
+                        {leagueStandings[currentLeague.id] === undefined ? (
+                          <div style={{ padding: 28, color: MUTED_TEXT }}>Loading league standings...</div>
+                        ) : currentStandings.length === 0 ? (
+                          <div style={{ padding: 28, color: MUTED_TEXT }}>No members found in this league yet.</div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+                            {currentStandings.map((member, index) => (
+                              <div key={member.id} style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 96px", gap: 0, background: PANEL_BG }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: index === 0 ? "#e2e8f0" : index === 1 ? "#cbd5e1" : index === 2 ? "#94a3b8" : SUBTLE_TEXT }}>
+                                  {index + 1}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 12px" }}>
+                                  <AvatarChip name={member.username} colorKey={member.avatar_color} />
+                                  <div>
+                                    <div style={{ fontSize: 13, fontWeight: 800 }}>{member.username}</div>
+                                    <div style={{ fontSize: 11, color: MUTED_TEXT }}>{index === 0 ? "Current league leader" : "League member"}</div>
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, color: "#fff" }}>
+                                  {member.points || 0}
                                 </div>
                               </div>
-                              {renderLeagueChat(currentLeaguePosts)}
-                            </>
-                          )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>League pulse</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>What matters this week</div>
+                          </div>
+                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
+                            <StatCard label="Leader" value={leagueSummary.leader?.username || "No one"} accent="#dbe4f0" />
+                            <StatCard label="Lead gap" value={`${leagueSummary.gap} pts`} accent="#bfdbfe" />
+                            <StatCard label="Next race" value={next?.n || "TBA"} accent="#cbd5e1" />
+                          </div>
+                        </div>
+
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Member roster</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Who is in the room</div>
+                          </div>
+                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
+                            {rosterPreview.map((member) => (
+                              <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "11px 12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <AvatarChip name={member.username} colorKey={member.avatar_color} size={30} radius={9} fontSize={10} />
+                                  <div style={{ fontSize: 12, fontWeight: 800 }}>{member.username}</div>
+                                </div>
+                                <div style={{ fontSize: 11, color: MUTED_TEXT }}>{member.points || 0} pts</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {leagueView === "chat" && (
+                    <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>League chat</div>
+                          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>Private race room</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: MUTED_TEXT }}>Quick race-week discussion and lineup talk.</div>
+                      </div>
+
+                      <div style={{ padding: 16 }}>
+                        {leagueForumReady[currentLeague.id] === false ? (
+                          <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: 16 }}>
+                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>League chat backend missing</div>
+                            <div style={{ fontSize: 12, lineHeight: 1.65, color: MUTED_TEXT }}>
+                              This layout is ready for private league discussions, but the database still needs a `league_id` column on `posts` so each league can have its own forum feed.
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: 14, marginBottom: 14, boxShadow: EDGE_RING }}>
+                              <textarea
+                                style={{ ...inputStyle, minHeight: 84, resize: "vertical", marginBottom: 10 }}
+                                placeholder="Drop a message for your league..."
+                                value={leagueMessage}
+                                onChange={(event) => setLeagueMessage(event.target.value)}
+                              />
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                <div style={{ fontSize: 11, color: MUTED_TEXT }}>Messages stay inside this private league space.</div>
+                                <button onClick={submitLeaguePost} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "10px 14px", fontSize: 12 }}>
+                                  Send
+                                </button>
+                              </div>
+                            </div>
+                            {renderLeagueChat(currentLeaguePosts)}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {leagueView === "info" && (
+                    <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 320px", gap: 16 }}>
+                      <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                        <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>League info</div>
+                          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Operate the league cleanly</div>
+                        </div>
+                        <div style={{ padding: 16, display: "grid", gap: 12 }}>
+                          <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Invite flow</div>
+                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>Share the league code and bring the room together.</div>
+                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>Your current invite code is <span style={{ color: "#fff", fontWeight: 800, letterSpacing: "0.14em", fontFamily: "monospace" }}>{currentLeague.code}</span>. New players join from the league controls panel.</div>
+                          </div>
+
+                          <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Competitive frame</div>
+                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>This league is tracking {next?.n || "the next Grand Prix"}.</div>
+                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>The cleanest rhythm is: read the race-week information, lock picks, then use chat and standings to track who gained ground after scoring.</div>
+                          </div>
+
+                          <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Ownership</div>
+                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{currentLeague.owner_id === user.id ? "You own this league." : "You are a member of this league."}</div>
+                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{currentLeague.owner_id === user.id ? "As owner, you can share the code or remove the league completely." : "You can leave at any time without affecting the rest of the members."}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Members</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Current roster</div>
+                          </div>
+                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
+                            {rosterPreview.length ? rosterPreview.map((member) => (
+                              <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "11px 12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <AvatarChip name={member.username} colorKey={member.avatar_color} size={30} radius={9} fontSize={10} />
+                                  <div style={{ fontSize: 12, fontWeight: 800 }}>{member.username}</div>
+                                </div>
+                                <div style={{ fontSize: 11, color: MUTED_TEXT }}>{member.points || 0} pts</div>
+                              </div>
+                            )) : (
+                              <div style={{ fontSize: 12, color: MUTED_TEXT }}>No members yet.</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>League health</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Quick checks</div>
+                          </div>
+                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
+                            <StatCard label="Members" value={String(currentStandings.length || 0)} accent="#dbe4f0" />
+                            <StatCard label="Leader gap" value={`${leagueSummary.gap} pts`} accent="#bfdbfe" />
+                            <StatCard label="Chat posts" value={String(currentLeaguePosts.length || 0)} accent="#cbd5e1" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
-                <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, padding: 28 }}>
+                <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 28, boxShadow: SOFT_SHADOW }}>
                   <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>No league selected</div>
                   <div style={{ fontSize: 13, lineHeight: 1.65, color: MUTED_TEXT }}>
                     Create a new league or join with a code to open a dedicated standings and discussion space.
@@ -746,7 +887,7 @@ export default function CommunityPage({ user, openAuth }) {
             </div>
           </section>
         ) : (
-          <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, padding: 28 }}>
+          <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 28, boxShadow: SOFT_SHADOW }}>
             <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>Login to open league spaces</div>
             <div style={{ fontSize: 13, lineHeight: 1.68, color: MUTED_TEXT, marginBottom: 16 }}>
               Leagues are now handled as dedicated workspaces with member standings and league-specific discussion.
@@ -759,7 +900,7 @@ export default function CommunityPage({ user, openAuth }) {
       )}
 
       {tab === "leaderboard" && (
-        <section style={{ borderRadius: 22, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
+        <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Global leaderboard</div>
@@ -813,7 +954,7 @@ export default function CommunityPage({ user, openAuth }) {
           </div>
 
           {showGlobalForm && (
-            <div style={{ borderRadius: 18, border: PANEL_BORDER, background: PANEL_BG, padding: 16, marginBottom: 14 }}>
+            <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 16, marginBottom: 14, boxShadow: SOFT_SHADOW }}>
               <input
                 style={{ ...inputStyle, marginBottom: 10 }}
                 placeholder="Post title"
