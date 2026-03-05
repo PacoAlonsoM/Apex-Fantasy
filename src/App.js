@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { supabase } from "./supabase";
 import BgCanvas from "./components/BgCanvas";
 import Navbar from "./components/Navbar";
@@ -70,6 +71,7 @@ export default function StintApp() {
       }}
     >
       <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main,nav{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
+      <SpeedInsights />
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />
