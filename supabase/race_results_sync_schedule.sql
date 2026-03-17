@@ -22,11 +22,12 @@ select vault.create_secret(
   'Header secret used by the race-results-sync cron job'
 );
 
--- Schedule the function every 15 minutes.
+-- Schedule the function once per hour on Sundays (UTC).
+-- This keeps the flow close to "after every race" without running all week.
 -- It will detect the latest completed race automatically and only score unscored predictions.
 select cron.schedule(
-  'race-results-sync-every-15-min',
-  '*/15 * * * *',
+  'race-results-sync-hourly-sunday',
+  '0 * * * 0',
   $$
   select
     net.http_post(

@@ -217,7 +217,7 @@ That file:
 
 - stores your project URL in Vault
 - stores your `RACE_RESULTS_SYNC_SECRET` in Vault
-- schedules `race-results-sync` every 15 minutes with `pg_cron`
+- schedules `race-results-sync` hourly on Sundays (UTC) with `pg_cron`
 
 Before running it:
 
