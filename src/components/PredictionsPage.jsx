@@ -82,12 +82,12 @@ function promptGroups(isSprintTab) {
   if (isSprintTab) {
     return [
       {
-        title: "Sprint board",
+        title: "Sprint picks",
         prompts: [
-          { key: "sp_pole", label: "Sprint Pole", type: "driver", pts: PTS.sp_pole, hint: "Fastest driver in sprint qualifying." },
-          { key: "sp_winner", label: "Sprint Winner", type: "driver", pts: PTS.sp_winner, hint: "Who takes the sprint win." },
-          { key: "sp_p2", label: "Sprint 2nd", type: "driver", pts: PTS.sp_p2, hint: "Second place in the sprint." },
-          { key: "sp_p3", label: "Sprint 3rd", type: "driver", pts: PTS.sp_p3, hint: "Third place in the sprint." },
+          { key: "sp_pole", label: "Sprint Pole", type: "driver", pts: PTS.sp_pole, hint: "Pick who starts first in the sprint." },
+          { key: "sp_winner", label: "Sprint Winner", type: "driver", pts: PTS.sp_winner, hint: "Pick who wins the sprint." },
+          { key: "sp_p2", label: "Sprint 2nd", type: "driver", pts: PTS.sp_p2, hint: "Pick the driver who finishes second." },
+          { key: "sp_p3", label: "Sprint 3rd", type: "driver", pts: PTS.sp_p3, hint: "Pick the driver who finishes third." },
         ],
       },
     ];
@@ -95,28 +95,28 @@ function promptGroups(isSprintTab) {
 
   return [
     {
-      title: "Front of the order",
+      title: "Front-runners",
       prompts: [
-        { key: "pole", label: "Pole Position", type: "driver", pts: PTS.pole, hint: "Who is quickest over one lap." },
-        { key: "winner", label: "Race Winner", type: "driver", pts: PTS.winner, hint: "Pick the Sunday winner." },
-        { key: "p2", label: "2nd Place", type: "driver", pts: PTS.p2, hint: "Who crosses the line in second." },
-        { key: "p3", label: "3rd Place", type: "driver", pts: PTS.p3, hint: "Who completes the podium." },
+        { key: "pole", label: "Pole Position", type: "driver", pts: PTS.pole, hint: "Pick who starts first." },
+        { key: "winner", label: "Race Winner", type: "driver", pts: PTS.winner, hint: "Pick who wins on Sunday." },
+        { key: "p2", label: "2nd Place", type: "driver", pts: PTS.p2, hint: "Pick the driver who finishes second." },
+        { key: "p3", label: "3rd Place", type: "driver", pts: PTS.p3, hint: "Pick the driver who finishes third." },
       ],
     },
     {
-      title: "Volatility",
+      title: "Risk and upside",
       prompts: [
-        { key: "dnf", label: "DNF Driver", type: "driver", pts: PTS.dnf, hint: "Driver most likely not to finish." },
-        { key: "fl", label: "Fastest Lap", type: "driver", pts: PTS.fl, hint: "Late-race pace or outright control." },
-        { key: "dotd", label: "Driver of the Day", type: "driver", pts: PTS.dotd, hint: "Fan-voted race standout." },
+        { key: "dnf", label: "DNF Driver", type: "driver", pts: PTS.dnf, hint: "Pick one driver most likely not to finish." },
+        { key: "fl", label: "Fastest Lap", type: "driver", pts: PTS.fl, hint: "Pick the driver most likely to set fastest lap." },
+        { key: "dotd", label: "Driver of the Day", type: "driver", pts: PTS.dotd, hint: "Pick the driver fans are most likely to vote for." },
       ],
     },
     {
-      title: "Team and race state",
+      title: "Weekend extras",
       prompts: [
-        { key: "ctor", label: "Constructor with Most Points", type: "constructor", pts: PTS.ctor, hint: "Team likely to own the weekend." },
+        { key: "ctor", label: "Constructor with Most Points", type: "constructor", pts: PTS.ctor, hint: "Pick the team most likely to score the most points." },
         { key: "sc", label: "Safety Car?", type: "binary", pts: PTS.sc, hint: "Will there be a safety car period?" },
-        { key: "rf", label: "Red Flag?", type: "binary", pts: PTS.rf, hint: "Will the session be stopped?" },
+        { key: "rf", label: "Red Flag?", type: "binary", pts: PTS.rf, hint: "Will there be a red flag?" },
       ],
     },
   ];
@@ -160,9 +160,7 @@ function selectionMeta(prompt, value) {
 
 function emptySelectionLabel(prompt) {
   if (!prompt) return "";
-  if (prompt.type === "binary") return "Not answered";
-  if (prompt.type === "constructor") return "No constructor selected";
-  return "No driver selected";
+  return "Tap to choose";
 }
 
 function predictionMatches(prompt, item, value) {
@@ -177,13 +175,13 @@ function RoundSidebarItem({ item, active, isSaved, onClick }) {
       style={{
         width: "100%",
         display: "grid",
-        gridTemplateColumns: "44px minmax(0,1fr)",
-        gap: 12,
+        gridTemplateColumns: "40px minmax(0,1fr)",
+        gap: 10,
         alignItems: "center",
         border: "none",
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : PANEL_BG,
-        padding: "12px 14px",
+        padding: "10px 12px",
         textAlign: "left",
         cursor: "pointer",
         boxShadow: active ? `0 0 0 1px ${hexToRgba(ACCENT, 0.2)}` : "none",
@@ -191,8 +189,8 @@ function RoundSidebarItem({ item, active, isSaved, onClick }) {
     >
       <div
         style={{
-          width: 44,
-          height: 44,
+          width: 40,
+          height: 40,
           borderRadius: "50%",
           background: PANEL_BG,
           border: `2px solid ${active ? ACCENT : "rgba(255,255,255,0.12)"}`,
@@ -200,7 +198,7 @@ function RoundSidebarItem({ item, active, isSaved, onClick }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: 800,
           color: TEXT_PRIMARY,
         }}
@@ -208,7 +206,7 @@ function RoundSidebarItem({ item, active, isSaved, onClick }) {
         {item.r}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 4 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 4 }}>
           {item.n}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -243,18 +241,18 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : PANEL_BG,
         boxShadow: `inset 3px 0 0 ${leftAccent}`,
-        padding: 20,
+        padding: 14,
         textAlign: "left",
         cursor: "pointer",
-        minHeight: 148,
+        minHeight: 108,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span
             style={{
-              width: 8,
-              height: 8,
+              width: 6,
+              height: 6,
               borderRadius: "50%",
               background: statusColor,
               animation: value ? "none" : "pulseDot 2s infinite",
@@ -264,17 +262,17 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
             {prompt.section}
           </span>
         </div>
-        <span style={{ borderRadius: 999, padding: "5px 12px", fontSize: 13, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT }}>
+        <span style={{ borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 700, background: BG_BASE, color: SUBTLE_TEXT }}>
           {prompt.pts} pts
         </span>
       </div>
-      <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", color: TEXT_PRIMARY, marginBottom: 8 }}>
+      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 6, lineHeight: 1.08 }}>
         {prompt.label}
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 8 }}>
         {meta ? meta.label : emptySelectionLabel(prompt)}
       </div>
-      <div style={{ fontSize: 14, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: aiItem ? 12 : 0 }}>
+      <div style={{ fontSize: 12, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: aiItem ? 8 : 0 }}>
         {prompt.hint}
       </div>
       {aiItem && (
@@ -294,12 +292,12 @@ function DriverOption({ driver, selected, onClick, aiMatch = false }) {
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 84,
+        minHeight: 76,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}${selected ? ", 0 0 0 1px rgba(255,255,255,0.04)" : ""}`,
-        padding: "14px 16px",
+        padding: "12px 14px",
         textAlign: "left",
         cursor: "pointer",
       }}
@@ -353,12 +351,12 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false }) {
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 84,
+        minHeight: 76,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}`,
-        padding: "14px 16px",
+        padding: "12px 14px",
         textAlign: "left",
         cursor: "pointer",
       }}
@@ -391,12 +389,12 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 104,
+        minHeight: 88,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${color}`,
-        padding: "16px",
+        padding: "14px",
         textAlign: "left",
         cursor: "pointer",
       }}
@@ -517,9 +515,27 @@ export default function PredictionsPage({ user, openAuth }) {
     setTab("race");
   };
 
-  const setPick = (key, value) => {
-    setPicks((current) => ({ ...current, [key]: value }));
+  const commitPick = (key, value) => {
+    const currentValue = picks[key];
+    const nextValue = currentValue === value ? null : value;
+    setPicks((current) => ({ ...current, [key]: nextValue }));
     setSaved(false);
+
+    if (!nextValue) return;
+
+    const currentIndex = prompts.findIndex((prompt) => prompt.key === key);
+    const nextUnanswered = prompts.find((prompt, index) => index > currentIndex && !picks[prompt.key] && prompt.key !== key);
+    const fallbackNext = currentIndex >= 0 ? prompts[currentIndex + 1] : null;
+    const targetPrompt = nextUnanswered || fallbackNext || null;
+
+    if (targetPrompt?.key && targetPrompt.key !== key) {
+      window.setTimeout(() => {
+        setActivePromptKey(targetPrompt.key);
+        if (isTablet) {
+          boardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 120);
+    }
   };
 
   const focusPrompt = (promptKey) => {
@@ -532,10 +548,10 @@ export default function PredictionsPage({ user, openAuth }) {
   };
 
   const save = async () => {
-    if (!user) return openAuth("login");
+    if (!user) return openAuth("register");
 
     const session = await requireActiveSession();
-    if (!session) return openAuth("login");
+    if (!session) return openAuth("register");
 
     const { error } = await supabase.from("predictions").upsert(
       { user_id: user.id, race_round: race.r, picks, updated_at: new Date().toISOString() },
@@ -570,6 +586,11 @@ export default function PredictionsPage({ user, openAuth }) {
   const totalPrompts = prompts.length;
   const done = prompts.filter((prompt) => !!picks[prompt.key]).length;
   const completion = totalPrompts ? Math.round((done / totalPrompts) * 100) : 0;
+  const activeStep = activePrompt ? prompts.findIndex((prompt) => prompt.key === activePrompt.key) + 1 : 1;
+  const nextUnansweredPrompt = prompts.find((prompt) => !picks[prompt.key]) || null;
+  const upcomingPromptAfterActive = activePrompt
+    ? prompts.find((prompt, index) => index > activeIndex && !picks[prompt.key])
+    : null;
 
   const aiTargetsRace = aiInsight?.race_name === race.n;
   const aiPredictions = aiTargetsRace ? (aiInsight?.metadata?.category_predictions || []) : [];
@@ -674,7 +695,7 @@ export default function PredictionsPage({ user, openAuth }) {
                     {race.n}
                   </h1>
                   <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 640, marginBottom: 14 }}>
-                    Lock your calls before qualifying starts. Build the front of the order first, then move through volatility and race-state picks.
+                    Start at the top, answer one category at a time, and save the round before qualifying. The page moves you forward automatically so new players can fill the board without guessing the flow.
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
@@ -707,6 +728,19 @@ export default function PredictionsPage({ user, openAuth }) {
                       {lockLabel ? `Closes at ${lockLabel}` : "Fetching qualifying schedule."}
                     </div>
                   </div>
+                  <div style={{ borderRadius: CARD_RADIUS, background: PANEL_BG, padding: 18 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                      Next action
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 }}>
+                      {done}/{totalPrompts} complete
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
+                      {nextUnansweredPrompt
+                        ? `Next up: ${nextUnansweredPrompt.label}.`
+                        : "Everything is filled. Save the board to lock it in."}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -736,6 +770,46 @@ export default function PredictionsPage({ user, openAuth }) {
             )}
 
             <div style={{ padding: isMobile ? 20 : 24 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))",
+                  gap: 10,
+                  marginBottom: 18,
+                }}
+              >
+                {[
+                  ["1", "Choose race", "Use the left rail to open the round you want to fill."],
+                  ["2", "Pick answers", "Tap a card, make a choice, and the page moves you forward."],
+                  ["3", "Save board", "Lock the round once every category is filled."],
+                ].map(([step, title, detail], index) => {
+                  const complete = index === 0 || (index === 1 ? done > 0 : done === totalPrompts);
+                  return (
+                    <div
+                      key={step}
+                      style={{
+                        borderRadius: CARD_RADIUS,
+                        background: complete ? PANEL_BG_ALT : PANEL_BG,
+                        padding: "12px 14px",
+                        boxShadow: `inset 3px 0 0 ${complete ? SUCCESS : ACCENT}`,
+                      }}
+                    >
+                      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, background: complete ? "rgba(34,197,94,0.14)" : "rgba(249,115,22,0.14)", color: complete ? SUCCESS : ACCENT, fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
+                        {step}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 4 }}>{title}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.55, color: MUTED_TEXT }}>{detail}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!user && (
+                <div style={{ marginBottom: 18, borderRadius: CARD_RADIUS, background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.16)", padding: "12px 14px", fontSize: 13, lineHeight: 1.6, color: TEXT_PRIMARY }}>
+                  You can build the full board first. Create your account only when you are ready to save the round.
+                </div>
+              )}
+
               {groups.map((group) => (
                 <div key={group.title} style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
@@ -763,21 +837,26 @@ export default function PredictionsPage({ user, openAuth }) {
               <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "start" }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                    Active category
+                    Step {activeStep} of {totalPrompts}
                   </div>
                   <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 8 }}>
-                    {activePrompt?.label}
+                    Choose {activePrompt?.label}
                   </div>
                   <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 640 }}>
-                    {activePrompt?.hint}
+                    {done === 0
+                      ? `Start here. Pick one option and the page will move you to the next category automatically. ${activePrompt?.hint || ""}`
+                      : activePrompt?.hint}
                   </div>
                 </div>
                 <div style={{ display: "grid", gap: 10, minWidth: isTablet ? "auto" : 240 }}>
                   <span style={{ borderRadius: 999, padding: "5px 12px", fontSize: 13, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT, width: "fit-content" }}>
                     {activePrompt?.pts || 0} pts
                   </span>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : MUTED_TEXT }}>
-                    {currentMeta ? currentMeta.label : emptySelectionLabel(activePrompt)}
+                    <div style={{ fontSize: 14, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : MUTED_TEXT }}>
+                      {currentMeta ? currentMeta.label : emptySelectionLabel(activePrompt)}
+                    </div>
+                  <div style={{ fontSize: 12, lineHeight: 1.5, color: SUBTLE_TEXT }}>
+                    {upcomingPromptAfterActive ? `After this, keep going to ${upcomingPromptAfterActive.label}.` : "This is the last missing step before save."}
                   </div>
                   {activeAi && (
                     <div style={{ fontSize: 13, lineHeight: 1.5, color: "#93c5fd" }}>
@@ -797,7 +876,7 @@ export default function PredictionsPage({ user, openAuth }) {
                       driver={driver}
                       selected={picks[activePrompt.key] === driver.n}
                       aiMatch={predictionMatches(activePrompt, activeAi, driver.n)}
-                      onClick={() => setPick(activePrompt.key, picks[activePrompt.key] === driver.n ? null : driver.n)}
+                      onClick={() => commitPick(activePrompt.key, driver.n)}
                     />
                   ))}
                 </div>
@@ -811,7 +890,7 @@ export default function PredictionsPage({ user, openAuth }) {
                       teamName={teamName}
                       selected={picks[activePrompt.key] === teamName}
                       aiMatch={predictionMatches(activePrompt, activeAi, teamName)}
-                      onClick={() => setPick(activePrompt.key, picks[activePrompt.key] === teamName ? null : teamName)}
+                      onClick={() => commitPick(activePrompt.key, teamName)}
                     />
                   ))}
                 </div>
@@ -825,7 +904,7 @@ export default function PredictionsPage({ user, openAuth }) {
                     color={SUCCESS}
                     selected={picks[activePrompt.key] === "Yes"}
                     aiMatch={predictionMatches(activePrompt, activeAi, "Yes")}
-                    onClick={() => setPick(activePrompt.key, picks[activePrompt.key] === "Yes" ? null : "Yes")}
+                    onClick={() => commitPick(activePrompt.key, "Yes")}
                   />
                   <BinaryOption
                     label="No"
@@ -833,7 +912,7 @@ export default function PredictionsPage({ user, openAuth }) {
                     color="#EF4444"
                     selected={picks[activePrompt.key] === "No"}
                     aiMatch={predictionMatches(activePrompt, activeAi, "No")}
-                    onClick={() => setPick(activePrompt.key, picks[activePrompt.key] === "No" ? null : "No")}
+                    onClick={() => commitPick(activePrompt.key, "No")}
                   />
                 </div>
               )}
@@ -883,7 +962,7 @@ export default function PredictionsPage({ user, openAuth }) {
                     Picks status
                   </div>
                   <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT }}>
-                    {done}/{totalPrompts} locked. {aiTargetsRace ? `AI Insight is aligned to ${race.n}.` : "AI Insight is tied to the next race."}
+                    {done}/{totalPrompts} filled. {user ? "Save once the board looks right." : "Create an account at the end to save this board."}
                   </div>
                 </div>
 
@@ -903,7 +982,7 @@ export default function PredictionsPage({ user, openAuth }) {
                     boxShadow: saved ? "0 10px 24px rgba(34,197,94,0.18)" : "0 10px 24px rgba(249,115,22,0.2)",
                   }}
                 >
-                  {saved ? "Predictions Saved" : "Save Predictions"}
+                  {saved ? "Predictions Saved" : user ? "Save Predictions" : "Create Account to Save"}
                 </button>
               </div>
             </div>

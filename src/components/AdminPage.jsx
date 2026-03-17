@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 import { fetchRaceData } from "../openf1";
-import { scoreRace } from "../scoring";
+import { requireActiveSession } from "../authProfile";
 import { CAL } from "../constants/calendar";
 import { ADMIN_ID, BRAND_GRADIENT, PANEL_BG, PANEL_BORDER } from "../constants/design";
 
@@ -13,6 +13,8 @@ export default function AdminPage({ user }) {
   const [pole, setPole] = useState("");
   const [ctor, setCtor] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveResult, setSaveResult] = useState(null);
   const [scoring, setScoring] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
   const [insightLoading, setInsightLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function AdminPage({ user }) {
   const race = CAL.find(r => r.r === round);
 
   const fetchFromAPI = async () => {
-    setLoading(true); setResult(null); setSaved(false); setScoreResult(null);
+    setLoading(true); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null);
     try {
       const data = await fetchRaceData(2026, round);
       if (!data) {
@@ -47,26 +49,121 @@ export default function AdminPage({ user }) {
     setLoading(false);
   };
 
+  const getAccessToken = async () => {
+    const session = await requireActiveSession();
+    return session?.access_token || null;
+  };
+
+  const extractFunctionError = async (error) => {
+    let detail = error?.message || "Unexpected function error.";
+    const context = error?.context;
+
+    if (!context) return detail;
+
+    try {
+      const payload = await context.json();
+      detail = payload?.error || payload?.message || JSON.stringify(payload);
+    } catch {
+      try {
+        detail = await context.text();
+      } catch {
+        detail = error?.message || detail;
+      }
+    }
+
+    return detail;
+  };
+
+  const invokeAdminRaceControl = async (action, payload = null) => {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      throw new Error("No active auth session found. Log out and log back in, then try again.");
+    }
+
+    const { data, error } = await supabase.functions.invoke("admin-race-control", {
+      body: {
+        action,
+        raceRound: round,
+        payload,
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (error) {
+      throw new Error(await extractFunctionError(error));
+    }
+
+    return data;
+  };
+
+  const invokeProtectedFunction = async (name, options = {}) => {
+    const attempt = async (forceRefresh = false) => {
+      if (forceRefresh) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) throw refreshError;
+        if (!refreshed?.session?.access_token) {
+          throw new Error("Session refresh failed. Log out and log back in, then try again.");
+        }
+      }
+
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        throw new Error("No active auth session found. Log out and log back in, then try again.");
+      }
+
+      const { data, error } = await supabase.functions.invoke(name, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!error) return data;
+
+      const detail = await extractFunctionError(error);
+      if (!forceRefresh && detail === "Invalid JWT") {
+        return attempt(true);
+      }
+
+      throw new Error(detail);
+    };
+
+    return attempt(false);
+  };
+
   const saveResults = async () => {
     if (!result || result.error) return;
-    const row = {
-      race_round: round,
-      pole: pole || null,
-      winner: result.winner,
-      p2: result.p2,
-      p3: result.p3,
-      dnf: result.dnf,
-      fastest_lap: result.fastest_lap,
-      dotd: dotd || null,
-      best_constructor: ctor || null,
-      safety_car: result.safety_car,
-      red_flag: result.red_flag,
-      results_entered: true,
-      locked_at: new Date().toISOString(),
-    };
-    const { error } = await supabase.from("race_results").upsert(row, { onConflict: "race_round" });
-    if (error) alert("Error saving: " + error.message);
-    else setSaved(true);
+    setSaveLoading(true);
+    setSaveResult(null);
+
+    try {
+      await invokeAdminRaceControl("save_results", {
+        pole: pole || null,
+        winner: result.winner,
+        p2: result.p2,
+        p3: result.p3,
+        dnf: result.dnf,
+        fastest_lap: result.fastest_lap,
+        dotd: dotd || null,
+        best_constructor: ctor || null,
+        safety_car: result.safety_car,
+        red_flag: result.red_flag,
+      });
+
+      setSaved(true);
+      setSaveResult({ ok: true, message: "Results saved to database." });
+    } catch (error) {
+      setSaved(false);
+      setSaveResult({
+        ok: false,
+        message: error instanceof Error ? error.message : "Unexpected save error.",
+      });
+    }
+
+    setSaveLoading(false);
   };
 
   const generateAiBrief = async () => {
@@ -74,43 +171,10 @@ export default function AdminPage({ user }) {
     setInsightResult(null);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        setInsightResult({ error: "No active auth session found. Log out and log back in, then try again." });
-        setInsightLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke("ai-race-brief", {
+      const data = await invokeProtectedFunction("ai-race-brief", {
         body: { scope: "upcoming_race" },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
-
-      if (error) {
-        let detail = error.message;
-        const context = error.context;
-
-        if (context) {
-          try {
-            const payload = await context.json();
-            detail = payload?.error || payload?.message || JSON.stringify(payload);
-          } catch {
-            try {
-              detail = await context.text();
-            } catch {
-              detail = error.message;
-            }
-          }
-        }
-
-        setInsightResult({ error: detail });
-      } else {
-        setInsightResult(data);
-      }
+      setInsightResult(data);
     } catch (error) {
       setInsightResult({ error: error instanceof Error ? error.message : "Unexpected function error." });
     }
@@ -123,42 +187,8 @@ export default function AdminPage({ user }) {
     setNewsResult(null);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        setNewsResult({ error: "No active auth session found. Log out and log back in, then try again." });
-        setNewsLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke("news-ingest", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (error) {
-        let detail = error.message;
-        const context = error.context;
-
-        if (context) {
-          try {
-            const payload = await context.json();
-            detail = payload?.error || payload?.message || JSON.stringify(payload);
-          } catch {
-            try {
-              detail = await context.text();
-            } catch {
-              detail = error.message;
-            }
-          }
-        }
-
-        setNewsResult({ error: detail });
-      } else {
-        setNewsResult(data);
-      }
+      const data = await invokeProtectedFunction("news-ingest");
+      setNewsResult(data);
     } catch (error) {
       setNewsResult({ error: error instanceof Error ? error.message : "Unexpected function error." });
     }
@@ -190,7 +220,7 @@ export default function AdminPage({ user }) {
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Step 1 — Select Race & Fetch</div>
         <select
           value={round}
-          onChange={e => { setRound(Number(e.target.value)); setResult(null); setSaved(false); setScoreResult(null); }}
+          onChange={e => { setRound(Number(e.target.value)); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null); }}
           style={{ ...inp, marginBottom: 16 }}
         >
           {CAL.map(r => (
@@ -237,9 +267,14 @@ export default function AdminPage({ user }) {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Best Constructor</div>
             <input style={inp} placeholder="e.g. McLaren" value={ctor} onChange={e => setCtor(e.target.value)} />
           </div>
-          <button onClick={saveResults} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#0ea5e9,#2dd4bf)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14 }}>
-            {saved ? "✅ Results Saved!" : "💾 Save to Database"}
+          <button onClick={saveResults} disabled={saveLoading} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#0ea5e9,#2dd4bf)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14, opacity: saveLoading ? 0.6 : 1 }}>
+            {saveLoading ? "Saving..." : saved ? "✅ Results Saved!" : "💾 Save to Database"}
           </button>
+          {saveResult && (
+            <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: saveResult.ok ? "rgba(52,211,153,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${saveResult.ok ? "rgba(52,211,153,0.28)" : "rgba(239,68,68,0.28)"}`, fontSize: 13, color: saveResult.ok ? "#34D399" : "#F87171" }}>
+              {saveResult.ok ? `✅ ${saveResult.message}` : `❌ ${saveResult.message}`}
+            </div>
+          )}
         </div>
       )}
 
@@ -258,9 +293,16 @@ export default function AdminPage({ user }) {
         </p>
         <button
           onClick={async () => {
-            setScoring(true); setScoreResult(null);
-            const res = await scoreRace(round);
-            setScoreResult(res);
+            setScoring(true);
+            setScoreResult(null);
+            try {
+              const res = await invokeAdminRaceControl("score_race");
+              setScoreResult({ success: true, scored: res?.scored || 0 });
+            } catch (error) {
+              setScoreResult({
+                error: error instanceof Error ? error.message : "Unexpected scoring error.",
+              });
+            }
             setScoring(false);
           }}
           disabled={scoring}

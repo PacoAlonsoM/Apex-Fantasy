@@ -111,6 +111,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
+const OPENF1_RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
@@ -138,6 +139,10 @@ function truncateText(value: string, max: number) {
   if (!value) return value;
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1).trim()}…`;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function balanceNewsBySource(articles: Array<Record<string, unknown>>, maxItems: number) {
@@ -168,32 +173,75 @@ function balanceNewsBySource(articles: Array<Record<string, unknown>>, maxItems:
   return picked;
 }
 
-async function fetchOpenF1(path: string) {
-  const response = await fetch(`${OPENF1_BASE}${path}`, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "apex-fantasy-ai-race-brief/1.0",
-    },
-  });
+async function fetchOpenF1(
+  path: string,
+  options: { optional?: boolean; fallbackValue?: unknown; retries?: number } = {},
+) {
+  const {
+    optional = false,
+    fallbackValue = [],
+    retries = 4,
+  } = options;
 
-  if (!response.ok) {
-    throw new Error(`OpenF1 ${path}: ${response.status} ${response.statusText}`);
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      const response = await fetch(`${OPENF1_BASE}${path}`, {
+        headers: {
+          accept: "application/json",
+          "user-agent": "apex-fantasy-ai-race-brief/1.0",
+        },
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      const message = `OpenF1 ${path}: ${response.status} ${response.statusText}`;
+      lastError = new Error(message);
+
+      if (!OPENF1_RETRYABLE_STATUS.has(response.status) || attempt === retries - 1) {
+        break;
+      }
+
+      const retryAfterHeader = Number(response.headers.get("retry-after"));
+      const retryDelay = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+        ? retryAfterHeader * 1000
+        : 350 * (attempt + 1) * (attempt + 2);
+
+      await delay(retryDelay);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(`OpenF1 ${path}: request failed`);
+      if (attempt === retries - 1) break;
+      await delay(350 * (attempt + 1) * (attempt + 2));
+    }
   }
 
-  return await response.json();
+  if (optional) {
+    return fallbackValue;
+  }
+
+  throw lastError || new Error(`OpenF1 ${path}: request failed`);
 }
 
 async function loadRaceSessionsWithFallback(baseYear: number) {
   const candidateYears = [baseYear, baseYear - 1];
+  let lastError: Error | null = null;
 
   for (const year of candidateYears) {
-    const rawRaceSessions = await fetchOpenF1(`/sessions?year=${year}&session_name=Race`);
-    const raceSessions = sortByDate(rawRaceSessions);
-    if (raceSessions.length) {
-      return { year, raceSessions };
+    try {
+      const rawRaceSessions = await fetchOpenF1(`/sessions?year=${year}&session_name=Race`);
+      const raceSessions = sortByDate(rawRaceSessions);
+      if (raceSessions.length) {
+        return { year, raceSessions };
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(`OpenF1 sessions failed for ${year}`);
     }
   }
 
+  if (lastError) throw lastError;
   return { year: baseYear, raceSessions: [] };
 }
 
@@ -497,7 +545,7 @@ Deno.serve(async (req: Request) => {
     const newsCutoff = new Date(Date.now() - NEWS_LOOKBACK_DAYS * 86400000).toISOString();
 
     const [meetingSessions, articleResponse] = await Promise.all([
-      fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`),
+      fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`, { optional: true, fallbackValue: [] }),
       supabase
         .from("news_articles")
         .select("id,title,summary,url,source,published_at")
@@ -526,13 +574,15 @@ Deno.serve(async (req: Request) => {
     let previousRaceWeather = null;
     let previousRaceStrategy = null;
     if (previousRace?.session_key) {
-      const [results, raceControl, drivers, weather, stints] = await Promise.all([
-        fetchOpenF1(`/session_result?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/race_control?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/drivers?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/weather?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/stints?session_key=${previousRace.session_key}`),
-      ]);
+      const results = await fetchOpenF1(`/session_result?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
+      await delay(120);
+      const drivers = await fetchOpenF1(`/drivers?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
+      await delay(120);
+      const raceControl = await fetchOpenF1(`/race_control?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
+      await delay(120);
+      const weather = await fetchOpenF1(`/weather?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
+      await delay(120);
+      const stints = await fetchOpenF1(`/stints?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
 
       previousRaceSummary = {
         meeting_name: previousRace.meeting_name,

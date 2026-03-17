@@ -163,5 +163,26 @@ export async function ensureProfileForUser(authUser, preferredProfile) {
 export async function requireActiveSession() {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  return data.session || null;
+
+  let session = data.session || null;
+  if (!session) return null;
+
+  const expiresAtMs = Number(session.expires_at || 0) * 1000;
+  const needsRefresh = !session.access_token || (expiresAtMs && expiresAtMs - Date.now() < 60_000);
+
+  if (needsRefresh) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) throw refreshError;
+    session = refreshed.session || null;
+  }
+
+  if (!session?.access_token) return null;
+
+  const { error: userError } = await supabase.auth.getUser(session.access_token);
+  if (!userError) return session;
+
+  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError) throw refreshError;
+
+  return refreshed.session || null;
 }
