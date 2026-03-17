@@ -79,7 +79,7 @@ export default function StintApp() {
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
         {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
         {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
-        {page === "standings" && <StandingsPage />}
+        {page === "standings" && <StandingsPage user={user} />}
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
         {page === "admin" && <AdminPage user={user} />}
         {page === "profile" && <ProfilePage user={user} setUser={setUser} />}

@@ -1,9 +1,43 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
-import { fetchRaceData } from "../openf1";
 import { requireActiveSession } from "../authProfile";
 import { CAL } from "../constants/calendar";
 import { ADMIN_ID, BRAND_GRADIENT, PANEL_BG, PANEL_BORDER } from "../constants/design";
+
+function SourceBadge({ tone = "auto", children }) {
+  const themes = {
+    auto: {
+      background: "rgba(34,197,94,0.12)",
+      border: "1px solid rgba(34,197,94,0.24)",
+      color: "#86efac",
+    },
+    manual: {
+      background: "rgba(249,115,22,0.12)",
+      border: "1px solid rgba(249,115,22,0.24)",
+      color: "#fdba74",
+    },
+  };
+
+  const theme = themes[tone] || themes.auto;
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "3px 8px",
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 800,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        ...theme,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 
 export default function AdminPage({ user }) {
   const [round, setRound] = useState(1);
@@ -21,6 +55,7 @@ export default function AdminPage({ user }) {
   const [insightResult, setInsightResult] = useState(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsResult, setNewsResult] = useState(null);
+  const [syncWarnings, setSyncWarnings] = useState([]);
 
   if (!user || user.id !== ADMIN_ID) {
     return (
@@ -35,13 +70,25 @@ export default function AdminPage({ user }) {
   const race = CAL.find(r => r.r === round);
 
   const fetchFromAPI = async () => {
-    setLoading(true); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null);
+    setLoading(true); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null); setSyncWarnings([]);
     try {
-      const data = await fetchRaceData(2026, round);
-      if (!data) {
-        setResult({ error: "No data found. Race may not have happened yet or API doesn't have results." });
+      const data = await invokeAdminRaceControl("sync_openf1_results", {
+        year: Number(String(race?.date || "").slice(0, 4)) || 2026,
+      });
+
+      if (!data?.results) {
+        setResult({ error: "No OpenF1 data found for this round." });
       } else {
-        setResult(data);
+        setResult(data.results);
+        setPole(data.results.pole || "");
+        setDotd(data.results.dotd || "");
+        setCtor(data.results.best_constructor || "");
+        setSaved(true);
+        setSyncWarnings(data.warnings || []);
+        setSaveResult({
+          ok: true,
+          message: "OpenF1 results were synced and saved automatically.",
+        });
       }
     } catch (e) {
       setResult({ error: e.message });
@@ -212,7 +259,7 @@ export default function AdminPage({ user }) {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ffd166" }}>Admin Panel</span>
         </div>
         <h1 style={{ fontSize: 34, fontWeight: 900, margin: "0 0 6px", letterSpacing: -1 }}>Import Race Results</h1>
-        <p style={{ color: "rgba(255,255,255,0.38)", margin: 0, fontSize: 13 }}>Fetch live results from OpenF1 and save to database</p>
+        <p style={{ color: "rgba(255,255,255,0.38)", margin: 0, fontSize: 13 }}>Sync OpenF1 automatically, then only override the categories that still require human input.</p>
       </div>
 
       {/* STEP 1 — Fetch & Save */}
@@ -229,46 +276,104 @@ export default function AdminPage({ user }) {
         </select>
         {race && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>{race.circuit} · {race.date}</div>}
         <button onClick={fetchFromAPI} disabled={loading} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14, opacity: loading ? 0.6 : 1 }}>
-          {loading ? "Fetching from OpenF1..." : "🔄 Fetch Results from OpenF1"}
+          {loading ? "Syncing from OpenF1..." : "🔄 Auto-Sync Results from OpenF1"}
         </button>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.34)", marginTop: 10 }}>
+          This step now auto-saves the OpenF1 result payload into `race_results`. Only missing fields like Driver of the Day may still need an override.
+        </div>
       </div>
 
       {/* Results from API */}
       {result && !result.error && (
         <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginBottom: 20, backdropFilter: "blur(16px)" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>Results from OpenF1</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>Results from OpenF1</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             {[
-              ["🏆 Winner", result.winner],
-              ["2️⃣ P2", result.p2],
-              ["3️⃣ P3", result.p3],
-              ["💨 Fastest Lap", result.fastest_lap],
-              ["❌ DNF", result.dnf],
-              ["🚗 Safety Car", result.safety_car ? "Yes" : "No"],
-              ["🚩 Red Flag", result.red_flag ? "Yes" : "No"],
-            ].map(([label, value]) => (
+              ["🥇 Pole", pole || result.pole, pole ? "manual" : "auto"],
+              ["🏆 Winner", result.winner, "auto"],
+              ["2️⃣ P2", result.p2, "auto"],
+              ["3️⃣ P3", result.p3, "auto"],
+              ["💨 Fastest Lap", result.fastest_lap, "auto"],
+              ["❌ DNF", result.dnf, "auto"],
+              ["🏗️ Constructor", ctor || result.best_constructor, ctor ? "manual" : "auto"],
+              ["🚗 Safety Car", result.safety_car ? "Yes" : "No", "auto"],
+              ["🚩 Red Flag", result.red_flag ? "Yes" : "No", "auto"],
+            ].map(([label, value, source]) => (
               <div key={label} style={{ padding: "12px 14px", borderRadius: 9, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", marginBottom: 4 }}>{label}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)" }}>{label}</div>
+                  <SourceBadge tone={source}>{source === "manual" ? "Manual override" : "OpenF1 auto"}</SourceBadge>
+                </div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: value ? "#fff" : "rgba(255,255,255,0.2)" }}>{value || "—"}</div>
               </div>
             ))}
           </div>
 
+          {!!syncWarnings.length && (
+            <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.24)" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fcd34d", marginBottom: 8 }}>
+                OpenF1 warnings
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {syncWarnings.map((warning) => (
+                  <div key={warning} style={{ fontSize: 12, lineHeight: 1.6, color: "#fde68a" }}>
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+              gap: 10,
+              marginBottom: 18,
+            }}
+          >
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.18)" }}>
+              <div style={{ marginBottom: 7 }}>
+                <SourceBadge tone="auto">Auto-filled from OpenF1</SourceBadge>
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.65, color: "rgba(255,255,255,0.72)" }}>
+                Pole, podium, DNF, fastest lap, safety car, red flag, sprint categories, and constructor points can now be derived automatically.
+              </div>
+            </div>
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(249,115,22,0.07)", border: "1px solid rgba(249,115,22,0.18)" }}>
+              <div style={{ marginBottom: 7 }}>
+                <SourceBadge tone="manual">Still manual</SourceBadge>
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.65, color: "rgba(255,255,255,0.72)" }}>
+                Driver of the Day still depends on your manual input. You can also override pole or constructor if OpenF1 data needs correction.
+              </div>
+            </div>
+          </div>
+
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Manual Fields</div>
           <div style={{ marginBottom: 11 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Pole Position Driver</div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Pole Position Driver</div>
+              <SourceBadge tone="manual">Optional override</SourceBadge>
+            </div>
             <input style={inp} placeholder="e.g. Max Verstappen" value={pole} onChange={e => setPole(e.target.value)} />
           </div>
           <div style={{ marginBottom: 11 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Driver of the Day</div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Driver of the Day</div>
+              <SourceBadge tone="manual">Required manual</SourceBadge>
+            </div>
             <input style={inp} placeholder="e.g. Lando Norris" value={dotd} onChange={e => setDotd(e.target.value)} />
           </div>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Best Constructor</div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Best Constructor</div>
+              <SourceBadge tone="manual">Optional override</SourceBadge>
+            </div>
             <input style={inp} placeholder="e.g. McLaren" value={ctor} onChange={e => setCtor(e.target.value)} />
           </div>
           <button onClick={saveResults} disabled={saveLoading} style={{ background: saved ? "linear-gradient(135deg,#10B981,#059669)" : "linear-gradient(135deg,#0ea5e9,#2dd4bf)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14, opacity: saveLoading ? 0.6 : 1 }}>
-            {saveLoading ? "Saving..." : saved ? "✅ Results Saved!" : "💾 Save to Database"}
+            {saveLoading ? "Saving overrides..." : saved ? "💾 Save Manual Overrides" : "💾 Save to Database"}
           </button>
           {saveResult && (
             <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: saveResult.ok ? "rgba(52,211,153,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${saveResult.ok ? "rgba(52,211,153,0.28)" : "rgba(239,68,68,0.28)"}`, fontSize: 13, color: saveResult.ok ? "#34D399" : "#F87171" }}>
@@ -297,7 +402,7 @@ export default function AdminPage({ user }) {
             setScoreResult(null);
             try {
               const res = await invokeAdminRaceControl("score_race");
-              setScoreResult({ success: true, scored: res?.scored || 0 });
+              setScoreResult({ success: true, scored: res?.scored || 0, message: res?.message || null, status: res?.status || "ok" });
             } catch (error) {
               setScoreResult({
                 error: error instanceof Error ? error.message : "Unexpected scoring error.",
@@ -312,7 +417,7 @@ export default function AdminPage({ user }) {
         </button>
         {scoreResult && (
           <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: scoreResult.error ? "rgba(239,68,68,0.1)" : "rgba(52,211,153,0.1)", border: `1px solid ${scoreResult.error ? "rgba(239,68,68,0.28)" : "rgba(52,211,153,0.28)"}`, fontSize: 13, color: scoreResult.error ? "#F87171" : "#34D399" }}>
-            {scoreResult.error ? `❌ ${scoreResult.error}` : `✅ Scored ${scoreResult.scored} users successfully!`}
+            {scoreResult.error ? `❌ ${scoreResult.error}` : `✅ ${scoreResult.message || `Scored ${scoreResult.scored} users successfully!`}`}
           </div>
         )}
       </div>
