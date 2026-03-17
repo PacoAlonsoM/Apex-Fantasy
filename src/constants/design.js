@@ -1,30 +1,59 @@
 import { TEAMS } from "./teams";
 
 export const ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+
 export const BRAND_NAME = "Stint";
 export const BRAND_WORDMARK = "STINT";
 export const BRAND_DESCRIPTOR = "F1 Predictions";
-export const BRAND_TAGLINE = "Make your picks. Track the weekend. Win your league.";
+export const BRAND_TAGLINE = "Compete with sharper picks, cleaner reads, and race-week timing that stays in sync.";
 export const SUPPORT_EMAIL = "suppor@stint-web.com";
 export const LEGAL_DISCLAIMER = "Stint is an independent prediction platform and is not affiliated with, endorsed by, or officially connected to Formula 1, Formula One group companies, FIA, or any F1 team.";
 
-export const BRAND_GRADIENT = "linear-gradient(135deg,#f97316 0%,#f59e0b 100%)";
-export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(245,158,11,0.03))";
-export const PANEL_BG = "#070b12";
-export const PANEL_BG_ALT = "#0f1723";
-export const PANEL_BG_STRONG = "#09090b";
-export const PANEL_BORDER = "1px solid rgba(148,163,184,0.16)";
-export const MUTED_TEXT = "rgba(226,232,240,0.72)";
-export const SUBTLE_TEXT = "rgba(148,163,184,0.76)";
-export const HAIRLINE = "rgba(148,163,184,0.11)";
-export const CONTENT_MAX = 1260;
-export const SHELL_MAX = 1380;
-export const HERO_TEXT_MAX = 700;
-export const SECTION_RADIUS = 34;
-export const CARD_RADIUS = 24;
-export const LIFTED_SHADOW = "0 28px 80px rgba(2,6,23,0.28)";
-export const SOFT_SHADOW = "0 16px 44px rgba(2,6,23,0.18)";
-export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.03)";
+export const BG_BASE = "#0B1120";
+export const BG_SURFACE = "#111B2E";
+export const BG_ELEVATED = "#1A2740";
+export const BG_HOVER = "#213352";
+
+export const TEXT_PRIMARY = "#F1F5F9";
+export const TEXT_SECONDARY = "rgba(241,245,249,0.6)";
+export const TEXT_TERTIARY = "rgba(241,245,249,0.35)";
+
+export const ACCENT = "#F97316";
+export const ACCENT_DARK = "#EA580C";
+export const ACCENT_GLOW = "rgba(249,115,22,0.15)";
+export const SUCCESS = "#22C55E";
+export const SPRINT = "#A855F7";
+export const DANGER = "#EF4444";
+export const INFO = "#3B82F6";
+export const WARM = "#FBBF24";
+
+export const BRAND_GRADIENT = "linear-gradient(135deg,#F97316 0%,#EA580C 100%)";
+export const HERO_GRADIENT = "linear-gradient(90deg,#F97316 0%,#FBBF24 100%)";
+export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(234,88,12,0.02))";
+
+export const PANEL_BG = BG_SURFACE;
+export const PANEL_BG_ALT = BG_ELEVATED;
+export const PANEL_BG_STRONG = BG_SURFACE;
+export const PANEL_BORDER = "1px solid rgba(255,255,255,0.06)";
+export const HAIRLINE = "rgba(255,255,255,0.06)";
+export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.02)";
+export const MUTED_TEXT = TEXT_SECONDARY;
+export const SUBTLE_TEXT = TEXT_TERTIARY;
+
+export const CONTENT_MAX = 1200;
+export const SHELL_MAX = 1280;
+export const HERO_TEXT_MAX = 720;
+
+export const RADIUS_SM = 8;
+export const RADIUS_MD = 12;
+export const RADIUS_LG = 16;
+export const RADIUS_XL = 20;
+export const RADIUS_PILL = 999;
+
+export const SECTION_RADIUS = RADIUS_XL;
+export const CARD_RADIUS = RADIUS_LG;
+export const SOFT_SHADOW = "0 18px 40px rgba(2,6,23,0.22)";
+export const LIFTED_SHADOW = "0 28px 60px rgba(2,6,23,0.28)";
 
 export const DEFAULT_AVATAR_COLOR = "ember";
 
@@ -33,7 +62,6 @@ function hexToRgb(hex) {
   const normalized = clean.length === 3
     ? clean.split("").map((char) => char + char).join("")
     : clean;
-
   const value = Number.parseInt(normalized, 16);
   return {
     r: (value >> 16) & 255,
@@ -56,8 +84,8 @@ function mix(hexA, hexB, ratio) {
 }
 
 const BASE_AVATAR_THEMES = {
-  ember: { fill: "linear-gradient(135deg,#f97316,#fb923c)", bg: "rgba(249,115,22,0.18)", border: "rgba(249,115,22,0.3)", text: "#fff", accent: "#f97316" },
-  ocean: { fill: "linear-gradient(135deg,#2563eb,#38bdf8)", bg: "rgba(37,99,235,0.18)", border: "rgba(59,130,246,0.3)", text: "#eff6ff", accent: "#2563eb" },
+  ember: { fill: "linear-gradient(135deg,#f97316,#fb923c)", bg: "rgba(249,115,22,0.18)", border: "rgba(249,115,22,0.28)", text: "#fff7ed", accent: "#f97316" },
+  ocean: { fill: "linear-gradient(135deg,#2563eb,#38bdf8)", bg: "rgba(37,99,235,0.18)", border: "rgba(59,130,246,0.28)", text: "#eff6ff", accent: "#2563eb" },
   teal: { fill: "linear-gradient(135deg,#0f766e,#2dd4bf)", bg: "rgba(15,118,110,0.18)", border: "rgba(45,212,191,0.28)", text: "#ecfeff", accent: "#0f766e" },
   steel: { fill: "linear-gradient(135deg,#334155,#64748b)", bg: "rgba(100,116,139,0.18)", border: "rgba(148,163,184,0.28)", text: "#f8fafc", accent: "#64748b" },
   gold: { fill: "linear-gradient(135deg,#d97706,#facc15)", bg: "rgba(217,119,6,0.18)", border: "rgba(250,204,21,0.28)", text: "#fff7ed", accent: "#facc15" },
@@ -85,13 +113,13 @@ export const TEAM_TO_AVATAR_KEY = Object.fromEntries(
 const TEAM_AVATAR_THEMES = Object.fromEntries(
   TEAM_AVATAR_OPTIONS.map((option) => {
     const team = TEAMS[option.team];
-    const start = mix(team.c, "#ffffff", option.team === "Audi" ? 0.22 : 0.1);
-    const end = mix(team.c, "#0f172a", 0.32);
+    const start = mix(team.c, "#ffffff", option.team === "Audi" ? 0.22 : 0.08);
+    const end = mix(team.c, "#0B1120", 0.34);
 
     return [option.key, {
       fill: `linear-gradient(135deg,${start},${end})`,
       bg: rgba(team.c, 0.18),
-      border: rgba(team.c, 0.34),
+      border: rgba(team.c, 0.28),
       text: team.t,
       label: option.label,
       teamName: option.team,
@@ -127,14 +155,14 @@ export function getUserAccentTheme(user) {
   const theme = avatarTheme(user?.avatar_color);
   const teamName = getUserSupportTeam(user);
   const team = teamName ? TEAMS[teamName] : null;
-  const accent = team?.c || theme.accent || "#f97316";
+  const accent = team?.c || theme.accent || ACCENT;
 
   return {
     accent,
-    accentSoft: rgba(accent, 0.16),
-    accentGhost: rgba(accent, 0.1),
-    accentBorder: rgba(accent, 0.32),
-    text: team?.t || theme.text || "#fff",
+    accentSoft: rgba(accent, 0.12),
+    accentGhost: rgba(accent, 0.08),
+    accentBorder: rgba(accent, 0.24),
+    text: team?.t || theme.text || TEXT_PRIMARY,
     teamName,
     theme,
   };

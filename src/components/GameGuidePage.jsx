@@ -36,7 +36,7 @@ const coreSteps = [
   },
   {
     title: "Track the calendar and news flow",
-    detail: "Use Calendar, Wire and Brief together. Calendar tells you what is coming, Wire shows what is changing, and Brief turns that into a sharper race read.",
+    detail: "Use Calendar, Wire and AI Insight together. Calendar tells you what is coming, Wire shows what is changing, and AI Insight turns that into a sharper race read.",
   },
   {
     title: "Compete across leagues and global rank",
@@ -54,8 +54,8 @@ const faqs = [
     answer: "Each category has a fixed score. Correct high-impact calls like podium, pole and DNF picks move your score much more than low-volatility categories.",
   },
   {
-    question: "Why should I use Brief and Wire together?",
-    answer: "Wire gives you the raw flow of information. Brief turns that into a race-week read, category-level picks and what to watch before you lock your board.",
+    question: "Why should I use AI Insight and Wire together?",
+    answer: "Wire gives you the raw flow of information. AI Insight turns that into a race-week read, category-level picks and what to watch before you lock your board.",
   },
   {
     question: "How do leagues work?",

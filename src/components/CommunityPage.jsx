@@ -8,11 +8,9 @@ import {
   DEFAULT_AVATAR_COLOR,
   EDGE_RING,
   HAIRLINE,
-  LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
-  PANEL_BG_STRONG,
   PANEL_BORDER,
   SECTION_RADIUS,
   SOFT_SHADOW,
@@ -159,6 +157,9 @@ export default function CommunityPage({ user, openAuth }) {
     };
   }, [currentStandings]);
   const rosterPreview = useMemo(() => currentStandings.slice(0, 8), [currentStandings]);
+  const leagueCount = leagues.length;
+  const publicThreadCount = posts.length;
+  const globalPlayerCount = leaderboard.length;
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -523,44 +524,59 @@ export default function CommunityPage({ user, openAuth }) {
 
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG_STRONG})`, padding: "28px 30px 24px", marginBottom: 18, boxShadow: LIFTED_SHADOW, overflow: "hidden" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ maxWidth: 760 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "end", marginBottom: 20 }}>
+          <div style={{ maxWidth: 780 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", marginBottom: 18 }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Leagues</span>
             </div>
-            <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.7 }}>
-              League spaces, member standings
+            <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.8 }}>
+              Build the room.
               <br />
-              and race-week discussion.
+              Track the table.
+              <br />
+              Own the weekend.
             </h1>
-            <p style={{ margin: 0, maxWidth: 650, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
-              This should feel closer to a shared workspace than a forum dump: your league area, a cleaner global leaderboard, and public discussion that still fits the same product shell.
+            <p style={{ margin: 0, maxWidth: 660, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
+              Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setTab(value)}
-                style={{
-                  background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.05),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
-                  border: tab === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.14)",
-                  borderRadius: 14,
-                  color: tab === value ? "#fff" : MUTED_TEXT,
-                  cursor: "pointer",
-                  padding: "11px 15px",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  boxShadow: tab === value ? SOFT_SHADOW : "none",
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 999, background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", color: SUBTLE_TEXT, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", height: "fit-content" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 2s infinite" }} />
+            {user ? "League workspace active" : "Login required for league controls"}
           </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 18 }}>
+          <StatCard label="Your leagues" value={String(leagueCount)} accent="#dbe4f0" />
+          <StatCard label="Global players" value={String(globalPlayerCount || 0)} accent="#bfdbfe" />
+          <StatCard label="Public threads" value={String(publicThreadCount || 0)} accent="#cbd5e1" />
+          <StatCard label="Next race" value={next?.n || "TBA"} accent="#dbe4f0" />
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              style={{
+                background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
+                border: tab === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.12)",
+                borderRadius: 999,
+                color: tab === value ? "#fff" : MUTED_TEXT,
+                cursor: "pointer",
+                padding: "11px 16px",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                boxShadow: tab === value ? SOFT_SHADOW : "none",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -570,7 +586,7 @@ export default function CommunityPage({ user, openAuth }) {
             <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
               <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 18, boxShadow: SOFT_SHADOW }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-                  League controls
+                  Control rail
                 </div>
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Create league</div>
@@ -645,7 +661,7 @@ export default function CommunityPage({ user, openAuth }) {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>
-                            League workspace
+                            Selected league
                           </div>
                           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 6 }}>{currentLeague.name}</div>
                           <div style={{ fontSize: 13, color: MUTED_TEXT }}>Private league for race-by-race competition.</div>

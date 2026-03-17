@@ -1,34 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { countdown, fmtFull, nextRace, raceSessions, rc } from "../constants/calendar";
 import {
+  ACCENT,
+  BG_BASE,
+  BRAND_GRADIENT,
   BRAND_NAME,
   BRAND_TAGLINE,
-  BRAND_GRADIENT,
   CARD_RADIUS,
   CONTENT_MAX,
   EDGE_RING,
   HAIRLINE,
+  HERO_GRADIENT,
   LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
-  PANEL_BORDER,
+  RADIUS_MD,
   SECTION_RADIUS,
   SOFT_SHADOW,
   SUBTLE_TEXT,
+  TEXT_PRIMARY,
 } from "../constants/design";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
 import BrandMark from "./BrandMark";
 import useViewport from "../useViewport";
 
 const homeSessionMeta = {
-  "Practice 1": { label: "FP1" },
-  "Practice 2": { label: "FP2" },
-  "Practice 3": { label: "FP3" },
-  "Sprint Qualifying": { label: "Sprint Qualy" },
-  "Sprint": { label: "Sprint" },
-  "Qualifying": { label: "Qualifying" },
-  "Race": { label: "Race" },
+  "Practice 1": { label: "FP1", type: "practice" },
+  "Practice 2": { label: "FP2", type: "practice" },
+  "Practice 3": { label: "FP3", type: "practice" },
+  "Sprint Qualifying": { label: "Sprint Qualifying", type: "qualifying" },
+  "Sprint": { label: "Sprint", type: "sprint" },
+  Qualifying: { label: "Qualifying", type: "qualifying" },
+  Race: { label: "Race", type: "race" },
 };
 
 function normalizeLiveSession(session) {
@@ -37,6 +41,7 @@ function normalizeLiveSession(session) {
   return {
     key: `${session.session_key}-${session.session_name}`,
     label: meta.label,
+    type: meta.type,
     date: session.date_start,
     hasLiveTime: true,
   };
@@ -52,24 +57,107 @@ function formatSessionSlot(value) {
   }).format(new Date(value));
 }
 
-function fallbackSessionSlot(value) {
-  return `${fmtFull(value)} · Time pending`;
-}
+function TimelineItem({ session, active, last }) {
+  const labelColor = session.type === "race"
+    ? "#EF4444"
+    : session.type === "qualifying"
+      ? ACCENT
+      : SUBTLE_TEXT;
 
-function SessionMini({ label, date, accent, live = false }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "70px minmax(0,1fr)", gap: 10, padding: "10px 0", borderBottom: `1px solid ${HAIRLINE}` }}>
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: accent }}>{label}</div>
-      <div style={{ fontSize: 12.5, color: "#dbe4f0", fontWeight: 700 }}>{live ? formatSessionSlot(date) : fallbackSessionSlot(date)}</div>
+    <div style={{ position: "relative", paddingLeft: 20, paddingBottom: last ? 0 : 18 }}>
+      {!last && (
+        <span
+          style={{
+            position: "absolute",
+            left: 3,
+            top: 12,
+            bottom: -8,
+            width: 1,
+            background: "rgba(255,255,255,0.12)",
+          }}
+        />
+      )}
+      <span
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 7,
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: active ? ACCENT : PANEL_BG_ALT,
+          border: `1.5px solid ${active ? ACCENT : "rgba(255,255,255,0.2)"}`,
+          boxShadow: active ? "0 0 0 6px rgba(249,115,22,0.08)" : "none",
+        }}
+      />
+      <div style={{ display: "grid", gap: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: labelColor }}>
+          {session.label}
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.4, color: TEXT_PRIMARY }}>{formatSessionSlot(session.date)}</div>
+      </div>
     </div>
   );
 }
 
-export default function HomePage({ setPage }) {
+function CountdownCard({ race, cd, accent }) {
+  return (
+    <section
+      style={{
+        position: "sticky",
+        top: 96,
+        borderRadius: SECTION_RADIUS,
+        background: PANEL_BG,
+        boxShadow: LIFTED_SHADOW,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${accent}, transparent)` }} />
+      <div style={{ padding: 24 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT, animation: "pulseDot 2s infinite" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+            Next race
+          </span>
+        </div>
+        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 8 }}>{race.n}</div>
+        <div style={{ fontSize: 16, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 24 }}>
+          {race.circuit} · {fmtFull(race.date)}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 18 }}>
+          {[["Days", cd.d], ["Hours", cd.h], ["Minutes", cd.m]].map(([label, value]) => (
+            <div
+              key={label}
+              style={{
+                borderRadius: RADIUS_MD,
+                background: BG_BASE,
+                padding: "16px 10px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1 }}>{String(value).padStart(2, "0")}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 8 }}>
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 14, lineHeight: 1.6, color: MUTED_TEXT }}>
+          Picks close right before qualifying begins.
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function HomePage({ user, setPage, openAuth }) {
   const { isMobile, isTablet } = useViewport();
   const next = nextRace();
   const cd = next ? countdown(next.date) : null;
-  const accent = next ? rc(next) : "#f97316";
+  const accent = next ? rc(next) : ACCENT;
   const [liveSchedule, setLiveSchedule] = useState([]);
 
   useEffect(() => {
@@ -77,7 +165,6 @@ export default function HomePage({ setPage }) {
 
     async function loadLiveSchedule() {
       if (!next) return;
-
       const year = new Date(next.date).getFullYear();
       const races = await fetchRaceSessions(year);
       const raceInfo = races[next.r - 1];
@@ -88,8 +175,9 @@ export default function HomePage({ setPage }) {
       }
 
       const sessions = await fetchMeetingSessions(raceInfo.meeting_key);
-      if (ignore) return;
-      setLiveSchedule(sessions.map(normalizeLiveSession).filter(Boolean));
+      if (!ignore) {
+        setLiveSchedule(sessions.map(normalizeLiveSession).filter(Boolean));
+      }
     }
 
     loadLiveSchedule();
@@ -101,134 +189,179 @@ export default function HomePage({ setPage }) {
   const schedule = useMemo(() => {
     if (!next) return [];
     if (liveSchedule.length) return liveSchedule;
-    return raceSessions(next).map((session) => ({ ...session, hasLiveTime: false }));
+    return raceSessions(next).map((session, index) => ({
+      ...session,
+      key: `${session.label}-${index}`,
+      type: session.label === "Race" ? "race" : session.label === "Qualifying" ? "qualifying" : "practice",
+    }));
   }, [liveSchedule, next]);
 
+  const primaryAction = () => {
+    if (user) {
+      setPage("predictions");
+      return;
+    }
+    openAuth("login");
+  };
+
   return (
-    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 82px" : "42px 28px 92px", position: "relative", zIndex: 1 }}>
-      <section style={{ minHeight: "calc(100vh - 150px)", display: "grid", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.14fr) 360px", gap: 18, alignItems: "center" }}>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 24 }}>
-              <BrandMark size={20} />
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
-                {BRAND_NAME}
-              </span>
-            </div>
+    <div
+      style={{
+        maxWidth: CONTENT_MAX,
+        margin: "0 auto",
+        padding: isMobile ? "40px 20px 72px" : isTablet ? "56px 32px 88px" : "80px 48px 96px",
+        position: "relative",
+        zIndex: 1,
+      }}
+    >
+      <section style={{ paddingBottom: 64 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <BrandMark size={28} />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+            {BRAND_NAME}
+          </span>
+        </div>
 
-            <h1 style={{ fontSize: isMobile ? 56 : isTablet ? 74 : 96, lineHeight: 0.87, margin: "0 0 18px", letterSpacing: isMobile ? -2.6 : isTablet ? -3.8 : -5.2, maxWidth: 860 }}>
-              Make your picks.
-              <br />
-              Track the weekend.
-              <br />
-              Win your league.
-            </h1>
+        <h1
+          style={{
+            maxWidth: 880,
+            fontSize: isMobile ? 56 : isTablet ? 72 : 96,
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            lineHeight: 1.02,
+            marginBottom: 24,
+          }}
+        >
+          Compete every round.
+          <br />
+          Read the weekend better.
+          <br />
+          <span style={{ background: HERO_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+            Win your league.
+          </span>
+        </h1>
 
-            <div style={{ maxWidth: 620, fontSize: isMobile ? 14 : 17, lineHeight: 1.9, color: MUTED_TEXT, marginBottom: 30 }}>
-              {BRAND_TAGLINE} Use Calendar, Wire and Brief together to build stronger calls before lock.
-            </div>
+        <div style={{ maxWidth: 520, fontSize: 16, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 40 }}>
+          {BRAND_TAGLINE} Use live schedules, race-week news, and AI Insight without leaving the product.
+        </div>
 
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <button
-                onClick={() => setPage("predictions")}
-                style={{
-                  minWidth: 220,
-                  background: BRAND_GRADIENT,
-                  border: "none",
-                  borderRadius: 20,
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 15,
-                  fontWeight: 800,
-                  padding: "17px 22px",
-                  boxShadow: "0 18px 42px rgba(249,115,22,0.18)",
-                }}
-              >
-                Make your picks
-              </button>
-              <button
-                onClick={() => setPage("calendar")}
-                style={{
-                  minWidth: 194,
-                  background: PANEL_BG,
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  borderRadius: 20,
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  padding: "17px 22px",
-                  boxShadow: SOFT_SHADOW,
-                }}
-              >
-                View Calendar
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 14 }}>
-            {next && cd && (
-              <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,${accent}10,#08111d 24%,#07101b)`, overflow: "hidden", boxShadow: LIFTED_SHADOW }}>
-                <div style={{ height: 3, background: `linear-gradient(90deg,${accent},rgba(248,250,252,0.92))` }} />
-                <div style={{ padding: "20px 22px 18px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>
-                    Next race
-                  </div>
-                  <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 0.95, letterSpacing: -1.2, marginBottom: 6 }}>{next.n}</div>
-                  <div style={{ fontSize: 12.5, lineHeight: 1.72, color: MUTED_TEXT, marginBottom: 16 }}>
-                    {next.circuit} · {fmtFull(next.date)}
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 16 }}>
-                    {[["Days", cd.d], ["Hours", cd.h], ["Minutes", cd.m]].map(([label, value]) => (
-                      <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "15px 10px 13px", textAlign: "center", boxShadow: EDGE_RING }}>
-                        <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1, letterSpacing: -1 }}>{String(value).padStart(2, "0")}</div>
-                        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 7 }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ fontSize: 12, lineHeight: 1.75, color: MUTED_TEXT }}>
-                    Picks close right before qualifying begins.
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {next && (
-              <section style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 5 }}>
-                    Weekend schedule
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.5 }}>Every session, race-week timing</div>
-                </div>
-                <div style={{ padding: "0 18px 4px" }}>
-                  {schedule.map((session) => (
-                    <SessionMini key={`${session.label}-${session.date}`} label={session.label} date={session.date} accent={accent} live={session.hasLiveTime} />
-                  ))}
-                </div>
-                <div style={{ padding: "0 18px 14px", fontSize: 11, color: SUBTLE_TEXT }}>
-                  Times follow the same timezone-adjusted schedule shown in Calendar.
-                </div>
-              </section>
-            )}
-          </div>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <button
+            onClick={primaryAction}
+            style={{
+              minHeight: 52,
+              padding: "0 28px",
+              borderRadius: RADIUS_MD,
+              border: "none",
+              background: BRAND_GRADIENT,
+              color: TEXT_PRIMARY,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
+            }}
+          >
+            Make your picks
+          </button>
+          <button
+            onClick={() => setPage("calendar")}
+            style={{
+              minHeight: 52,
+              padding: "0 28px",
+              borderRadius: RADIUS_MD,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "transparent",
+              color: TEXT_PRIMARY,
+              fontSize: 15,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            View Calendar
+          </button>
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 14 }}>
-        {[
-          ["Read", "Use Wire and Brief to turn race-week information into cleaner decisions before lock."],
-          ["Predict", "The board is category-based, so a strong weekend comes from structure, not one lucky call."],
-          ["Compete", "Private leagues and the global table make every round feel like pressure, not passive play."],
-        ].map(([title, copy]) => (
-          <div key={title} style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: "20px 20px 18px", boxShadow: SOFT_SHADOW }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 10 }}>{title}</div>
-            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.6, marginBottom: 8 }}>{title} the weekend.</div>
-            <div style={{ fontSize: 13, lineHeight: 1.82, color: MUTED_TEXT }}>{copy}</div>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 380px",
+          gap: 24,
+          alignItems: "start",
+        }}
+      >
+        <div style={{ display: "grid", gap: 24 }}>
+          {next && (
+            <div style={{ borderRadius: CARD_RADIUS, background: PANEL_BG, boxShadow: SOFT_SHADOW, overflow: "hidden" }}>
+              <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${accent}, transparent)` }} />
+              <div style={{ padding: 24 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                  Picks status
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>
+                  Lock the {next.n} board before qualifying.
+                </div>
+                <div style={{ fontSize: 16, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 18 }}>
+                  The next board is already open. Use Calendar for session timing, Wire for updates, and AI Insight for category-level angles before lock.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+                  <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(249,115,22,0.15)", color: ACCENT }}>
+                    10 categories
+                  </span>
+                  {next.sprint && (
+                    <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(168,85,247,0.12)", color: "#A855F7" }}>
+                      Sprint weekend
+                    </span>
+                  )}
+                  <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(59,130,246,0.12)", color: "#3B82F6" }}>
+                    Times synced
+                  </span>
+                </div>
+                <button
+                  onClick={primaryAction}
+                  style={{
+                    minHeight: 48,
+                    padding: "0 20px",
+                    borderRadius: RADIUS_MD,
+                    border: "none",
+                    background: BRAND_GRADIENT,
+                    color: TEXT_PRIMARY,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
+                  }}
+                >
+                  Open Picks
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ borderRadius: CARD_RADIUS, background: PANEL_BG, boxShadow: SOFT_SHADOW, overflow: "hidden" }}>
+            <div style={{ padding: "24px 24px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                Weekend schedule
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em" }}>
+                Every session, one clean timeline.
+              </div>
+            </div>
+
+            <div style={{ padding: "24px 24px 8px" }}>
+              {schedule.map((session, index) => (
+                <TimelineItem
+                  key={session.key}
+                  session={session}
+                  active={session.type === "qualifying"}
+                  last={index === schedule.length - 1}
+                />
+              ))}
+            </div>
           </div>
-        ))}
+        </div>
+
+        {next && cd && <CountdownCard race={next} cd={cd} accent={accent} />}
       </section>
     </div>
   );

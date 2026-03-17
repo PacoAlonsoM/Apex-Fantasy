@@ -17,7 +17,7 @@ import TermsPage from "./components/TermsPage";
 import PrivacyPage from "./components/PrivacyPage";
 import LegalFooter from "./components/LegalFooter";
 import { ensureProfileForUser } from "./authProfile";
-import { getUserAccentTheme } from "./constants/design";
+import { BG_BASE, BG_SURFACE, getUserAccentTheme } from "./constants/design";
 
 export default function StintApp() {
   const [page, setPage] = useState("home");
@@ -60,7 +60,7 @@ export default function StintApp() {
         minHeight: "100vh",
         color: "var(--text)",
         fontFamily: "var(--font-body)",
-        background: "radial-gradient(circle at top left, var(--team-accent-ghost), transparent 26%), radial-gradient(circle at 82% 14%, rgba(45, 212, 191, 0.05), transparent 18%), linear-gradient(180deg, rgba(4,8,20,0.82), rgba(7,16,27,0.88))",
+        background: `radial-gradient(circle at 12% 5%, rgba(249,115,22,0.07), transparent 18%), radial-gradient(circle at 86% 12%, rgba(255,255,255,0.03), transparent 18%), linear-gradient(180deg, ${BG_BASE} 0%, ${BG_BASE} 40%, ${BG_SURFACE} 100%)`,
         "--team-accent": accentTheme.accent,
         "--team-accent-soft": accentTheme.accentSoft,
         "--team-accent-ghost": accentTheme.accentGhost,
@@ -69,7 +69,7 @@ export default function StintApp() {
         "--interactive-edge": accentTheme.accentBorder,
       }}
     >
-      <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main,nav{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
+      <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />

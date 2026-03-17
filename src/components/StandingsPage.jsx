@@ -110,7 +110,7 @@ export default function StandingsPage() {
               </div>
 
               <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.8 }}>
-                Board hierarchy
+                Leaderboard hierarchy
                 <br />
                 after the latest rounds.
               </h1>
