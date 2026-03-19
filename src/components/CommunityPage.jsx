@@ -176,9 +176,9 @@ function roundMeta(roundNumber) {
   return CAL.find((item) => Number(item.r) === Number(roundNumber)) || null;
 }
 
-export default function CommunityPage({ user, openAuth }) {
+export default function CommunityPage({ user, openAuth, demoMode = false }) {
   const { isMobile, isTablet } = useViewport();
-  const [tab, setTab] = useState("leagues");
+  const [tab, setTab] = useState(demoMode ? "forum" : "leagues");
   const [leagueView, setLeagueView] = useState("standings");
   const [posts, setPosts] = useState([]);
   const [authorProfiles, setAuthorProfiles] = useState({});
@@ -200,6 +200,7 @@ export default function CommunityPage({ user, openAuth }) {
   const [leagueMessage, setLeagueMessage] = useState("");
   const [leagueName, setLeagueName] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const demoPreview = demoMode && !user;
 
   const currentLeague = useMemo(
     () => leagues.find((league) => league.id === selectedLeagueId) || leagues[0] || null,
@@ -514,6 +515,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function createLeague() {
+    if (demoPreview) return;
     if (!leagueName.trim() || !user) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -536,6 +538,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function joinLeague() {
+    if (demoPreview) return;
     if (!joinCode.trim() || !user) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -558,6 +561,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function leaveLeague(leagueId) {
+    if (demoPreview) return;
     if (!window.confirm("Leave this league?")) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -573,6 +577,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function deleteLeague(leagueId) {
+    if (demoPreview) return;
     if (!window.confirm("Delete this league permanently?")) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -588,6 +593,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function submitGlobalPost() {
+    if (demoPreview) return;
     if (!globalDraft.title.trim() || !globalDraft.body.trim() || !user) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -603,6 +609,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function submitLeaguePost() {
+    if (demoPreview) return;
     if (!leagueMessage.trim() || !user || !currentLeague) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -627,6 +634,7 @@ export default function CommunityPage({ user, openAuth }) {
   }
 
   async function submitReply(postId) {
+    if (demoPreview) return;
     if (!user || !replyText[postId]?.trim()) return;
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
@@ -727,6 +735,10 @@ export default function CommunityPage({ user, openAuth }) {
                           Reply
                         </button>
                       </>
+                    ) : demoPreview ? (
+                      <div style={{ fontSize: 12, color: MUTED_TEXT }}>
+                        Preview mode is active. Posting is disabled on this link.
+                      </div>
                     ) : (
                       <div style={{ fontSize: 12, color: MUTED_TEXT }}>
                         <span style={{ color: "#fff", fontWeight: 800, cursor: "pointer" }} onClick={() => openAuth("login")}>Login</span> to join the discussion.
@@ -805,7 +817,7 @@ export default function CommunityPage({ user, openAuth }) {
 
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 999, background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", color: SUBTLE_TEXT, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", height: "fit-content" }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 2s infinite" }} />
-            {user ? "League workspace active" : "Login required for league controls"}
+            {user ? "League workspace active" : demoPreview ? "Public preview active" : "Login required for league controls"}
           </div>
         </div>
 
@@ -1364,6 +1376,21 @@ export default function CommunityPage({ user, openAuth }) {
               )}
             </div>
           </section>
+        ) : demoPreview ? (
+          <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 28, boxShadow: SOFT_SHADOW }}>
+            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>Public league preview</div>
+            <div style={{ fontSize: 13, lineHeight: 1.68, color: MUTED_TEXT, marginBottom: 16 }}>
+              This demo link keeps league controls off, but the global leaderboard and public forum are open so you can capture the product without logging in.
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={() => setTab("leaderboard")} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "12px 14px", fontSize: 13 }}>
+                Open Global Leaderboard
+              </button>
+              <button onClick={() => setTab("forum")} style={{ background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "12px 14px", fontSize: 13 }}>
+                Open Public Forum
+              </button>
+            </div>
+          </div>
         ) : (
           <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 28, boxShadow: SOFT_SHADOW }}>
             <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>Login to open league spaces</div>
@@ -1424,6 +1451,10 @@ export default function CommunityPage({ user, openAuth }) {
               <button onClick={() => setShowGlobalForm((value) => !value)} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "10px 12px", fontSize: 12 }}>
                 {showGlobalForm ? "Cancel" : "New post"}
               </button>
+            ) : demoPreview ? (
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                Preview mode
+              </div>
             ) : (
               <button onClick={() => openAuth("login")} style={{ background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "10px 12px", fontSize: 12 }}>
                 Login to post

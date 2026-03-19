@@ -19,11 +19,40 @@ import LegalFooter from "./components/LegalFooter";
 import { ensureProfileForUser } from "./authProfile";
 import { BG_BASE, BG_SURFACE, getUserAccentTheme } from "./constants/design";
 
+const PAGE_KEYS = new Set([
+  "home",
+  "calendar",
+  "predictions",
+  "ai-brief",
+  "news",
+  "standings",
+  "community",
+  "admin",
+  "profile",
+  "game-guide",
+  "support",
+  "terms",
+  "privacy",
+]);
+
+function readDemoState() {
+  const params = new URLSearchParams(window.location.search);
+  const demoMode = params.get("demo") === "1";
+  const requestedPage = params.get("page");
+
+  return {
+    demoMode,
+    page: requestedPage && PAGE_KEYS.has(requestedPage) ? requestedPage : "home",
+  };
+}
+
 export default function StintApp() {
-  const [page, setPage] = useState("home");
+  const initialState = readDemoState();
+  const [page, setPage] = useState(initialState.page);
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  const [demoMode] = useState(initialState.demoMode);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,6 +69,14 @@ export default function StintApp() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!demoMode) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("demo", "1");
+    url.searchParams.set("page", page);
+    window.history.replaceState({}, "", url.toString());
+  }, [demoMode, page]);
+
   const loadProfile = async (authUser) => {
     try {
       const profile = await ensureProfileForUser(authUser);
@@ -51,8 +88,16 @@ export default function StintApp() {
   };
 
   const openAuth = (mode) => {
+    if (demoMode && !user) return;
     setAuthMode(mode || "login");
     setAuthOpen(true);
+  };
+
+  const exitDemo = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("demo");
+    url.searchParams.delete("page");
+    window.location.href = url.toString();
   };
 
   const logout = async () => {
@@ -80,7 +125,7 @@ export default function StintApp() {
       <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
-        <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />
+        <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} demoMode={demoMode} exitDemo={exitDemo} />
         {authOpen && (
           <AuthModal
             mode={authMode}
@@ -92,13 +137,13 @@ export default function StintApp() {
             }}
           />
         )}
-        {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} />}
+        {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} demoMode={demoMode} />}
         {page === "calendar" && <CalendarPage user={user} />}
-        {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}
+        {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} />}
         {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
         {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
         {page === "standings" && <StandingsPage user={user} />}
-        {page === "community" && <CommunityPage user={user} openAuth={openAuth} />}
+        {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} />}
         {page === "admin" && <AdminPage user={user} />}
         {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
         {page === "game-guide" && <GameGuidePage setPage={setPage} />}

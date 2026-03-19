@@ -19,7 +19,7 @@ import {
 import BrandMark from "./BrandMark";
 import useViewport from "../useViewport";
 
-export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
+export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMode = false, exitDemo }) {
   const [dropOpen, setDropOpen] = useState(false);
   const timeout = useRef(null);
   const { isMobile, isTablet } = useViewport();
@@ -280,6 +280,43 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout }) {
                   </button>
                 </div>
               )}
+            </div>
+          ) : demoMode ? (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  minHeight: 48,
+                  padding: "0 16px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: BG_SURFACE,
+                  color: SUBTLE_TEXT,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Demo Preview
+              </div>
+              <button
+                onClick={exitDemo}
+                style={{
+                  minHeight: 48,
+                  padding: "0 18px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "transparent",
+                  color: TEXT_PRIMARY,
+                  cursor: "pointer",
+                  fontSize: 15,
+                  fontWeight: 500,
+                }}
+              >
+                Exit Demo
+              </button>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

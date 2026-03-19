@@ -152,7 +152,7 @@ function CountdownCard({ race, cd, accent }) {
   );
 }
 
-export default function HomePage({ user, setPage, openAuth }) {
+export default function HomePage({ user, setPage, openAuth, demoMode = false }) {
   const { isMobile, isTablet } = useViewport();
   const next = nextRace();
   const cd = next ? countdown(next.date) : null;
@@ -196,7 +196,7 @@ export default function HomePage({ user, setPage, openAuth }) {
   }, [liveSchedule, next]);
 
   const primaryAction = () => {
-    if (user) {
+    if (user || demoMode) {
       setPage("predictions");
       return;
     }

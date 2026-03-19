@@ -681,10 +681,11 @@ function ReviewMetric({ label, value, detail, accent = "#f8fafc" }) {
   );
 }
 
-export default function PredictionsPage({ user, openAuth }) {
+export default function PredictionsPage({ user, openAuth, demoMode = false }) {
   const { isMobile, isTablet } = useViewport();
   const [race, setRace] = useState(nextRace() || CAL[0]);
   const [sidebarFilter, setSidebarFilter] = useState("all");
+  const demoPreview = demoMode && !user;
   const [picks, setPicks] = useState({});
   const [predictionsByRound, setPredictionsByRound] = useState({});
   const [resultsByRound, setResultsByRound] = useState({});
@@ -816,6 +817,7 @@ export default function PredictionsPage({ user, openAuth }) {
   };
 
   const save = async () => {
+    if (demoPreview) return;
     if (!user) return openAuth("login");
     if (editingLocked) return;
 
@@ -935,6 +937,8 @@ export default function PredictionsPage({ user, openAuth }) {
         : (lockLabel ? `Build your board before ${lockLabel}.` : "Build and save before qualifying starts.");
   const saveLabel = reviewReady
     ? "Round Scored"
+    : demoPreview
+      ? "Preview Only"
     : resultsEntered
       ? "Round Closed"
       : editingLocked
@@ -1137,6 +1141,8 @@ export default function PredictionsPage({ user, openAuth }) {
                         ? "Your board is already stored."
                         : reviewReady
                           ? "Points awarded and locked."
+                          : demoPreview
+                            ? "Preview mode is active. Explore the board without logging in."
                           : lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
                             ? "Save before qualifying starts."
                             : "Editing closed."}
@@ -1503,7 +1509,7 @@ export default function PredictionsPage({ user, openAuth }) {
 
                   <button
                     onClick={save}
-                    disabled={editingLocked}
+                    disabled={editingLocked || demoPreview}
                     style={{
                       minHeight: 52,
                       minWidth: isMobile ? "100%" : 184,
@@ -1520,8 +1526,8 @@ export default function PredictionsPage({ user, openAuth }) {
                       color: TEXT_PRIMARY,
                       fontSize: 15,
                       fontWeight: 600,
-                      cursor: editingLocked ? "default" : "pointer",
-                      opacity: editingLocked ? 0.8 : 1,
+                      cursor: editingLocked || demoPreview ? "default" : "pointer",
+                      opacity: editingLocked || demoPreview ? 0.8 : 1,
                       boxShadow: saved ? "0 10px 24px rgba(34,197,94,0.18)" : "0 10px 24px rgba(249,115,22,0.2)",
                     }}
                   >
