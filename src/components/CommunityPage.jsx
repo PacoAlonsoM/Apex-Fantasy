@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
-import { nextRace } from "../constants/calendar";
+import { CAL, nextRace } from "../constants/calendar";
+import { PTS } from "../constants/scoring";
 import {
   BRAND_GRADIENT,
   CARD_RADIUS,
@@ -19,6 +20,7 @@ import {
   teamSupportKey,
 } from "../constants/design";
 import { requireActiveSession } from "../authProfile";
+import { formatDnfDrivers, matchesDnfPick } from "../resultHelpers";
 import useViewport from "../useViewport";
 
 const avatarPalette = [
@@ -79,6 +81,101 @@ function normalizeProfileIdentity(profile, currentUser = null) {
   };
 }
 
+const LEAGUE_RACE_REVIEW_PROMPTS = [
+  { key: "pole", label: "Pole Position", pts: PTS.pole },
+  { key: "winner", label: "Race Winner", pts: PTS.winner },
+  { key: "p2", label: "2nd Place", pts: PTS.p2 },
+  { key: "p3", label: "3rd Place", pts: PTS.p3 },
+  { key: "dnf", label: "DNF Driver", pts: PTS.dnf },
+  { key: "fl", label: "Fastest Lap", pts: PTS.fl },
+  { key: "dotd", label: "Driver of the Day", pts: PTS.dotd },
+  { key: "ctor", label: "Constructor with Most Points", pts: PTS.ctor },
+  { key: "sc", label: "Safety Car?", pts: PTS.sc },
+  { key: "rf", label: "Red Flag?", pts: PTS.rf },
+];
+
+const LEAGUE_SPRINT_REVIEW_PROMPTS = [
+  { key: "sp_pole", label: "Sprint Pole", pts: PTS.sp_pole },
+  { key: "sp_winner", label: "Sprint Winner", pts: PTS.sp_winner },
+  { key: "sp_p2", label: "Sprint 2nd", pts: PTS.sp_p2 },
+  { key: "sp_p3", label: "Sprint 3rd", pts: PTS.sp_p3 },
+];
+
+function resultValueForKey(results, key) {
+  if (!results) return null;
+
+  switch (key) {
+    case "pole":
+      return results.pole || null;
+    case "winner":
+      return results.winner || null;
+    case "p2":
+      return results.p2 || null;
+    case "p3":
+      return results.p3 || null;
+    case "dnf":
+      return formatDnfDrivers(results);
+    case "fl":
+      return results.fastest_lap || null;
+    case "dotd":
+      return results.dotd || null;
+    case "ctor":
+      return results.best_constructor || null;
+    case "sc":
+      return typeof results.safety_car === "boolean" ? (results.safety_car ? "Yes" : "No") : null;
+    case "rf":
+      return typeof results.red_flag === "boolean" ? (results.red_flag ? "Yes" : "No") : null;
+    case "sp_pole":
+      return results.sp_pole || null;
+    case "sp_winner":
+      return results.sp_winner || null;
+    case "sp_p2":
+      return results.sp_p2 || null;
+    case "sp_p3":
+      return results.sp_p3 || null;
+    default:
+      return null;
+  }
+}
+
+function buildLeagueReviewRows(prompts, picks, results, breakdown) {
+  return prompts.map((prompt) => {
+    const pick = picks?.[prompt.key] || null;
+    const actual = resultValueForKey(results, prompt.key);
+    const hit = prompt.key === "dnf"
+      ? matchesDnfPick(pick, results)
+      : (!!pick && actual !== null && pick === actual);
+    const breakdownItem = Array.isArray(breakdown)
+      ? breakdown.find((item) => item.label === prompt.label)
+      : null;
+
+    return {
+      key: prompt.key,
+      label: prompt.label,
+      pick,
+      actual,
+      hit,
+      points: hit ? Number(breakdownItem?.pts || prompt.pts || 0) : 0,
+    };
+  }).filter((row) => row.pick || row.actual);
+}
+
+function totalRowPoints(rows) {
+  return (rows || []).reduce((sum, row) => sum + Number(row.points || 0), 0);
+}
+
+function bonusPointsFromBreakdown(breakdown) {
+  if (!Array.isArray(breakdown)) return 0;
+  return breakdown.reduce(
+    (sum, item) => (item.label === "Perfect Podium Bonus" ? sum + Number(item.pts || 0) : sum),
+    0
+  );
+}
+
+function roundMeta(roundNumber) {
+  return CAL.find((item) => Number(item.r) === Number(roundNumber)) || null;
+}
+
 export default function CommunityPage({ user, openAuth }) {
   const { isMobile, isTablet } = useViewport();
   const [tab, setTab] = useState("leagues");
@@ -90,6 +187,9 @@ export default function CommunityPage({ user, openAuth }) {
   const [leagueStandings, setLeagueStandings] = useState({});
   const [leaguePosts, setLeaguePosts] = useState({});
   const [leagueForumReady, setLeagueForumReady] = useState({});
+  const [scoredRounds, setScoredRounds] = useState([]);
+  const [leagueReviewRound, setLeagueReviewRound] = useState(null);
+  const [leagueRoundReviews, setLeagueRoundReviews] = useState({});
   const [selectedLeagueId, setSelectedLeagueId] = useState(null);
   const [expandedPosts, setExpandedPosts] = useState({});
   const [comments, setComments] = useState({});
@@ -101,14 +201,15 @@ export default function CommunityPage({ user, openAuth }) {
   const [leagueName, setLeagueName] = useState("");
   const [joinCode, setJoinCode] = useState("");
 
-  const currentLeague = leagues.find((league) => league.id === selectedLeagueId) || null;
+  const currentLeague = leagues.find((league) => league.id === selectedLeagueId) || leagues[0] || null;
   const currentStandings = currentLeague ? (leagueStandings[currentLeague.id] || []) : [];
   const currentLeaguePosts = currentLeague ? (leaguePosts[currentLeague.id] || []) : [];
+  const currentLeagueMemberIds = currentStandings.map((member) => member.id).filter(Boolean).join("|");
   const next = nextRace();
 
   useEffect(() => {
-    fetchLeaderboard();
-    fetchPosts();
+    fetchPublicCommunity();
+    fetchScoredRounds();
   }, []);
 
   useEffect(() => {
@@ -124,6 +225,35 @@ export default function CommunityPage({ user, openAuth }) {
     fetchLeagueStandings(selectedLeagueId);
     fetchLeaguePosts(selectedLeagueId);
   }, [selectedLeagueId, user]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!leagues.length) {
+      setSelectedLeagueId(null);
+      return;
+    }
+
+    if (!leagues.some((league) => league.id === selectedLeagueId)) {
+      setSelectedLeagueId(leagues[0].id);
+    }
+  }, [leagues, selectedLeagueId]);
+
+  useEffect(() => {
+    if (!scoredRounds.length) {
+      setLeagueReviewRound(null);
+      return;
+    }
+
+    setLeagueReviewRound((current) => (
+      current && scoredRounds.some((row) => Number(row.race_round) === Number(current))
+        ? current
+        : scoredRounds[0].race_round
+    ));
+  }, [scoredRounds]);
+
+  useEffect(() => {
+    if (!currentLeague?.id || !leagueReviewRound || !currentStandings.length) return;
+    fetchLeagueRoundReview(currentLeague.id, leagueReviewRound, currentStandings);
+  }, [currentLeague?.id, currentLeagueMemberIds, leagueReviewRound]); // eslint-disable-line
 
   useEffect(() => {
     if (!user?.id) return;
@@ -157,6 +287,12 @@ export default function CommunityPage({ user, openAuth }) {
     };
   }, [currentStandings]);
   const rosterPreview = useMemo(() => currentStandings.slice(0, 8), [currentStandings]);
+  const selectedLeagueRoundMeta = useMemo(() => roundMeta(leagueReviewRound), [leagueReviewRound]);
+  const currentLeagueReviewKey = currentLeague?.id && leagueReviewRound ? `${currentLeague.id}:${leagueReviewRound}` : null;
+  const currentLeagueReview = currentLeagueReviewKey ? leagueRoundReviews[currentLeagueReviewKey] : null;
+  const currentLeagueRoundResult = currentLeagueReview?.resultRow
+    || scoredRounds.find((row) => Number(row.race_round) === Number(leagueReviewRound))
+    || null;
   const leagueCount = leagues.length;
   const publicThreadCount = posts.length;
   const globalPlayerCount = leaderboard.length;
@@ -190,27 +326,54 @@ export default function CommunityPage({ user, openAuth }) {
     }));
   }
 
-  async function fetchLeaderboard() {
+  async function fetchPublicCommunity() {
     setLoadingLB(true);
-    const { data } = await supabase.from("profiles").select("*").order("points", { ascending: false }).limit(24);
-    if (data) setLeaderboard(data.map((profile) => normalizeProfileIdentity(profile, user)));
+    const { data, error } = await supabase.functions.invoke("community-public-feed", {
+      body: {},
+    });
+
+    if (error) {
+      setLoadingLB(false);
+      return;
+    }
+
+    const leaderboardRows = (data?.leaderboard || []).map((profile) => normalizeProfileIdentity(profile, user));
+    const publicPosts = data?.posts || [];
+    const publicComments = data?.commentsByPost || {};
+    const profileRows = data?.authorProfiles || [];
+
+    setLeaderboard(leaderboardRows);
+    setPosts(publicPosts);
+    setComments((current) => ({ ...current, ...publicComments }));
+
+    if (profileRows.length) {
+      setAuthorProfiles((current) => ({
+        ...current,
+        ...Object.fromEntries(profileRows.map((profile) => [profile.id, normalizeProfileIdentity(profile, user)])),
+      }));
+    } else {
+      hydrateAuthorProfiles(publicPosts);
+    }
+
     setLoadingLB(false);
   }
 
-  async function fetchPosts() {
-    const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
-    if (data) {
-      const globalPosts = data.filter((post) => !post.league_id);
-      setPosts(globalPosts);
-      hydrateAuthorProfiles(globalPosts);
-    }
-  }
-
   async function fetchComments(postId) {
-    const { data } = await supabase.from("comments").select("*").eq("post_id", postId).order("created_at", { ascending: true });
-    if (data) {
-      setComments((current) => ({ ...current, [postId]: data }));
-      hydrateAuthorProfiles(data);
+    const { data, error } = await supabase.functions.invoke("community-public-feed", {
+      body: { postId },
+    });
+
+    if (!error && data?.comments) {
+      setComments((current) => ({ ...current, [postId]: data.comments }));
+
+      if (data.authorProfiles?.length) {
+        setAuthorProfiles((current) => ({
+          ...current,
+          ...Object.fromEntries(data.authorProfiles.map((profile) => [profile.id, normalizeProfileIdentity(profile, user)])),
+        }));
+      } else {
+        hydrateAuthorProfiles(data.comments);
+      }
     }
   }
 
@@ -238,6 +401,91 @@ export default function CommunityPage({ user, openAuth }) {
       .map((profile) => normalizeProfileIdentity(profile, user))
       .sort((a, b) => (b.points || 0) - (a.points || 0));
     setLeagueStandings((current) => ({ ...current, [leagueId]: sorted }));
+  }
+
+  async function fetchScoredRounds() {
+    const { data } = await supabase
+      .from("race_results")
+      .select("*")
+      .eq("results_entered", true)
+      .order("race_round", { ascending: false });
+
+    setScoredRounds(data || []);
+  }
+
+  async function fetchLeagueRoundReview(leagueId, raceRound, standings = []) {
+    const key = `${leagueId}:${raceRound}`;
+    const members = standings.length ? standings : (leagueStandings[leagueId] || []);
+    const memberIds = members.map((member) => member.id).filter(Boolean);
+    const resultRow = scoredRounds.find((row) => Number(row.race_round) === Number(raceRound)) || null;
+
+    if (!memberIds.length) {
+      setLeagueRoundReviews((current) => ({
+        ...current,
+        [key]: { loading: false, error: null, resultRow, members: [] },
+      }));
+      return;
+    }
+
+    setLeagueRoundReviews((current) => ({
+      ...current,
+      [key]: {
+        loading: true,
+        error: null,
+        resultRow,
+        members: current[key]?.members || [],
+      },
+    }));
+
+    const { data, error } = await supabase
+      .from("predictions")
+      .select("user_id,race_round,picks,score,score_breakdown,updated_at")
+      .eq("race_round", raceRound)
+      .in("user_id", memberIds);
+
+    if (error) {
+      setLeagueRoundReviews((current) => ({
+        ...current,
+        [key]: { loading: false, error: error.message, resultRow, members: [] },
+      }));
+      return;
+    }
+
+    const predictionMap = new Map((data || []).map((item) => [item.user_id, item]));
+    const meta = roundMeta(raceRound);
+    const ranked = members
+      .map((member) => {
+        const prediction = predictionMap.get(member.id) || null;
+        const breakdown = Array.isArray(prediction?.score_breakdown) ? prediction.score_breakdown : [];
+        const raceRows = buildLeagueReviewRows(LEAGUE_RACE_REVIEW_PROMPTS, prediction?.picks || {}, resultRow, breakdown);
+        const sprintRows = meta?.sprint
+          ? buildLeagueReviewRows(LEAGUE_SPRINT_REVIEW_PROMPTS, prediction?.picks || {}, resultRow, breakdown)
+          : [];
+        const correctCalls = [...raceRows, ...sprintRows].filter((row) => row.hit).length;
+        const roundScore = prediction
+          ? totalRowPoints(raceRows) + totalRowPoints(sprintRows) + bonusPointsFromBreakdown(breakdown)
+          : 0;
+
+        return {
+          member,
+          prediction,
+          roundScore,
+          correctCalls,
+          breakdown,
+          raceRows,
+          sprintRows,
+        };
+      })
+      .sort((left, right) => (
+        (right.roundScore - left.roundScore)
+        || ((right.member.points || 0) - (left.member.points || 0))
+        || left.member.username.localeCompare(right.member.username)
+      ));
+
+    setLeagueRoundReviews((current) => ({
+      ...current,
+      [key]: { loading: false, error: null, resultRow, members: ranked },
+    }));
   }
 
   async function fetchLeaguePosts(leagueId) {
@@ -339,7 +587,7 @@ export default function CommunityPage({ user, openAuth }) {
     }
     setGlobalDraft({ title: "", body: "" });
     setShowGlobalForm(false);
-    fetchPosts();
+    fetchPublicCommunity();
   }
 
   async function submitLeaguePost() {
@@ -691,7 +939,7 @@ export default function CommunityPage({ user, openAuth }) {
                       </div>
 
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-                        {[["standings", "Standings"], ["chat", "Chat"], ["info", "League Info"]].map(([value, label]) => (
+                        {[["standings", "Standings"], ["review", "Round Review"], ["chat", "Chat"], ["info", "League Info"]].map(([value, label]) => (
                           <button
                             key={value}
                             onClick={() => setLeagueView(value)}
@@ -787,6 +1035,200 @@ export default function CommunityPage({ user, openAuth }) {
                     </div>
                   )}
 
+                  {leagueView === "review" && (
+                    <div style={{ display: "grid", gap: 16 }}>
+                      <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>League round review</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>
+                              {selectedLeagueRoundMeta?.n || (leagueReviewRound ? `Round ${leagueReviewRound}` : "Scored rounds")}
+                            </div>
+                            <div style={{ fontSize: 12, color: MUTED_TEXT, marginTop: 6 }}>
+                              Compare how everyone in the league scored once a Grand Prix has been processed.
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: isMobile ? "100%" : 240 }}>
+                            <select
+                              value={leagueReviewRound || ""}
+                              onChange={(event) => setLeagueReviewRound(Number(event.target.value))}
+                              style={inputStyle}
+                            >
+                              {scoredRounds.length === 0 ? (
+                                <option value="">No scored rounds yet</option>
+                              ) : (
+                                scoredRounds.map((round) => {
+                                  const meta = roundMeta(round.race_round);
+                                  return (
+                                    <option key={round.race_round} value={round.race_round}>
+                                      {meta?.n || `Round ${round.race_round}`}
+                                    </option>
+                                  );
+                                })
+                              )}
+                            </select>
+                          </div>
+                        </div>
+
+                        {currentLeagueRoundResult && (
+                          <div style={{ padding: 16, display: "grid", gridTemplateColumns: isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 10 }}>
+                            {[
+                              ["Winner", currentLeagueRoundResult.winner || "Pending"],
+                              ["Pole", currentLeagueRoundResult.pole || "Pending"],
+                              ["Driver of the Day", currentLeagueRoundResult.dotd || "Pending"],
+                              ["Best Constructor", currentLeagueRoundResult.best_constructor || "Pending"],
+                            ].map(([label, value]) => (
+                              <div key={label} style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
+                                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>{label}</div>
+                                <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.35 }}>{value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {scoredRounds.length === 0 ? (
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 26, color: MUTED_TEXT, boxShadow: SOFT_SHADOW }}>
+                          Once a round has official results and scoring is complete, the full league recap will appear here.
+                        </div>
+                      ) : currentLeagueReview?.loading ? (
+                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 26, color: MUTED_TEXT, boxShadow: SOFT_SHADOW }}>
+                          Loading league round review...
+                        </div>
+                      ) : currentLeagueReview?.error ? (
+                        <div style={{ borderRadius: CARD_RADIUS, border: "1px solid rgba(239,68,68,0.18)", background: PANEL_BG, padding: 26, color: MUTED_TEXT, boxShadow: SOFT_SHADOW }}>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#fca5a5", marginBottom: 6 }}>League review could not load</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                            {currentLeagueReview.error}. If this is a permissions error, the `predictions` table still needs a league review select policy.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 16 }}>
+                          {(currentLeagueReview?.members || []).map((entry, index) => {
+                            const scoredItems = [...entry.raceRows, ...entry.sprintRows].filter((row) => row.hit && row.points > 0);
+                            const bonusPoints = bonusPointsFromBreakdown(entry.breakdown);
+                            const bonusItem = bonusPoints ? { label: "Perfect Podium Bonus", pts: bonusPoints } : null;
+                            const updatedLabel = entry.prediction?.updated_at ? formatStamp(entry.prediction.updated_at) : "";
+
+                            return (
+                              <div key={entry.member.id} style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                                    <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                                      <AvatarChip name={entry.member.username} colorKey={entry.member.avatar_color} size={36} radius={11} fontSize={12} />
+                                      <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 4 }}>{entry.member.username}</div>
+                                        <div style={{ fontSize: 11, color: MUTED_TEXT }}>
+                                          #{index + 1} this round · {entry.member.points || 0} season pts
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div style={{ textAlign: "right" }}>
+                                      <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{entry.roundScore} pts</div>
+                                      <div style={{ fontSize: 11, color: MUTED_TEXT }}>{entry.correctCalls} correct calls</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ padding: 16, display: "grid", gap: 14 }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+                                    <StatCard label="Round score" value={`${entry.roundScore}`} accent="#facc15" />
+                                    <StatCard label="Hits" value={String(entry.correctCalls)} accent="#86efac" />
+                                    <StatCard label="Saved" value={entry.prediction ? "Yes" : "No"} accent="#cbd5e1" />
+                                  </div>
+
+                                  {entry.prediction ? (
+                                    <>
+                                      <div>
+                                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Scored hits</div>
+                                        {scoredItems.length || bonusItem ? (
+                                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                            {scoredItems.map((item) => (
+                                              <span key={`${entry.member.id}-${item.label}`} style={{ borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 800, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.22)", color: "#bbf7d0" }}>
+                                                {item.label} +{item.pts}
+                                              </span>
+                                            ))}
+                                            {bonusItem && (
+                                              <span style={{ borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 800, background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.22)", color: "#bfdbfe" }}>
+                                                {bonusItem.label} +{bonusItem.pts}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div style={{ fontSize: 12, color: MUTED_TEXT }}>No categories landed this round.</div>
+                                        )}
+                                      </div>
+
+                                      <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", overflow: "hidden" }}>
+                                        <div style={{ padding: "12px 14px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Race board</div>
+                                        </div>
+                                        {(entry.raceRows.length ? entry.raceRows : LEAGUE_RACE_REVIEW_PROMPTS.map((prompt) => ({ key: prompt.key, label: prompt.label, pick: null, actual: resultValueForKey(currentLeagueRoundResult, prompt.key), hit: false, points: 0 })) ).map((row, rowIndex, source) => (
+                                          <div key={`${entry.member.id}-${row.key}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 74px" : "minmax(140px,1fr) minmax(0,1fr) minmax(0,1fr) 74px", gap: 10, alignItems: "center", padding: "11px 14px", borderBottom: rowIndex < source.length - 1 ? `1px solid ${HAIRLINE}` : "none", background: rowIndex % 2 === 0 ? PANEL_BG : PANEL_BG_ALT }}>
+                                            <div>
+                                              <div style={{ fontSize: 12, fontWeight: 800 }}>{row.label}</div>
+                                              {isMobile ? (
+                                                <div style={{ marginTop: 4, display: "grid", gap: 2, fontSize: 11, color: MUTED_TEXT }}>
+                                                  <div>Pick: <span style={{ color: "#fff" }}>{row.pick || "No pick"}</span></div>
+                                                  <div>Result: <span style={{ color: "#fff" }}>{row.actual || "Pending"}</span></div>
+                                                </div>
+                                              ) : null}
+                                            </div>
+                                            {!isMobile ? <div style={{ fontSize: 12, color: row.pick ? "#fff" : MUTED_TEXT }}>{row.pick || "No pick"}</div> : null}
+                                            {!isMobile ? <div style={{ fontSize: 12, color: row.actual ? "#fff" : MUTED_TEXT }}>{row.actual || "Pending"}</div> : null}
+                                            <div style={{ textAlign: "right", fontSize: 14, fontWeight: 900, color: row.hit ? "#facc15" : SUBTLE_TEXT }}>
+                                              {row.hit ? `+${row.points}` : "0"}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      {entry.sprintRows.length > 0 && (
+                                        <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", overflow: "hidden" }}>
+                                          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Sprint board</div>
+                                          </div>
+                                          {entry.sprintRows.map((row, rowIndex) => (
+                                            <div key={`${entry.member.id}-${row.key}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 74px" : "minmax(140px,1fr) minmax(0,1fr) minmax(0,1fr) 74px", gap: 10, alignItems: "center", padding: "11px 14px", borderBottom: rowIndex < entry.sprintRows.length - 1 ? `1px solid ${HAIRLINE}` : "none", background: rowIndex % 2 === 0 ? PANEL_BG : PANEL_BG_ALT }}>
+                                              <div>
+                                                <div style={{ fontSize: 12, fontWeight: 800 }}>{row.label}</div>
+                                                {isMobile ? (
+                                                  <div style={{ marginTop: 4, display: "grid", gap: 2, fontSize: 11, color: MUTED_TEXT }}>
+                                                    <div>Pick: <span style={{ color: "#fff" }}>{row.pick || "No pick"}</span></div>
+                                                    <div>Result: <span style={{ color: "#fff" }}>{row.actual || "Pending"}</span></div>
+                                                  </div>
+                                                ) : null}
+                                              </div>
+                                              {!isMobile ? <div style={{ fontSize: 12, color: row.pick ? "#fff" : MUTED_TEXT }}>{row.pick || "No pick"}</div> : null}
+                                              {!isMobile ? <div style={{ fontSize: 12, color: row.actual ? "#fff" : MUTED_TEXT }}>{row.actual || "Pending"}</div> : null}
+                                              <div style={{ textAlign: "right", fontSize: 14, fontWeight: 900, color: row.hit ? "#facc15" : SUBTLE_TEXT }}>
+                                                {row.hit ? `+${row.points}` : "0"}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      <div style={{ fontSize: 11, color: MUTED_TEXT }}>
+                                        {updatedLabel ? `Saved ${updatedLabel}` : "Saved board"}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: 16, fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT }}>
+                                      No saved board for this round.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {leagueView === "chat" && (
                     <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
@@ -839,7 +1281,9 @@ export default function CommunityPage({ user, openAuth }) {
                           <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
                             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Invite flow</div>
                             <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>Share the league code and bring the room together.</div>
-                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>Your current invite code is <span style={{ color: "#fff", fontWeight: 800, letterSpacing: "0.14em", fontFamily: "monospace" }}>{currentLeague.code}</span>. New players join from the league controls panel.</div>
+                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>
+                              <>Your current invite code is <span style={{ color: "#fff", fontWeight: 800, letterSpacing: "0.14em", fontFamily: "monospace" }}>{currentLeague.code}</span>. New players join from the league controls panel.</>
+                            </div>
                           </div>
 
                           <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
@@ -850,8 +1294,14 @@ export default function CommunityPage({ user, openAuth }) {
 
                           <div style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "14px 15px 13px" }}>
                             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Ownership</div>
-                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{currentLeague.owner_id === user.id ? "You own this league." : "You are a member of this league."}</div>
-                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{currentLeague.owner_id === user.id ? "As owner, you can share the code or remove the league completely." : "You can leave at any time without affecting the rest of the members."}</div>
+                            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>
+                              {currentLeague.owner_id === user.id ? "You own this league." : "You are a member of this league."}
+                            </div>
+                            <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>
+                              {currentLeague.owner_id === user.id
+                                ? "As owner, you can share the code or remove the league completely."
+                                : "You can leave at any time without affecting the rest of the members."}
+                            </div>
                           </div>
                         </div>
                       </div>

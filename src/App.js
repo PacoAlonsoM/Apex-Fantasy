@@ -50,8 +50,16 @@ export default function StintApp() {
     }
   };
 
-  const openAuth = m => { setAuthMode(m || "login"); setAuthOpen(true); };
-  const logout = async () => { await supabase.auth.signOut(); setUser(null); };
+  const openAuth = (mode) => {
+    setAuthMode(mode || "login");
+    setAuthOpen(true);
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
   const accentTheme = getUserAccentTheme(user);
 
   return (
@@ -73,7 +81,17 @@ export default function StintApp() {
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} />
-        {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onAuth={(profile) => { setUser(profile); setAuthOpen(false); }} />}
+        {authOpen && (
+          <AuthModal
+            mode={authMode}
+            setMode={setAuthMode}
+            onClose={() => setAuthOpen(false)}
+            onAuth={(profile) => {
+              setUser(profile);
+              setAuthOpen(false);
+            }}
+          />
+        )}
         {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} />}
         {page === "calendar" && <CalendarPage user={user} />}
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} />}

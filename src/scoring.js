@@ -1,10 +1,16 @@
 import { supabase } from "./supabase";
+import { matchesDnfPick } from "./resultHelpers";
 
 const PTS = {
   pole: 10, winner: 25, p2: 18, p3: 15, dnf: 12,
   sc: 5, rf: 8, fl: 7, dotd: 6, ctor: 8,
-  perfectPodium: 15, sp_pole: 5, sp_winner: 12, sp_p2: 9, sp_p3: 7
+  perfectPodium: 15, sp_pole: 5, sp_winner: 12, sp_p2: 9, sp_p3: 7,
 };
+
+function toNumber(value) {
+  const next = Number(value || 0);
+  return Number.isFinite(next) ? next : 0;
+}
 
 export function calculatePoints(picks, results) {
   let points = 0;
@@ -16,9 +22,10 @@ export function calculatePoints(picks, results) {
   if (picks.p2 && picks.p2 === results.p2) { points += PTS.p2; breakdown.push({ label: "2nd Place", pts: PTS.p2 }); }
   if (picks.p3 && picks.p3 === results.p3) { points += PTS.p3; breakdown.push({ label: "3rd Place", pts: PTS.p3 }); }
   if (picks.winner && picks.p2 && picks.p3 && picks.winner === results.winner && picks.p2 === results.p2 && picks.p3 === results.p3) {
-    points += PTS.perfectPodium; breakdown.push({ label: "Perfect Podium Bonus", pts: PTS.perfectPodium });
+    points += PTS.perfectPodium;
+    breakdown.push({ label: "Perfect Podium Bonus", pts: PTS.perfectPodium });
   }
-  if (picks.dnf && picks.dnf === results.dnf) { points += PTS.dnf; breakdown.push({ label: "DNF Driver", pts: PTS.dnf }); }
+  if (matchesDnfPick(picks.dnf, results)) { points += PTS.dnf; breakdown.push({ label: "DNF Driver", pts: PTS.dnf }); }
   if (picks.fl && picks.fl === results.fastest_lap) { points += PTS.fl; breakdown.push({ label: "Fastest Lap", pts: PTS.fl }); }
   if (picks.dotd && picks.dotd === results.dotd) { points += PTS.dotd; breakdown.push({ label: "Driver of the Day", pts: PTS.dotd }); }
   if (picks.ctor && picks.ctor === results.best_constructor) { points += PTS.ctor; breakdown.push({ label: "Best Constructor", pts: PTS.ctor }); }
@@ -33,42 +40,88 @@ export function calculatePoints(picks, results) {
 }
 
 export async function scoreRace(raceRound) {
-  // 1. Trae los resultados
-  const { data: results, error: rErr } = await supabase
-    .from("race_results").select("*").eq("race_round", raceRound).single();
-  if (rErr || !results || !results.results_entered) return { error: "No results found for this round." };
+  const { data: results, error: resultsError } = await supabase
+    .from("race_results")
+    .select("*")
+    .eq("race_round", raceRound)
+    .single();
 
-  // 2. Trae predicciones
-  const { data: predictions, error: pErr } = await supabase
-    .from("predictions").select("*").eq("race_round", raceRound);
-  if (pErr) return { error: pErr.message };
+  if (resultsError || !results || !results.results_entered) {
+    return { error: "No results found for this round." };
+  }
+
+  const { data: predictions, error: predictionsError } = await supabase
+    .from("predictions")
+    .select("*")
+    .eq("race_round", raceRound);
+
+  if (predictionsError) return { error: predictionsError.message };
   if (!predictions.length) return { error: "No predictions found for this round." };
 
-  // 3. Filtra solo las que NO han sido scored todavía
-  const unscored = predictions.filter(p => !p.score || p.score === 0);
-  
-  if (unscored.length === 0) {
-    return { error: "This round was already scored. Reset points first if you need to rescore." };
-  }
+  const recalculated = predictions.map((prediction) => {
+    const { points, breakdown } = calculatePoints(prediction.picks || {}, results);
+    const previousScore = toNumber(prediction.score);
 
-  // 4. Calcula y guarda puntos solo para los no scored
-  for (const pred of unscored) {
-    const { points, breakdown } = calculatePoints(pred.picks, results);
+    return {
+      prediction,
+      nextScore: points,
+      previousScore,
+      delta: points - previousScore,
+      breakdown,
+    };
+  });
 
-    // Guarda el score en la predicción
-    await supabase.from("predictions")
-      .update({ score: points, score_breakdown: breakdown })
-      .eq("user_id", pred.user_id)
+  for (const entry of recalculated) {
+    const { error } = await supabase
+      .from("predictions")
+      .update({
+        score: entry.nextScore,
+        score_breakdown: entry.breakdown,
+      })
+      .eq("user_id", entry.prediction.user_id)
       .eq("race_round", raceRound);
 
-    // Suma los puntos al perfil
-    const { data: profile } = await supabase
-      .from("profiles").select("points").eq("id", pred.user_id).single();
-    const currentPoints = profile?.points || 0;
-    await supabase.from("profiles")
-      .update({ points: currentPoints + points })
-      .eq("id", pred.user_id);
+    if (error) return { error: error.message };
   }
 
-  return { success: true, scored: unscored.length };
+  const deltasByUser = recalculated.reduce((map, entry) => {
+    const current = map.get(entry.prediction.user_id) || 0;
+    map.set(entry.prediction.user_id, current + entry.delta);
+    return map;
+  }, new Map());
+
+  const usersNeedingAdjustments = [...deltasByUser.entries()].filter(([, delta]) => delta !== 0);
+
+  if (usersNeedingAdjustments.length) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id,points")
+      .in("id", usersNeedingAdjustments.map(([userId]) => userId));
+
+    if (profilesError) return { error: profilesError.message };
+
+    const pointsByUserId = new Map((profiles || []).map((profile) => [profile.id, toNumber(profile.points)]));
+
+    for (const [userId, delta] of usersNeedingAdjustments) {
+      const nextPoints = pointsByUserId.get(userId) || 0;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ points: nextPoints + delta })
+        .eq("id", userId);
+
+      if (error) return { error: error.message };
+    }
+  }
+
+  const changedPredictions = recalculated.filter((entry) => entry.delta !== 0).length;
+
+  return {
+    success: true,
+    scored: recalculated.length,
+    changed: changedPredictions,
+    adjustedUsers: usersNeedingAdjustments.length,
+    message: changedPredictions
+      ? `Recalculated ${recalculated.length} predictions and adjusted ${usersNeedingAdjustments.length} user totals.`
+      : `Rechecked ${recalculated.length} predictions. Stored scores already matched the latest results.`,
+  };
 }

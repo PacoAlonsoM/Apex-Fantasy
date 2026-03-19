@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { scoreRaceRound, syncRaceRoundFromOpenF1 } from "../_shared/race-sync.ts";
 
 const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
 
@@ -13,6 +12,33 @@ const CORS_HEADERS = {
 
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
+}
+
+function normalizeListValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))];
+  }
+
+  if (typeof value === "string") {
+    return [...new Set(
+      value
+        .split(/\s*\|\s*|\s*,\s*/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )];
+  }
+
+  if (value) {
+    const normalized = String(value).trim();
+    return normalized ? [normalized] : [];
+  }
+
+  return [];
+}
+
+function serializeDnfDrivers(value: unknown) {
+  const drivers = normalizeListValue(value);
+  return drivers.length ? drivers.join(" | ") : null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -35,6 +61,7 @@ Deno.serve(async (req: Request) => {
   const authClient = createClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
   const {
     data: { user },
     error: authError,
@@ -52,63 +79,44 @@ Deno.serve(async (req: Request) => {
     const action = String(body?.action || "");
     const raceRound = Number(body?.raceRound);
 
-    if (!action || !Number.isFinite(raceRound) || raceRound <= 0) {
-      return respond({ error: "Missing action or raceRound." }, 400);
+    if (action !== "save_results") {
+      return respond({ error: "Unsupported action." }, 400);
     }
 
-    if (action === "sync_openf1_results") {
-      const requestedYear = Number(body?.payload?.year || body?.year || new Date().getUTCFullYear());
-      const synced = await syncRaceRoundFromOpenF1({
-        supabase,
-        year: requestedYear,
-        round: raceRound,
-        persist: true,
-      });
-
-      return respond({
-        status: "ok",
-        ...synced,
-      });
+    if (!Number.isFinite(raceRound) || raceRound <= 0) {
+      return respond({ error: "Missing or invalid raceRound." }, 400);
     }
 
-    if (action === "save_results") {
-      const payload = body?.payload || {};
-      const row = {
-        race_round: raceRound,
-        pole: payload.pole || null,
-        winner: payload.winner || null,
-        p2: payload.p2 || null,
-        p3: payload.p3 || null,
-        dnf: payload.dnf || null,
-        fastest_lap: payload.fastest_lap || null,
-        dotd: payload.dotd || null,
-        best_constructor: payload.best_constructor || null,
-        safety_car: !!payload.safety_car,
-        red_flag: !!payload.red_flag,
-        sp_pole: payload.sp_pole || null,
-        sp_winner: payload.sp_winner || null,
-        sp_p2: payload.sp_p2 || null,
-        sp_p3: payload.sp_p3 || null,
-        results_entered: true,
-        locked_at: new Date().toISOString(),
-      };
+    const payload = body?.payload || {};
+    const row = {
+      race_round: raceRound,
+      pole: payload.pole || null,
+      winner: payload.winner || null,
+      p2: payload.p2 || null,
+      p3: payload.p3 || null,
+      dnf: serializeDnfDrivers(payload.dnf_list || payload.dnf),
+      fastest_lap: payload.fastest_lap || null,
+      dotd: payload.dotd || null,
+      best_constructor: payload.best_constructor || null,
+      safety_car: !!payload.safety_car,
+      red_flag: !!payload.red_flag,
+      sp_pole: payload.sp_pole || null,
+      sp_winner: payload.sp_winner || null,
+      sp_p2: payload.sp_p2 || null,
+      sp_p3: payload.sp_p3 || null,
+      results_entered: true,
+      locked_at: new Date().toISOString(),
+    };
 
-      const { error } = await supabase.from("race_results").upsert(row, { onConflict: "race_round" });
-      if (error) throw error;
+    const { error } = await supabase.from("race_results").upsert(row, { onConflict: "race_round" });
+    if (error) throw error;
 
-      return respond({ status: "ok", raceRound });
-    }
-
-    if (action === "score_race") {
-      const scoreResult = await scoreRaceRound({ supabase, raceRound });
-      if (scoreResult.status === "missing_results") {
-        return respond({ error: scoreResult.message }, 400);
-      }
-      return respond(scoreResult);
-    }
-
-    return respond({ error: "Unknown action." }, 400);
+    return respond({
+      status: "ok",
+      raceRound,
+      message: "Results saved to database.",
+    });
   } catch (error) {
-    return respond({ error: error instanceof Error ? error.message : "Unexpected admin function error." }, 500);
+    return respond({ error: error instanceof Error ? error.message : "Unexpected admin save error." }, 500);
   }
 });
