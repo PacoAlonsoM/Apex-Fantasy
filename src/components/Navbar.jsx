@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import {
   ACCENT,
   ACCENT_GLOW,
-  BG_BASE,
   BG_SURFACE,
   BRAND_DESCRIPTOR,
   BRAND_GRADIENT,

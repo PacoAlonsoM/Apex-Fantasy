@@ -201,16 +201,28 @@ export default function CommunityPage({ user, openAuth }) {
   const [leagueName, setLeagueName] = useState("");
   const [joinCode, setJoinCode] = useState("");
 
-  const currentLeague = leagues.find((league) => league.id === selectedLeagueId) || leagues[0] || null;
-  const currentStandings = currentLeague ? (leagueStandings[currentLeague.id] || []) : [];
-  const currentLeaguePosts = currentLeague ? (leaguePosts[currentLeague.id] || []) : [];
-  const currentLeagueMemberIds = currentStandings.map((member) => member.id).filter(Boolean).join("|");
+  const currentLeague = useMemo(
+    () => leagues.find((league) => league.id === selectedLeagueId) || leagues[0] || null,
+    [leagues, selectedLeagueId]
+  );
+  const currentStandings = useMemo(
+    () => (currentLeague ? (leagueStandings[currentLeague.id] || []) : []),
+    [currentLeague, leagueStandings]
+  );
+  const currentLeaguePosts = useMemo(
+    () => (currentLeague ? (leaguePosts[currentLeague.id] || []) : []),
+    [currentLeague, leaguePosts]
+  );
+  const currentLeagueMemberIds = useMemo(
+    () => currentStandings.map((member) => member.id).filter(Boolean).join("|"),
+    [currentStandings]
+  );
   const next = nextRace();
 
   useEffect(() => {
     fetchPublicCommunity();
     fetchScoredRounds();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user) fetchLeagues();

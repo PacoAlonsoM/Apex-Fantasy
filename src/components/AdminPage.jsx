@@ -103,26 +103,6 @@ export default function AdminPage({ user }) {
     return functionsClient.invoke(name, options);
   };
 
-  const extractFunctionError = async (error) => {
-    let detail = error?.message || "Unexpected function error.";
-    const context = error?.context;
-
-    if (!context) return detail;
-
-    try {
-      const payload = await context.json();
-      detail = payload?.error || payload?.message || JSON.stringify(payload);
-    } catch {
-      try {
-        detail = await context.text();
-      } catch {
-        detail = error?.message || detail;
-      }
-    }
-
-    return detail;
-  };
-
   const saveResults = async () => {
     if (!result || result.error) return;
     setSaveLoading(true);

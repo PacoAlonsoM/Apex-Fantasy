@@ -864,13 +864,19 @@ export default function PredictionsPage({ user, openAuth }) {
   const selectedPrediction = predictionsByRound[race.r] || null;
   const selectedResult = resultsByRound[race.r] || null;
   const liveRace = liveRaces[race.r] || null;
-  const meetingSessions = liveMeetings[race.r] || [];
+  const meetingSessions = useMemo(
+    () => liveMeetings[race.r] || [],
+    [liveMeetings, race.r]
+  );
   const totalPrompts = prompts.length;
   const done = prompts.filter((prompt) => !!picks[prompt.key]).length;
   const completion = totalPrompts ? Math.round((done / totalPrompts) * 100) : 0;
 
   const aiTargetsRace = aiInsight?.race_name === race.n;
-  const aiPredictions = aiTargetsRace ? (aiInsight?.metadata?.category_predictions || []) : [];
+  const aiPredictions = useMemo(
+    () => (aiTargetsRace ? (aiInsight?.metadata?.category_predictions || []) : []),
+    [aiTargetsRace, aiInsight]
+  );
   const aiByKey = useMemo(
     () => Object.fromEntries(aiPredictions.map((item) => [item.key, item])),
     [aiPredictions]

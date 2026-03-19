@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { CAL, fmtFull, monthLabel, nextRace, raceSessions, rc } from "../constants/calendar";
+import { CAL, monthLabel, nextRace, raceSessions, rc } from "../constants/calendar";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
 import {
   ACCENT,
-  CARD_RADIUS,
   CONTENT_MAX,
   HAIRLINE,
   INFO,
