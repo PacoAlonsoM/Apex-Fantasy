@@ -3,12 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENF1_BASE = "https://api.openf1.org/v1";
 const OPENAI_BASE = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL = "gpt-4.1";
+const DEFAULT_MODEL = "gpt-4o-mini";
 const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
-const NEWS_LOOKBACK_DAYS = 365;
-const NEWS_FETCH_LIMIT = 180;
-const NEWS_CONTEXT_LIMIT = 72;
-const NEWS_SUMMARY_CONTEXT_MAX = 360;
 const DRIVER_OPTIONS = [
   "Lando Norris",
   "Oscar Piastri",
@@ -111,7 +107,6 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
-const OPENF1_RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
@@ -135,113 +130,32 @@ function pickOutputText(payload: Record<string, unknown>) {
   return null;
 }
 
-function truncateText(value: string, max: number) {
-  if (!value) return value;
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 1).trim()}…`;
-}
+async function fetchOpenF1(path: string) {
+  const response = await fetch(`${OPENF1_BASE}${path}`, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "apex-fantasy-ai-race-brief/1.0",
+    },
+  });
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function balanceNewsBySource(articles: Array<Record<string, unknown>>, maxItems: number) {
-  const buckets = new Map<string, Array<Record<string, unknown>>>();
-  for (const article of articles) {
-    const source = String(article.source || "Unknown");
-    if (!buckets.has(source)) buckets.set(source, []);
-    buckets.get(source)?.push(article);
+  if (!response.ok) {
+    throw new Error(`OpenF1 ${path}: ${response.status} ${response.statusText}`);
   }
 
-  const sources = [...buckets.keys()];
-  const picked: Array<Record<string, unknown>> = [];
-
-  while (picked.length < maxItems) {
-    let addedInRound = false;
-
-    for (const source of sources) {
-      const queue = buckets.get(source) || [];
-      if (!queue.length) continue;
-      picked.push(queue.shift()!);
-      addedInRound = true;
-      if (picked.length >= maxItems) break;
-    }
-
-    if (!addedInRound) break;
-  }
-
-  return picked;
-}
-
-async function fetchOpenF1(
-  path: string,
-  options: { optional?: boolean; fallbackValue?: unknown; retries?: number } = {},
-) {
-  const {
-    optional = false,
-    fallbackValue = [],
-    retries = 4,
-  } = options;
-
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < retries; attempt += 1) {
-    try {
-      const response = await fetch(`${OPENF1_BASE}${path}`, {
-        headers: {
-          accept: "application/json",
-          "user-agent": "apex-fantasy-ai-race-brief/1.0",
-        },
-      });
-
-      if (response.ok) {
-        return await response.json();
-      }
-
-      const message = `OpenF1 ${path}: ${response.status} ${response.statusText}`;
-      lastError = new Error(message);
-
-      if (!OPENF1_RETRYABLE_STATUS.has(response.status) || attempt === retries - 1) {
-        break;
-      }
-
-      const retryAfterHeader = Number(response.headers.get("retry-after"));
-      const retryDelay = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
-        ? retryAfterHeader * 1000
-        : 350 * (attempt + 1) * (attempt + 2);
-
-      await delay(retryDelay);
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(`OpenF1 ${path}: request failed`);
-      if (attempt === retries - 1) break;
-      await delay(350 * (attempt + 1) * (attempt + 2));
-    }
-  }
-
-  if (optional) {
-    return fallbackValue;
-  }
-
-  throw lastError || new Error(`OpenF1 ${path}: request failed`);
+  return await response.json();
 }
 
 async function loadRaceSessionsWithFallback(baseYear: number) {
   const candidateYears = [baseYear, baseYear - 1];
-  let lastError: Error | null = null;
 
   for (const year of candidateYears) {
-    try {
-      const rawRaceSessions = await fetchOpenF1(`/sessions?year=${year}&session_name=Race`);
-      const raceSessions = sortByDate(rawRaceSessions);
-      if (raceSessions.length) {
-        return { year, raceSessions };
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(`OpenF1 sessions failed for ${year}`);
+    const rawRaceSessions = await fetchOpenF1(`/sessions?year=${year}&session_name=Race`);
+    const raceSessions = sortByDate(rawRaceSessions);
+    if (raceSessions.length) {
+      return { year, raceSessions };
     }
   }
 
-  if (lastError) throw lastError;
   return { year: baseYear, raceSessions: [] };
 }
 
@@ -542,21 +456,18 @@ Deno.serve(async (req: Request) => {
 
     raceName = String(upcomingRace.meeting_name || upcomingRace.country_name || "Upcoming race");
 
-    const newsCutoff = new Date(Date.now() - NEWS_LOOKBACK_DAYS * 86400000).toISOString();
-
     const [meetingSessions, articleResponse] = await Promise.all([
-      fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`, { optional: true, fallbackValue: [] }),
+      fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`),
       supabase
         .from("news_articles")
         .select("id,title,summary,url,source,published_at")
-        .gte("published_at", newsCutoff)
         .order("published_at", { ascending: false })
-        .limit(NEWS_FETCH_LIMIT),
+        .limit(24),
     ]);
 
     if (articleResponse.error) throw new Error(articleResponse.error.message);
 
-    const rawArticles = (articleResponse.data || []).map((article) => ({
+    const articles = (articleResponse.data || []).map((article) => ({
       id: article.id,
       title: article.title,
       summary: article.summary,
@@ -565,24 +476,20 @@ Deno.serve(async (req: Request) => {
       url: article.url,
     }));
 
-    const articles = balanceNewsBySource(rawArticles, NEWS_CONTEXT_LIMIT);
-
-    articleCount = rawArticles.length;
-    sourceCount = new Set(rawArticles.map((article) => article.source).filter(Boolean)).size;
+    articleCount = articles.length;
+    sourceCount = new Set(articles.map((article) => article.source).filter(Boolean)).size;
 
     let previousRaceSummary = null;
     let previousRaceWeather = null;
     let previousRaceStrategy = null;
     if (previousRace?.session_key) {
-      const results = await fetchOpenF1(`/session_result?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
-      await delay(120);
-      const drivers = await fetchOpenF1(`/drivers?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
-      await delay(120);
-      const raceControl = await fetchOpenF1(`/race_control?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
-      await delay(120);
-      const weather = await fetchOpenF1(`/weather?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
-      await delay(120);
-      const stints = await fetchOpenF1(`/stints?session_key=${previousRace.session_key}`, { optional: true, fallbackValue: [] });
+      const [results, raceControl, drivers, weather, stints] = await Promise.all([
+        fetchOpenF1(`/session_result?session_key=${previousRace.session_key}`),
+        fetchOpenF1(`/race_control?session_key=${previousRace.session_key}`),
+        fetchOpenF1(`/drivers?session_key=${previousRace.session_key}`),
+        fetchOpenF1(`/weather?session_key=${previousRace.session_key}`),
+        fetchOpenF1(`/stints?session_key=${previousRace.session_key}`),
+      ]);
 
       previousRaceSummary = {
         meeting_name: previousRace.meeting_name,
@@ -615,7 +522,7 @@ Deno.serve(async (req: Request) => {
       previous_race_strategy: previousRaceStrategy,
       recent_news: articles.map((article) => ({
         title: article.title,
-        summary: truncateText(String(article.summary || ""), NEWS_SUMMARY_CONTEXT_MAX),
+        summary: article.summary,
         source: article.source,
         published_at: article.published_at,
       })),

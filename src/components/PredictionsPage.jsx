@@ -170,6 +170,27 @@ function hasSavedPickContent(picks) {
   return !!picks && Object.values(picks).some(Boolean);
 }
 
+function roundPromptKeys(race) {
+  const baseKeys = ["pole", "winner", "p2", "p3", "dnf", "fl", "dotd", "ctor", "sc", "rf"];
+  if (race?.sprint) {
+    return [...baseKeys, "sp_pole", "sp_winner", "sp_p2", "sp_p3"];
+  }
+  return baseKeys;
+}
+
+function roundPredictionProgress(race, prediction) {
+  const keys = roundPromptKeys(race);
+  const picks = prediction?.picks || {};
+  const filled = keys.filter((key) => !!picks[key]).length;
+
+  return {
+    total: keys.length,
+    filled,
+    hasAny: filled > 0,
+    isComplete: keys.length > 0 && filled >= keys.length,
+  };
+}
+
 function hasScoredPrediction(prediction) {
   return !!prediction && prediction.score_breakdown !== null && prediction.score_breakdown !== undefined;
 }
@@ -248,45 +269,61 @@ function predictionMatches(prompt, item, value) {
   return item.pick === value;
 }
 
-function roundSidebarStatus(item, liveRace, resultRow, now, isSaved) {
+function roundSidebarStatus(item, liveRace, resultRow, now, prediction) {
   const raceEnded = getRaceEndTimestamp(item, liveRace) <= now;
+  const progress = roundPredictionProgress(item, prediction);
 
   if (resultRow?.results_entered) {
     return {
       kind: "scored",
       accent: SUCCESS,
-      surface: "rgba(34,197,94,0.08)",
-      outline: "rgba(34,197,94,0.18)",
+      surface: "rgba(34,197,94,0.10)",
+      outline: "rgba(34,197,94,0.20)",
       text: "#dcfce7",
+      badge: "Scored",
     };
   }
 
   if (raceEnded) {
     return {
-      kind: "past",
-      accent: "#60A5FA",
-      surface: "rgba(59,130,246,0.10)",
-      outline: "rgba(96,165,250,0.18)",
-      text: "#bfdbfe",
+      kind: "passed",
+      accent: "#22C55E",
+      surface: "rgba(34,197,94,0.08)",
+      outline: "rgba(34,197,94,0.16)",
+      text: "#d1fae5",
+      badge: "Passed",
     };
   }
 
-  if (isSaved) {
+  if (progress.isComplete) {
     return {
-      kind: "saved",
-      accent: SUCCESS,
-      surface: "rgba(34,197,94,0.06)",
-      outline: "rgba(34,197,94,0.14)",
-      text: "#dcfce7",
+      kind: "locked",
+      accent: "#38BDF8",
+      surface: "rgba(56,189,248,0.08)",
+      outline: "rgba(56,189,248,0.16)",
+      text: "#dbeafe",
+      badge: "Locked In",
+    };
+  }
+
+  if (progress.hasAny) {
+    return {
+      kind: "draft",
+      accent: "#F59E0B",
+      surface: "rgba(245,158,11,0.08)",
+      outline: "rgba(245,158,11,0.16)",
+      text: "#fde68a",
+      badge: `${progress.filled}/${progress.total}`,
     };
   }
 
   return {
-    kind: "upcoming",
+    kind: "open",
     accent: "#64748B",
     surface: PANEL_BG,
     outline: "rgba(255,255,255,0.06)",
     text: SUBTLE_TEXT,
+    badge: "Open",
   };
 }
 
@@ -313,7 +350,14 @@ function SidebarFilterButton({ active, label, onClick }) {
   );
 }
 
-function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
+function RoundSidebarItem({ item, active, onClick, status }) {
+  const closed = status.kind === "passed" || status.kind === "scored";
+  const hasStoredBoard = status.kind === "locked" || status.kind === "draft";
+  const inactiveBackground = status.kind === "open"
+    ? PANEL_BG
+    : `linear-gradient(135deg, ${hexToRgba(status.accent, 0.09)}, rgba(9,14,28,0.96) 62%)`;
+  const inactiveRing = status.kind === "open" ? HAIRLINE : status.outline;
+
   return (
     <button
       onClick={onClick}
@@ -325,13 +369,15 @@ function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
         alignItems: "center",
         border: "none",
         borderRadius: CARD_RADIUS,
-        background: active ? hexToRgba(status.accent, 0.18) : status.surface,
+        background: active ? hexToRgba(status.accent, 0.18) : inactiveBackground,
         padding: "12px 14px",
         textAlign: "left",
         cursor: "pointer",
+        transition: "background 140ms ease, box-shadow 140ms ease, transform 140ms ease",
         boxShadow: active
-          ? `inset 3px 0 0 ${status.accent}, 0 0 0 1px ${status.outline}`
-          : `inset 0 0 0 1px ${status.outline}`,
+          ? `inset 3px 0 0 ${status.accent}, 0 0 0 1px ${hexToRgba(status.accent, 0.26)}, 0 16px 36px ${hexToRgba(status.accent, 0.1)}`
+          : `inset 0 0 0 1px ${inactiveRing}`,
+        opacity: closed && !active ? 0.94 : 1,
       }}
     >
       <div
@@ -341,35 +387,20 @@ function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
           height: 44,
           borderRadius: "50%",
           background: active ? hexToRgba(status.accent, 0.14) : BG_BASE,
-          border: `2px solid ${active ? status.accent : status.outline}`,
+          border: `2px solid ${active ? status.accent : "rgba(255,255,255,0.08)"}`,
           boxShadow: active ? `0 0 16px ${hexToRgba(status.accent, 0.22)}` : "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 16,
           fontWeight: 800,
-          color: active ? TEXT_PRIMARY : status.kind === "past" ? "#dbeafe" : TEXT_PRIMARY,
+          color: TEXT_PRIMARY,
         }}
       >
         {item.r}
-        {item.sprint && (
+        {hasStoredBoard && (
           <span
-            title="Sprint weekend"
-            style={{
-              position: "absolute",
-              top: 2,
-              right: 2,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "#A855F7",
-              boxShadow: "0 0 10px rgba(168,85,247,0.55)",
-            }}
-          />
-        )}
-        {isSaved && (
-          <span
-            title="Board saved"
+            title={status.kind === "locked" ? "Full board saved" : "Draft board started"}
             style={{
               position: "absolute",
               bottom: 1,
@@ -377,11 +408,40 @@ function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
               width: 12,
               height: 12,
               borderRadius: "50%",
-              background: SUCCESS,
-              boxShadow: "0 0 10px rgba(34,197,94,0.45)",
+              background: status.accent,
+              boxShadow: `0 0 10px ${hexToRgba(status.accent, 0.4)}`,
               border: `2px solid ${BG_BASE}`,
             }}
           />
+        )}
+        {closed && (
+          <span
+            title={status.kind === "scored" ? "Scored round" : "Passed round"}
+            style={{
+              position: "absolute",
+              bottom: -2,
+              left: -2,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: status.kind === "scored" ? hexToRgba(SUCCESS, 0.2) : hexToRgba(status.accent, 0.18),
+              border: `1px solid ${hexToRgba(status.accent, 0.35)}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: `0 0 12px ${hexToRgba(status.accent, 0.22)}`,
+            }}
+          >
+            <svg width="8" height="9" viewBox="0 0 8 9" fill="none" aria-hidden="true">
+              <path
+                d="M2.2 3.5V2.6C2.2 1.61 2.97 0.8 4 0.8C5.03 0.8 5.8 1.61 5.8 2.6V3.5M1.7 3.5H6.3C6.69 3.5 7 3.81 7 4.2V7.5C7 7.89 6.69 8.2 6.3 8.2H1.7C1.31 8.2 1 7.89 1 7.5V4.2C1 3.81 1.31 3.5 1.7 3.5Z"
+                stroke={status.accent}
+                strokeWidth="1.15"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         )}
       </div>
       <div style={{ minWidth: 0 }}>
@@ -389,7 +449,7 @@ function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
           style={{
             fontSize: 14,
             fontWeight: active ? 700 : 600,
-            color: TEXT_PRIMARY,
+            color: closed && !active ? "#e5e7eb" : TEXT_PRIMARY,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -404,10 +464,25 @@ function RoundSidebarItem({ item, active, isSaved, onClick, status }) {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: active ? status.accent : status.outline,
+              background: status.accent,
+              boxShadow: `0 0 10px ${hexToRgba(status.accent, 0.3)}`,
             }}
           />
           <span style={{ fontSize: 12, color: status.text }}>{fmt(item.date)}</span>
+          {status.badge && (
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: status.accent,
+              }}
+            >
+              {status.badge}
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -428,13 +503,13 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : PANEL_BG,
         boxShadow: `inset 3px 0 0 ${leftAccent}`,
-        padding: 20,
+        padding: 16,
         textAlign: "left",
         cursor: "pointer",
-        minHeight: 148,
+        minHeight: 122,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span
             style={{
@@ -453,17 +528,17 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
           {prompt.pts} pts
         </span>
       </div>
-      <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", color: TEXT_PRIMARY, marginBottom: 8 }}>
+      <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 6 }}>
         {prompt.label}
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 10 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 8 }}>
         {meta ? meta.label : emptySelectionLabel(prompt)}
       </div>
-      <div style={{ fontSize: 14, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: aiItem ? 12 : 0 }}>
+      <div style={{ fontSize: 13, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: aiItem ? 10 : 0 }}>
         {prompt.hint}
       </div>
       {aiItem && (
-        <div style={{ fontSize: 12, color: "#93c5fd", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11, color: "#93c5fd", lineHeight: 1.45 }}>
           AI Insight: {aiItem.pick}
         </div>
       )}
@@ -479,40 +554,40 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 84,
+        minHeight: 64,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}${selected ? ", 0 0 0 1px rgba(255,255,255,0.04)" : ""}`,
-        padding: "14px 16px",
+        padding: "10px 12px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
       }}
       disabled={disabled}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0,1fr) auto", gap: 12, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "26px minmax(0,1fr) auto", gap: 9, alignItems: "center" }}>
         <div
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
+            width: 26,
+            height: 26,
+            borderRadius: 7,
             background: hexToRgba(team.c, 0.15),
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: team.c,
-            fontSize: 13,
+            fontSize: 10,
             fontWeight: 800,
           }}
         >
           {driver.nb ? `#${driver.nb}` : "NEW"}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
             {driver.n}
           </div>
-          <div style={{ fontSize: 11, color: SUBTLE_TEXT }}>{driver.t}</div>
+          <div style={{ fontSize: 9, color: SUBTLE_TEXT }}>{driver.t}</div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -534,8 +609,8 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
                 width: 14,
                 height: 14,
                 borderRadius: "50%",
-                background: hexToRgba(SUCCESS, 0.18),
-                border: `2px solid ${SUCCESS}`,
+                background: SUCCESS,
+                border: "2px solid rgba(15,23,42,0.92)",
                 boxShadow: "0 0 12px rgba(34,197,94,0.32)",
               }}
             />
@@ -555,12 +630,12 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 84,
+        minHeight: 64,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}`,
-        padding: "14px 16px",
+        padding: "10px 12px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
@@ -569,8 +644,8 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 4 }}>{teamName}</div>
-          <div style={{ fontSize: 11, color: SUBTLE_TEXT }}>{teammates || "Team pair pending"}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 2 }}>{teamName}</div>
+          <div style={{ fontSize: 9, color: SUBTLE_TEXT }}>{teammates || "Team pair pending"}</div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -610,22 +685,22 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 104,
+        minHeight: 70,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${color}`,
-        padding: "16px",
+        padding: "12px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
       }}
       disabled={disabled}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 6 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: TEXT_PRIMARY }}>{label}</span>
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY }}>{label}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -655,7 +730,7 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
           )}
         </div>
       </div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT }}>{detail}</div>
+      <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED_TEXT }}>{detail}</div>
     </button>
   );
 }
@@ -809,11 +884,9 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
 
   const focusPrompt = (promptKey) => {
     setActivePromptKey(promptKey);
-    if (isTablet) {
-      window.requestAnimationFrame(() => {
-        boardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
+    window.requestAnimationFrame(() => {
+      boardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const save = async () => {
@@ -866,6 +939,10 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
   const selectedPrediction = predictionsByRound[race.r] || null;
   const selectedResult = resultsByRound[race.r] || null;
   const liveRace = liveRaces[race.r] || null;
+  const selectedRoundProgress = useMemo(
+    () => roundPredictionProgress(race, selectedPrediction),
+    [race, selectedPrediction]
+  );
   const meetingSessions = useMemo(
     () => liveMeetings[race.r] || [],
     [liveMeetings, race.r]
@@ -927,7 +1004,8 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
     : (perfectPodiumHit ? { label: "Perfect Podium Bonus", pts: PTS.perfectPodium } : null);
   const displayReviewScore = reviewRows.reduce((sum, row) => sum + Number(row.points || 0), 0) + Number(podiumBonus?.pts || 0);
   const lockLabel = lockSession?.date_start ? formatLocalDateTime(lockSession.date_start) : null;
-  const roundHasSavedBoard = hasSavedPickContent(predictionsByRound[race.r]?.picks);
+  const roundHasSavedBoard = selectedRoundProgress.hasAny;
+  const roundFullyLockedIn = selectedRoundProgress.isComplete;
   const statusMessage = reviewReady
     ? "Scored round. Review every hit below."
     : resultsEntered
@@ -1004,21 +1082,29 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
         outline: "rgba(96,165,250,0.16)",
         detail: lockLabel ? `Closed ${lockLabel}` : "Editing closed",
       }
-      : roundHasSavedBoard
+      : roundFullyLockedIn
         ? {
-          label: "Ready",
-          accent: SUCCESS,
-          surface: "rgba(34,197,94,0.06)",
-          outline: "rgba(34,197,94,0.14)",
-          detail: lockLabel ? `Closes ${lockLabel}` : "Board saved",
+          label: "Locked In",
+          accent: "#38BDF8",
+          surface: "rgba(56,189,248,0.08)",
+          outline: "rgba(56,189,248,0.16)",
+          detail: "All picks saved",
         }
-        : {
-          label: "Open",
-          accent: ACCENT,
-          surface: "rgba(249,115,22,0.08)",
-          outline: "rgba(249,115,22,0.16)",
-          detail: lockLabel ? `Closes ${lockLabel}` : "Open for picks",
-        };
+        : roundHasSavedBoard
+          ? {
+            label: "In Progress",
+            accent: "#F59E0B",
+            surface: "rgba(245,158,11,0.08)",
+            outline: "rgba(245,158,11,0.16)",
+            detail: `${selectedRoundProgress.filled}/${selectedRoundProgress.total} picks saved`,
+          }
+          : {
+            label: "Open",
+            accent: ACCENT,
+            surface: "rgba(249,115,22,0.08)",
+            outline: "rgba(249,115,22,0.16)",
+            detail: "No picks yet",
+          };
 
   return (
     <div
@@ -1044,13 +1130,12 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                   key={item.r}
                   item={item}
                   active={race.r === item.r}
-                  isSaved={hasSavedPickContent(predictionsByRound[item.r]?.picks)}
                   status={roundSidebarStatus(
                     item,
                     liveRaces[item.r] || null,
                     resultsByRound[item.r] || null,
                     now,
-                    hasSavedPickContent(predictionsByRound[item.r]?.picks)
+                    predictionsByRound[item.r] || null
                   )}
                   onClick={() => selectRace(item)}
                 />
@@ -1069,13 +1154,12 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                 key={item.r}
                 item={item}
                 active={race.r === item.r}
-                isSaved={hasSavedPickContent(predictionsByRound[item.r]?.picks)}
                 status={roundSidebarStatus(
                   item,
                   liveRaces[item.r] || null,
                   resultsByRound[item.r] || null,
                   now,
-                  hasSavedPickContent(predictionsByRound[item.r]?.picks)
+                  predictionsByRound[item.r] || null
                 )}
                 onClick={() => selectRace(item)}
               />
@@ -1102,7 +1186,23 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                     <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
                       {fmtFull(race.date)}
                     </span>
-                    {race.sprint && <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#A855F7", boxShadow: "0 0 12px rgba(168,85,247,0.45)" }} />}
+                    {race.sprint && (
+                      <span
+                        style={{
+                          borderRadius: 999,
+                          padding: "4px 12px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          background: "rgba(249,115,22,0.14)",
+                          color: "#fdba74",
+                          boxShadow: "inset 0 0 0 1px rgba(249,115,22,0.22)",
+                        }}
+                      >
+                        Sprint Weekend
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1138,7 +1238,9 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                     </div>
                     <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
                       {roundHasSavedBoard && !showReviewOnly
-                        ? "Your board is already stored."
+                        ? roundFullyLockedIn
+                          ? "Your full board is stored."
+                          : `You have ${selectedRoundProgress.filled} of ${selectedRoundProgress.total} picks saved.`
                         : reviewReady
                           ? "Points awarded and locked."
                           : demoPreview
@@ -1153,26 +1255,54 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
             </div>
 
             {race.sprint && (
-              <div style={{ padding: "14px 24px", borderBottom: `1px solid ${HAIRLINE}`, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[["race", "Race picks"], ["sprint", "Sprint picks"]].map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => setTab(value)}
+              <div style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
+                <div
+                  style={{
+                    padding: isMobile ? "14px 20px 12px" : "16px 24px 10px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    background: "linear-gradient(90deg, rgba(249,115,22,0.12), rgba(249,115,22,0.04) 55%, transparent)",
+                  }}
+                >
+                  <span
                     style={{
-                      minHeight: 38,
-                      padding: "0 18px",
-                      borderRadius: 999,
-                      border: tab === value ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                      background: tab === value ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.04)",
-                      color: tab === value ? ACCENT : MUTED_TEXT,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: "pointer",
+                      width: 11,
+                      height: 11,
+                      borderRadius: "50%",
+                      background: ACCENT,
+                      boxShadow: "0 0 14px rgba(249,115,22,0.4)",
                     }}
-                  >
-                    {label}
-                  </button>
-                ))}
+                  />
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fdba74" }}>
+                    Sprint weekend active
+                  </span>
+                  <span style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
+                    This round unlocks an extra sprint board and extra sprint points.
+                  </span>
+                </div>
+                <div style={{ padding: "12px 24px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[["race", "Race picks"], ["sprint", "Sprint picks"]].map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setTab(value)}
+                      style={{
+                        minHeight: 38,
+                        padding: "0 18px",
+                        borderRadius: 999,
+                        border: tab === value ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                        background: tab === value ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.04)",
+                        color: tab === value ? ACCENT : MUTED_TEXT,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1183,7 +1313,7 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                     <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
                       {group.title}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 12 }}>
                       {group.prompts.map((prompt) => (
                         <PredictionCard
                           key={prompt.key}
@@ -1361,29 +1491,29 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
           )}
 
           {!showReviewOnly && (
-            <section ref={boardRef} style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: SOFT_SHADOW, overflow: "hidden" }}>
-              <div style={{ padding: isMobile ? "20px" : "24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+            <section ref={boardRef} style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: SOFT_SHADOW, overflow: "hidden", scrollMarginTop: 96 }}>
+              <div style={{ padding: isMobile ? "18px" : "18px 22px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                 <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "start" }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                       Active category
                     </div>
-                    <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 8 }}>
+                    <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 6 }}>
                       {activePrompt?.label}
                     </div>
-                    <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 640 }}>
+                    <div style={{ fontSize: 14, lineHeight: 1.55, color: MUTED_TEXT, maxWidth: 640 }}>
                       {activePrompt?.hint}
                     </div>
                   </div>
                   <div style={{ display: "grid", gap: 10, minWidth: isTablet ? "auto" : 240 }}>
-                    <span style={{ borderRadius: 999, padding: "5px 12px", fontSize: 13, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT, width: "fit-content" }}>
+                    <span style={{ borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT, width: "fit-content" }}>
                       {activePrompt?.pts || 0} pts
                     </span>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : MUTED_TEXT }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : MUTED_TEXT }}>
                       {currentMeta ? currentMeta.label : emptySelectionLabel(activePrompt)}
                     </div>
                     {activeAi && (
-                      <div style={{ fontSize: 13, lineHeight: 1.5, color: "#93c5fd" }}>
+                      <div style={{ fontSize: 12, lineHeight: 1.45, color: "#93c5fd" }}>
                         AI Insight: {activeAi.pick}. {previewText(activeAi.reason, 88)}
                       </div>
                     )}
@@ -1391,9 +1521,9 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                 </div>
               </div>
 
-              <div style={{ padding: isMobile ? 20 : 24 }}>
+              <div style={{ padding: isMobile ? 18 : 20 }}>
                 {activePrompt?.type === "driver" && (
-                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 8 }}>
                     {driverOptions.map((driver) => (
                       <DriverOption
                         key={`${activePrompt.key}-${driver.n}`}
@@ -1408,7 +1538,7 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                 )}
 
                 {activePrompt?.type === "constructor" && (
-                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 8 }}>
                     {constructorOptions.map((teamName) => (
                       <ConstructorOption
                         key={`${activePrompt.key}-${teamName}`}
@@ -1423,7 +1553,7 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                 )}
 
                 {activePrompt?.type === "binary" && (
-                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: optionGrid, gap: 10 }}>
                     <BinaryOption
                       label="Yes"
                       detail={activePrompt.key === "sc" ? "Race likely interrupted by at least one safety car." : "A stoppage feels likely this weekend."}
@@ -1446,7 +1576,7 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
                 )}
               </div>
 
-              <div style={{ padding: "0 24px 24px", display: "grid", gap: 16 }}>
+              <div style={{ padding: "0 20px 20px", display: "grid", gap: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", paddingTop: 8 }}>
                   <button
                     onClick={() => previousPrompt && setActivePromptKey(previousPrompt.key)}

@@ -21,6 +21,7 @@ import useViewport from "../useViewport";
 
 export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMode = false, exitDemo }) {
   const [dropOpen, setDropOpen] = useState(false);
+  const [hoveredTab, setHoveredTab] = useState("");
   const timeout = useRef(null);
   const { isMobile, isTablet } = useViewport();
   const userTheme = avatarTheme(user?.avatar_color);
@@ -114,28 +115,31 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
           >
             {tabs.map(([id, label]) => {
               const active = page === id;
+              const hovered = hoveredTab === id && !active;
               return (
                 <button
                   key={id}
-                  onClick={() => setPage(id)}
+                  onClick={() => {
+                    setHoveredTab("");
+                    setPage(id);
+                  }}
                   data-hover="minimal"
-                  onMouseEnter={(event) => {
-                    if (!active) event.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                  }}
-                  onMouseLeave={(event) => {
-                    if (!active) event.currentTarget.style.background = "transparent";
-                  }}
+                  onMouseEnter={() => setHoveredTab(id)}
+                  onMouseLeave={() => setHoveredTab("")}
                   style={{
                     position: "relative",
                     minHeight: 52,
                     padding: isMobile ? "0 12px" : "0 18px",
                     borderRadius: 999,
                     border: "none",
-                    background: "transparent",
+                    outline: "none",
+                    WebkitTapHighlightColor: "transparent",
+                    background: hovered ? "rgba(255,255,255,0.04)" : "transparent",
                     color: active ? TEXT_PRIMARY : TEXT_SECONDARY,
                     fontSize: 14,
                     fontWeight: active ? 600 : 500,
                     cursor: "pointer",
+                    transition: "background-color 140ms ease, color 140ms ease",
                   }}
                 >
                   {label}
