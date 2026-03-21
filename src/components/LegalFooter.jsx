@@ -1,4 +1,5 @@
 import { BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_EMAIL } from "../constants/design";
+import { pageToHref } from "../routing";
 
 export default function LegalFooter({ setPage }) {
   const year = new Date().getFullYear();
@@ -30,10 +31,17 @@ export default function LegalFooter({ setPage }) {
               ["Terms", "terms"],
               ["Privacy", "privacy"],
             ].map(([label, page]) => (
-              <button
+              <a
                 key={label}
-                onClick={() => setPage(page)}
+                href={pageToHref(page)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage(page);
+                }}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   background: "rgba(255,255,255,0.02)",
                   border: "1px solid rgba(148,163,184,0.16)",
                   borderRadius: 999,
@@ -42,10 +50,11 @@ export default function LegalFooter({ setPage }) {
                   fontWeight: 700,
                   cursor: "pointer",
                   padding: "6px 10px",
+                  textDecoration: "none",
                 }}
               >
                 {label}
-              </button>
+              </a>
             ))}
           </div>
         </div>

@@ -327,29 +327,6 @@ function roundSidebarStatus(item, liveRace, resultRow, now, prediction) {
   };
 }
 
-function SidebarFilterButton({ active, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        minHeight: 34,
-        padding: "0 12px",
-        borderRadius: 999,
-        border: active ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(255,255,255,0.06)",
-        background: active ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.04)",
-        color: active ? ACCENT : MUTED_TEXT,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
 function RoundSidebarItem({ item, active, onClick, status }) {
   const closed = status.kind === "passed" || status.kind === "scored";
   const hasStoredBoard = status.kind === "locked" || status.kind === "draft";
@@ -503,13 +480,13 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : PANEL_BG,
         boxShadow: `inset 3px 0 0 ${leftAccent}`,
-        padding: 16,
+        padding: 12,
         textAlign: "left",
         cursor: "pointer",
-        minHeight: 122,
+        minHeight: 92,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span
             style={{
@@ -520,25 +497,25 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
               animation: value ? "none" : "pulseDot 2s infinite",
             }}
           />
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
             {prompt.section}
           </span>
         </div>
-        <span style={{ borderRadius: 999, padding: "5px 12px", fontSize: 13, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT }}>
+        <span style={{ borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT }}>
           {prompt.pts} pts
         </span>
       </div>
-      <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 6 }}>
+      <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 4 }}>
         {prompt.label}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 5 }}>
         {meta ? meta.label : emptySelectionLabel(prompt)}
       </div>
-      <div style={{ fontSize: 13, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: aiItem ? 10 : 0 }}>
+      <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED_TEXT, marginBottom: aiItem ? 6 : 0 }}>
         {prompt.hint}
       </div>
       {aiItem && (
-        <div style={{ fontSize: 11, color: "#93c5fd", lineHeight: 1.45 }}>
+        <div style={{ fontSize: 9, color: "#93c5fd", lineHeight: 1.35 }}>
           AI Insight: {aiItem.pick}
         </div>
       )}
@@ -554,40 +531,40 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 64,
+        minHeight: 58,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}${selected ? ", 0 0 0 1px rgba(255,255,255,0.04)" : ""}`,
-        padding: "10px 12px",
+        padding: "8px 10px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
       }}
       disabled={disabled}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "26px minmax(0,1fr) auto", gap: 9, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "24px minmax(0,1fr) auto", gap: 8, alignItems: "center" }}>
         <div
           style={{
-            width: 26,
-            height: 26,
+            width: 24,
+            height: 24,
             borderRadius: 7,
             background: hexToRgba(team.c, 0.15),
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: team.c,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: 800,
           }}
         >
           {driver.nb ? `#${driver.nb}` : "NEW"}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_PRIMARY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 1 }}>
             {driver.n}
           </div>
-          <div style={{ fontSize: 9, color: SUBTLE_TEXT }}>{driver.t}</div>
+          <div style={{ fontSize: 10, color: SUBTLE_TEXT }}>{driver.t}</div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -610,7 +587,7 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
                 height: 14,
                 borderRadius: "50%",
                 background: SUCCESS,
-                border: "2px solid rgba(15,23,42,0.92)",
+                border: "1px solid rgba(15,23,42,0.92)",
                 boxShadow: "0 0 12px rgba(34,197,94,0.32)",
               }}
             />
@@ -630,12 +607,12 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 64,
+        minHeight: 58,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}`,
-        padding: "10px 12px",
+        padding: "8px 10px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
@@ -644,8 +621,8 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 2 }}>{teamName}</div>
-          <div style={{ fontSize: 9, color: SUBTLE_TEXT }}>{teammates || "Team pair pending"}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 1 }}>{teamName}</div>
+          <div style={{ fontSize: 10, color: SUBTLE_TEXT }}>{teammates || "Team pair pending"}</div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -685,22 +662,22 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 70,
+        minHeight: 60,
         border: "none",
         borderRadius: RADIUS_MD,
         background: selected ? PANEL_BG_ALT : BG_BASE,
         boxShadow: `inset 3px 0 0 ${color}`,
-        padding: "12px",
+        padding: "10px 11px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
       }}
       disabled={disabled}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 5 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
-          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>{label}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {aiMatch && (
@@ -730,7 +707,7 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
           )}
         </div>
       </div>
-      <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED_TEXT }}>{detail}</div>
+      <div style={{ fontSize: 10, lineHeight: 1.4, color: MUTED_TEXT }}>{detail}</div>
     </button>
   );
 }
@@ -756,10 +733,15 @@ function ReviewMetric({ label, value, detail, accent = "#f8fafc" }) {
   );
 }
 
-export default function PredictionsPage({ user, openAuth, demoMode = false }) {
+export default function PredictionsPage({
+  user,
+  openAuth,
+  demoMode = false,
+  initialRaceRound = null,
+  onInitialRaceConsumed = () => {},
+}) {
   const { isMobile, isTablet } = useViewport();
   const [race, setRace] = useState(nextRace() || CAL[0]);
-  const [sidebarFilter, setSidebarFilter] = useState("all");
   const demoPreview = demoMode && !user;
   const [picks, setPicks] = useState({});
   const [predictionsByRound, setPredictionsByRound] = useState({});
@@ -875,6 +857,22 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
     setPicks(predictionsByRound[selectedRace.r]?.picks || {});
     setTab("race");
   };
+
+  useEffect(() => {
+    if (!initialRaceRound) return;
+
+    const targetRace = CAL.find((item) => Number(item.r) === Number(initialRaceRound));
+    if (!targetRace) {
+      onInitialRaceConsumed();
+      return;
+    }
+
+    setRace(targetRace);
+    setSaved(false);
+    setPicks(predictionsByRound[targetRace.r]?.picks || {});
+    setTab("race");
+    onInitialRaceConsumed();
+  }, [initialRaceRound, onInitialRaceConsumed, predictionsByRound]);
 
   const setPick = (key, value) => {
     if (editingLocked) return;
@@ -1049,15 +1047,7 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
     : activePrompt?.type === "binary"
       ? (isMobile ? "1fr" : "repeat(2,minmax(0,1fr))")
       : (isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))");
-  const sidebarRaces = useMemo(() => (
-    CAL.filter((item) => {
-      if (sidebarFilter === "all") return true;
-      const resultRow = resultsByRound[item.r] || null;
-      const liveRaceRow = liveRaces[item.r] || null;
-      const past = !!resultRow?.results_entered || getRaceEndTimestamp(item, liveRaceRow) <= now;
-      return sidebarFilter === "past" ? past : !past;
-    })
-  ), [sidebarFilter, resultsByRound, liveRaces, now]);
+  const sidebarRaces = CAL;
 
   useEffect(() => {
     if (!sidebarRaces.length) return;
@@ -1119,11 +1109,6 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
       <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "260px minmax(0,1fr)", gap: 24, alignItems: "start" }}>
         {isTablet ? (
           <section>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-              {[["all", "All"], ["upcoming", "Upcoming"], ["past", "Past"]].map(([value, label]) => (
-                <SidebarFilterButton key={value} active={sidebarFilter === value} label={label} onClick={() => setSidebarFilter(value)} />
-              ))}
-            </div>
             <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(220px,1fr)", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
               {sidebarRaces.map((item) => (
                 <RoundSidebarItem
@@ -1144,11 +1129,6 @@ export default function PredictionsPage({ user, openAuth, demoMode = false }) {
           </section>
         ) : (
           <aside style={{ position: "sticky", top: 96, display: "grid", gap: 12, maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingRight: 4 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-              {[["all", "All"], ["upcoming", "Upcoming"], ["past", "Past"]].map(([value, label]) => (
-                <SidebarFilterButton key={value} active={sidebarFilter === value} label={label} onClick={() => setSidebarFilter(value)} />
-              ))}
-            </div>
             {sidebarRaces.map((item) => (
               <RoundSidebarItem
                 key={item.r}

@@ -18,37 +18,12 @@ import PrivacyPage from "./components/PrivacyPage";
 import LegalFooter from "./components/LegalFooter";
 import { ensureProfileForUser } from "./authProfile";
 import { BG_BASE, BG_SURFACE, getUserAccentTheme } from "./constants/design";
-
-const PAGE_KEYS = new Set([
-  "home",
-  "calendar",
-  "predictions",
-  "ai-brief",
-  "news",
-  "standings",
-  "community",
-  "admin",
-  "profile",
-  "game-guide",
-  "support",
-  "terms",
-  "privacy",
-]);
-
-function readDemoState() {
-  const params = new URLSearchParams(window.location.search);
-  const demoMode = params.get("demo") === "1";
-  const requestedPage = params.get("page");
-
-  return {
-    demoMode,
-    page: requestedPage && PAGE_KEYS.has(requestedPage) ? requestedPage : "home",
-  };
-}
+import { pageToHref, readLocationState } from "./routing";
 
 export default function StintApp() {
-  const initialState = readDemoState();
-  const [page, setPage] = useState(initialState.page);
+  const initialState = readLocationState();
+  const [page, setPageState] = useState(initialState.page);
+  const [pendingPredictionRace, setPendingPredictionRace] = useState(initialState.raceRound);
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
@@ -70,12 +45,15 @@ export default function StintApp() {
   }, []);
 
   useEffect(() => {
-    if (!demoMode) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("demo", "1");
-    url.searchParams.set("page", page);
-    window.history.replaceState({}, "", url.toString());
-  }, [demoMode, page]);
+    const handlePopState = () => {
+      const nextState = readLocationState();
+      setPageState(nextState.page);
+      setPendingPredictionRace(nextState.raceRound);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const loadProfile = async (authUser) => {
     try {
@@ -105,6 +83,25 @@ export default function StintApp() {
     setUser(null);
   };
 
+  const navigateToPage = (nextPage, options = {}) => {
+    const { raceRound = null, replace = false } = options;
+    const nextHref = pageToHref(nextPage, { demoMode, raceRound });
+    const currentHref = `${window.location.pathname}${window.location.search}`;
+
+    setPageState(nextPage);
+    setPendingPredictionRace(nextPage === "predictions" ? raceRound : null);
+
+    if (nextHref !== currentHref) {
+      window.history[replace ? "replaceState" : "pushState"]({}, "", nextHref);
+    }
+
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+
+  const openPredictionsForRace = (raceRound) => {
+    navigateToPage("predictions", { raceRound: raceRound || null });
+  };
+
   const accentTheme = getUserAccentTheme(user);
 
   return (
@@ -125,7 +122,7 @@ export default function StintApp() {
       <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
       <BgCanvas />
       <div style={{ position: "relative", zIndex: 1 }}>
-        <Navbar page={page} setPage={setPage} user={user} openAuth={openAuth} onLogout={logout} demoMode={demoMode} exitDemo={exitDemo} />
+        <Navbar page={page} setPage={navigateToPage} user={user} openAuth={openAuth} onLogout={logout} demoMode={demoMode} exitDemo={exitDemo} />
         {authOpen && (
           <AuthModal
             mode={authMode}
@@ -137,20 +134,20 @@ export default function StintApp() {
             }}
           />
         )}
-        {page === "home" && <HomePage user={user} setPage={setPage} openAuth={openAuth} demoMode={demoMode} />}
+        {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
         {page === "calendar" && <CalendarPage user={user} />}
-        {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} />}
+        {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} initialRaceRound={pendingPredictionRace} onInitialRaceConsumed={() => setPendingPredictionRace(null)} />}
         {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
         {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
         {page === "standings" && <StandingsPage user={user} />}
         {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} />}
         {page === "admin" && <AdminPage user={user} />}
         {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
-        {page === "game-guide" && <GameGuidePage setPage={setPage} />}
+        {page === "game-guide" && <GameGuidePage setPage={navigateToPage} />}
         {page === "support" && <SupportPage />}
         {page === "terms" && <TermsPage />}
         {page === "privacy" && <PrivacyPage />}
-        <LegalFooter setPage={setPage} />
+        <LegalFooter setPage={navigateToPage} />
       </div>
     </div>
   );

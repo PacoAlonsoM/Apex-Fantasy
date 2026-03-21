@@ -1,10 +1,12 @@
 import { CONSTRUCTORS, DRV } from "./constants/teams";
+import { IS_SNAPSHOT } from "./runtimeFlags";
 import { serializeDnfDrivers } from "./resultHelpers";
 
 const BASE = "https://api.openf1.org/v1";
-const REQUEST_GAP_MS = 450;
+const REQUEST_GAP_MS = IS_SNAPSHOT ? 900 : 450;
 const RACE_POINTS = { 1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1 };
 const SPRINT_POINTS = { 1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1 };
+const responseCache = new Map();
 
 const LOCAL_DRIVER_MAP = Object.fromEntries(DRV.map((driver) => [String(driver.nb), driver.n]));
 const LOCAL_DRIVER_DETAILS = new Map(
@@ -32,11 +34,18 @@ function isRateLimitPayload(payload) {
 async function fetchJson(path, options = {}) {
   const { retries = 2 } = options;
 
+  if (responseCache.has(path)) {
+    return responseCache.get(path);
+  }
+
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const response = await fetch(`${BASE}${path}`);
     const payload = await response.json();
 
-    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload)) {
+      responseCache.set(path, payload);
+      return payload;
+    }
 
     if ((response.status === 429 || isRateLimitPayload(payload)) && attempt < retries) {
       await wait(REQUEST_GAP_MS * (attempt + 1));
@@ -99,15 +108,18 @@ function isSessionCompleted(session, now) {
   return Number.isFinite(sessionMoment) && sessionMoment <= now;
 }
 
-export async function fetchSeasonStandings(year) {
+export async function fetchSeasonStandings(year, options = {}) {
+  const { includeSprints = true } = options;
   const now = Date.now();
   const raceSessions = sortByDate(asArray(await fetchJson(`/sessions?year=${year}&session_name=Race`)))
     .filter((session) => isSessionCompleted(session, now));
 
-  await wait(REQUEST_GAP_MS);
-
-  const sprintSessions = sortByDate(asArray(await fetchJson(`/sessions?year=${year}&session_name=Sprint`)))
-    .filter((session) => isSessionCompleted(session, now));
+  let sprintSessions = [];
+  if (includeSprints) {
+    await wait(REQUEST_GAP_MS);
+    sprintSessions = sortByDate(asArray(await fetchJson(`/sessions?year=${year}&session_name=Sprint`)))
+      .filter((session) => isSessionCompleted(session, now));
+  }
 
   const sessions = [
     ...raceSessions.map((session) => ({ ...session, __kind: "race" })),

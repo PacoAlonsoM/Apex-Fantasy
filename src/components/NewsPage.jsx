@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE } from "../constants/design";
+import { IS_SNAPSHOT } from "../runtimeFlags";
+import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 
 const BLOCKED_NEWS_SOURCES = new Set(["Formula1.com"]);
@@ -137,7 +139,7 @@ function articleVisualStyle(source) {
 function NewsVisual({ article, height = 128, compact = false }) {
   const visual = articleVisualStyle(article.source);
 
-  if (article.image_url) {
+  if (article.image_url && !IS_SNAPSHOT) {
     return (
       <div
         style={{
@@ -234,6 +236,14 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
   const [tab, setTab] = useState(lockedTab || initialTab);
   const [expandedInsight, setExpandedInsight] = useState(null);
 
+  usePageMetadata({
+    title: tab === "news" ? "F1 Wire" : "AI Race Brief",
+    description: tab === "news"
+      ? "Read the stories that can actually change your picks with one public F1 wire that keeps more context on-page."
+      : "Get one AI race brief built from recent F1 news and race context, with category-level angles for the upcoming weekend.",
+    path: tab === "news" ? "/wire" : "/?page=ai-brief",
+  });
+
   useEffect(() => {
     if (lockedTab) setTab(lockedTab);
   }, [lockedTab]);
@@ -248,7 +258,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           .from("news_articles")
           .select("id,title,summary,url,source,published_at,image_url")
           .order("published_at", { ascending: false })
-          .limit(80),
+          .limit(IS_SNAPSHOT ? 16 : 80),
         supabase
           .from("ai_insights")
           .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,metadata")
@@ -374,8 +384,8 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
         {loading ? (
           <div style={{ padding: 40, color: MUTED_TEXT, textAlign: "center" }}>Loading news feed...</div>
         ) : tab === "news" && visibleArticles.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) 350px", gap: 0 }}>
-            <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", borderRight: `1px solid ${HAIRLINE}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) 350px", gap: 0, alignItems: "start" }}>
+            <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", borderRight: `1px solid ${HAIRLINE}`, display: "block", alignSelf: "start" }}>
               <article style={{ padding: featuredCompact ? 18 : 22 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{featured.source || "Source"}</span>
@@ -385,7 +395,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   <div>
                     <div style={{ fontSize: featuredCompact ? 28 : 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.04, marginBottom: 12 }}>{featured.title}</div>
                     <div style={{ fontSize: 14, lineHeight: 1.76, color: MUTED_TEXT }}>
-                      {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 420 : 760)}
+                      {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 620 : 1080)}
                     </div>
                     <div style={{ marginTop: 14, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#e2e8f0" }}>
                       Open full story
@@ -396,7 +406,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               </article>
             </a>
 
-            <div style={{ background: PANEL_BG }}>
+            <div style={{ background: PANEL_BG, alignSelf: "start" }}>
               <div style={{ padding: "18px 18px 14px", borderBottom: `1px solid ${HAIRLINE}` }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
                   Fast feed
@@ -414,6 +424,9 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                           {article.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(article.published_at)}</span>}
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>{article.title}</div>
+                        <div style={{ fontSize: 12, lineHeight: 1.6, color: MUTED_TEXT, marginTop: 6 }}>
+                          {previewText(article.summary || "Open the article for the full report.", 140)}
+                        </div>
                       </div>
                     </article>
                   </a>
@@ -711,7 +724,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                       </div>
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2, letterSpacing: -0.4, marginBottom: 7 }}>{article.title}</div>
-                    <div style={{ fontSize: 13, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(article.summary || "Open the article to read more.", isMobile ? 220 : 320)}</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.76, color: MUTED_TEXT }}>{previewText(article.summary || "Open the article to read more.", isMobile ? 340 : 560)}</div>
                   </div>
                   {isMobile && <NewsVisual article={article} height={146} />}
                 </article>

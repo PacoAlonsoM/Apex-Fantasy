@@ -16,6 +16,7 @@ import {
   avatarTheme,
   isAdminUser,
 } from "../constants/design";
+import { pageToHref } from "../routing";
 import BrandMark from "./BrandMark";
 import useViewport from "../useViewport";
 
@@ -71,8 +72,12 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
           alignItems: "center",
         }}
       >
-        <button
-          onClick={() => setPage("home")}
+        <a
+          href={pageToHref("home", { demoMode })}
+          onClick={(event) => {
+            event.preventDefault();
+            setPage("home");
+          }}
           data-hover="minimal"
           style={{
             display: "inline-flex",
@@ -84,6 +89,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             cursor: "pointer",
             color: TEXT_PRIMARY,
             justifySelf: "start",
+            textDecoration: "none",
           }}
         >
           <BrandMark size={40} />
@@ -97,7 +103,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
               </span>
             )}
           </div>
-        </button>
+        </a>
 
         <div style={{ justifySelf: isTablet ? "start" : "center", gridColumn: isTablet ? "1 / -1" : "auto", order: isTablet ? 3 : undefined }}>
           <div
@@ -117,9 +123,11 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
               const active = page === id;
               const hovered = hoveredTab === id && !active;
               return (
-                <button
+                <a
                   key={id}
-                  onClick={() => {
+                  href={pageToHref(id, { demoMode })}
+                  onClick={(event) => {
+                    event.preventDefault();
                     setHoveredTab("");
                     setPage(id);
                   }}
@@ -128,6 +136,9 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                   onMouseLeave={() => setHoveredTab("")}
                   style={{
                     position: "relative",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     minHeight: 52,
                     padding: isMobile ? "0 12px" : "0 18px",
                     borderRadius: 999,
@@ -140,6 +151,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     fontWeight: active ? 600 : 500,
                     cursor: "pointer",
                     transition: "background-color 140ms ease, color 140ms ease",
+                    textDecoration: "none",
                   }}
                 >
                   {label}
@@ -156,7 +168,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                       }}
                     />
                   )}
-                </button>
+                </a>
               );
             })}
           </div>

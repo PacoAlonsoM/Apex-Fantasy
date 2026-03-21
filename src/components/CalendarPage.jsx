@@ -5,7 +5,6 @@ import {
   ACCENT,
   CONTENT_MAX,
   HAIRLINE,
-  INFO,
   LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
@@ -17,6 +16,8 @@ import {
   SUBTLE_TEXT,
   TEXT_PRIMARY,
 } from "../constants/design";
+import { IS_SNAPSHOT } from "../runtimeFlags";
+import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 
 const sessionMeta = {
@@ -123,7 +124,7 @@ function RaceRow({ race, active, liveSessions, onSelect }) {
       style={{
         width: "100%",
         display: "grid",
-        gridTemplateColumns: "60px minmax(0,1fr) auto auto",
+        gridTemplateColumns: "60px minmax(0,1fr) auto",
         gap: 16,
         alignItems: "center",
         border: "none",
@@ -142,32 +143,34 @@ function RaceRow({ race, active, liveSessions, onSelect }) {
         <div style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 4 }}>{race.n}</div>
         <div style={{ fontSize: 13, color: SUBTLE_TEXT }}>{race.city}, {race.cc}</div>
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <span
-          style={{
-            borderRadius: 999,
-            padding: "4px 12px",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            background: race.sprint ? "rgba(168,85,247,0.12)" : "rgba(59,130,246,0.12)",
-            color: race.sprint ? SPRINT : INFO,
-          }}
-        >
-          {race.sprint ? "Sprint" : race.type}
-        </span>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+        {race.sprint && (
+          <span
+            style={{
+              borderRadius: 999,
+              padding: "4px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              background: "rgba(168,85,247,0.12)",
+              color: SPRINT,
+            }}
+          >
+            Sprint
+          </span>
+        )}
+        <span style={{ fontSize: 13, color: MUTED_TEXT, whiteSpace: "nowrap" }}>{formatEventWindowLabel(race, liveSessions)}</span>
       </div>
-      <div style={{ fontSize: 13, color: MUTED_TEXT, whiteSpace: "nowrap" }}>{formatEventWindowLabel(race, liveSessions)}</div>
     </button>
   );
 }
 
 function SessionTimeline({ sessions }) {
   return (
-    <div style={{ position: "relative", paddingLeft: 20 }}>
-      <span style={{ position: "absolute", left: 3, top: 8, bottom: 8, width: 1, background: "rgba(255,255,255,0.12)" }} />
-      <div style={{ display: "grid", gap: 18 }}>
+    <div style={{ position: "relative", paddingLeft: 18 }}>
+      <span style={{ position: "absolute", left: 3, top: 7, bottom: 7, width: 1, background: "rgba(255,255,255,0.12)" }} />
+      <div style={{ display: "grid", gap: 12 }}>
         {sessions.map((session, index) => {
           const tone = session.type === "race" ? "#EF4444" : session.type === "qualifying" ? ACCENT : session.type === "sprint" ? SPRINT : SUBTLE_TEXT;
 
@@ -176,20 +179,20 @@ function SessionTimeline({ sessions }) {
               <span
                 style={{
                   position: "absolute",
-                  left: -20,
-                  top: 6,
-                  width: 7,
-                  height: 7,
+                  left: -18,
+                  top: 4,
+                  width: 5,
+                  height: 5,
                   borderRadius: "50%",
                   background: tone,
                   border: `1px solid ${tone}`,
                   boxShadow: tone === ACCENT ? "0 0 0 6px rgba(249,115,22,0.08)" : "none",
                 }}
               />
-              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: tone, marginBottom: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: tone, marginBottom: 2 }}>
                 {session.label}
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.5, color: TEXT_PRIMARY }}>{formatLocalDateTime(session.date)}</div>
+              <div style={{ fontSize: 11, lineHeight: 1.4, color: TEXT_PRIMARY }}>{formatLocalDateTime(session.date)}</div>
             </div>
           );
         })}
@@ -204,6 +207,12 @@ export default function CalendarPage() {
   const [filt, setFilt] = useState("all");
   const [liveRaces, setLiveRaces] = useState({});
   const [liveMeetings, setLiveMeetings] = useState({});
+
+  usePageMetadata({
+    title: "2026 F1 Calendar",
+    description: "Read the 2026 Formula 1 season as one race-week system with session timing, timezone-adjusted schedules and track context for every round.",
+    path: "/calendar",
+  });
 
   const filtered = useMemo(() => {
     if (filt === "all") return CAL;
@@ -221,6 +230,7 @@ export default function CalendarPage() {
     let ignore = false;
 
     async function loadSeasonSchedule() {
+      if (IS_SNAPSHOT) return;
       const sessions = await fetchRaceSessions(2026);
       if (ignore || !sessions.length) return;
 
@@ -242,7 +252,7 @@ export default function CalendarPage() {
     const raceInfo = sel ? liveRaces[sel.r] : null;
 
     async function loadMeetingSchedule() {
-      if (!sel || !raceInfo?.meeting_key || liveMeetings[sel.r]) return;
+      if (IS_SNAPSHOT || !sel || !raceInfo?.meeting_key || liveMeetings[sel.r]) return;
       const sessions = await fetchMeetingSessions(raceInfo.meeting_key);
       if (ignore || !sessions.length) return;
       setLiveMeetings((current) => ({
@@ -280,38 +290,46 @@ export default function CalendarPage() {
       style={{
         maxWidth: CONTENT_MAX,
         margin: "0 auto",
-        padding: isMobile ? "40px 20px 72px" : isTablet ? "48px 32px 88px" : "56px 48px 96px",
+        padding: isMobile ? "32px 20px 72px" : isTablet ? "40px 32px 88px" : "42px 48px 96px",
         position: "relative",
         zIndex: 1,
       }}
     >
-      <section style={{ marginBottom: 40 }}>
-        <div style={{ maxWidth: 560, marginBottom: 32 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-            2026 Calendar
+      <section style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 360px",
+            gap: 18,
+            alignItems: "start",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ maxWidth: 620 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
+              2026 Calendar
+            </div>
+            <h1 style={{ fontSize: isMobile ? 40 : 44, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 14 }}>
+              Read the season as one race-week system.
+            </h1>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.68, color: MUTED_TEXT }}>
+              Open any Grand Prix to see the exact session order, timezone-adjusted timing, and the track context you need before moving into Picks.
+            </p>
           </div>
-          <h1 style={{ fontSize: isMobile ? 40 : 48, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 16 }}>
-            Read the season as one race-week system.
-          </h1>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: MUTED_TEXT }}>
-            Open any Grand Prix to see the exact session order, timezone-adjusted timing, and the track context you need before moving into Picks.
-          </p>
-        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 16, marginBottom: 32 }}>
-          <StatBox value="24" label="Rounds" />
-          <StatBox value={String(CAL.filter((race) => race.sprint).length)} label="Sprints" />
-          <StatBox value={timezone.split("/").pop()?.replaceAll("_", " ") || "Local"} label="Timezone" />
+          <div style={{ width: isTablet ? "100%" : 360, justifySelf: isTablet ? "stretch" : "end" }}>
+            <StatBox value={timezone.split("/").pop()?.split("_").join(" ") || "Local"} label="Timezone" />
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {[["all", "All races"], ["sprint", "Sprint weekends"], ["Street", "Street"], ["Permanent", "Permanent"]].map(([value, label]) => (
+          {[["all", "All races"], ["sprint", "Sprint weekends"]].map(([value, label]) => (
             <FilterButton key={value} active={filt === value} label={label} onClick={() => setFilt(value)} />
           ))}
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 400px", gap: 24, alignItems: "start" }}>
+      <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 560px", gap: 20, alignItems: "start" }}>
         <div>
           {Object.entries(months).map(([month, races]) => (
             <div key={month} style={{ marginBottom: 32 }}>
@@ -334,34 +352,31 @@ export default function CalendarPage() {
         </div>
 
         {sel && (
-          <aside style={{ position: isTablet ? "relative" : "sticky", top: 96 }}>
-            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden" }}>
+          <aside style={{ position: isTablet ? "relative" : "sticky", top: 84 }}>
+            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", maxHeight: isTablet ? "none" : "calc(100vh - 84px)" }}>
               <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${rc(sel)}, transparent)` }} />
-              <div style={{ padding: 24, borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                  Round {sel.r}
-                </div>
-                <h2 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 8 }}>
+              <div style={{ padding: 26, borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
+                <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.02, marginBottom: 8 }}>
                   {sel.n}
                 </h2>
-                <div style={{ fontSize: 16, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 16 }}>
+                <div style={{ fontSize: 15, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: 16 }}>
                   {sel.city}, {sel.cc}
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
+                  <span style={{ borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
                     {selectedEventWindow}
                   </span>
                   {sel.sprint && (
-                    <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(168,85,247,0.12)", color: SPRINT }}>
+                    <span style={{ borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(168,85,247,0.12)", color: SPRINT }}>
                       Sprint weekend
                     </span>
                   )}
                 </div>
               </div>
 
-              <div style={{ padding: 24, borderBottom: `1px solid ${HAIRLINE}` }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 20 }}>
+              <div style={{ padding: 24, borderBottom: `1px solid ${HAIRLINE}`, overflowY: isTablet ? "visible" : "auto" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
                   Weekend timeline
                 </div>
                 <SessionTimeline sessions={sessions} />
@@ -374,17 +389,17 @@ export default function CalendarPage() {
                   ["Circuit", `${sel.turns} turns · ${sel.drs} DRS`],
                   ["Lap record", sel.rec],
                 ].map(([label, value]) => (
-                  <div key={label} style={{ background: PANEL_BG_ALT, padding: "16px 18px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>
+                  <div key={label} style={{ background: PANEL_BG_ALT, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 5 }}>
                       {label}
                     </div>
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: TEXT_PRIMARY }}>{value}</div>
+                    <div style={{ fontSize: 12, lineHeight: 1.45, color: TEXT_PRIMARY }}>{value}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT }}>
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, lineHeight: 1.55, color: MUTED_TEXT }}>
                   Session times here follow the same timezone-adjusted schedule used throughout the product.
                 </div>
               </div>

@@ -306,10 +306,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
   const currentLeagueRoundResult = currentLeagueReview?.resultRow
     || scoredRounds.find((row) => Number(row.race_round) === Number(leagueReviewRound))
     || null;
-  const leagueCount = leagues.length;
-  const publicThreadCount = posts.length;
-  const globalPlayerCount = leaderboard.length;
-
   const inputStyle = {
     background: PANEL_BG_ALT,
     border: "1px solid rgba(148,163,184,0.12)",
@@ -821,13 +817,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 18 }}>
-          <StatCard label="Your leagues" value={String(leagueCount)} accent="#dbe4f0" />
-          <StatCard label="Global players" value={String(globalPlayerCount || 0)} accent="#bfdbfe" />
-          <StatCard label="Public threads" value={String(publicThreadCount || 0)} accent="#cbd5e1" />
-          <StatCard label="Next race" value={next?.n || "TBA"} accent="#dbe4f0" />
-        </div>
-
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
             <button
@@ -986,7 +975,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                   </div>
 
                   {leagueView === "standings" && (
-                    <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(340px,0.96fr) minmax(0,0.84fr)", gap: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(340px,0.96fr) minmax(0,0.84fr)", gap: 16, alignItems: "start" }}>
                       <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
                           <div>
@@ -1003,7 +992,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                         ) : currentStandings.length === 0 ? (
                           <div style={{ padding: 28, color: MUTED_TEXT }}>No members found in this league yet.</div>
                         ) : (
-                          <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+                          <div style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: 560, overflowY: "auto" }}>
                             {currentStandings.map((member, index) => (
                               <div key={member.id} style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 96px", gap: 0, background: PANEL_BG }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: index === 0 ? "#e2e8f0" : index === 1 ? "#cbd5e1" : index === 2 ? "#94a3b8" : SUBTLE_TEXT }}>
@@ -1043,8 +1032,8 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Member roster</div>
                             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Who is in the room</div>
                           </div>
-                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
-                            {rosterPreview.map((member) => (
+                          <div style={{ padding: 14, display: "grid", gap: 10, maxHeight: 560, overflowY: "auto" }}>
+                            {currentStandings.map((member) => (
                               <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "11px 12px" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                   <AvatarChip name={member.username} colorKey={member.avatar_color} size={30} radius={9} fontSize={10} />
@@ -1411,7 +1400,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Global leaderboard</div>
               <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>Top players</div>
             </div>
-            <div style={{ fontSize: 12, color: MUTED_TEXT }}>{loadingLB ? "Loading..." : `${leaderboard.length} players`}</div>
           </div>
 
           {loadingLB ? (
@@ -1419,7 +1407,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
           ) : leaderboard.length === 0 ? (
             <div style={{ padding: 30, color: MUTED_TEXT }}>No players yet.</div>
           ) : (
-            <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+            <div style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: 620, overflowY: "auto" }}>
               {leaderboard.map((player, index) => (
                 <div key={player.id || player.username} style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 110px", background: PANEL_BG }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: index === 0 ? "#f97316" : index === 1 ? "#cbd5e1" : index === 2 ? "#facc15" : SUBTLE_TEXT }}>

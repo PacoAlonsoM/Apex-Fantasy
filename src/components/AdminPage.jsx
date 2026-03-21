@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../supabase";
+import { supabase, SUPABASE_ANON_KEY, SUPABASE_URL } from "../supabase";
 import { fetchRaceData } from "../openf1";
 import { scoreRace } from "../scoring";
 import { CAL } from "../constants/calendar";
@@ -98,9 +98,58 @@ export default function AdminPage({ user }) {
       };
     }
 
-    const functionsClient = supabase.functions;
-    functionsClient.setAuth(accessToken);
-    return functionsClient.invoke(name, options);
+    const invokeViaFetch = async () => {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: options.body ? JSON.stringify(options.body) : "{}",
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        const payload = contentType.includes("application/json")
+          ? await response.json()
+          : await response.text();
+
+        if (!response.ok) {
+          return {
+            data: null,
+            error: new Error(
+              typeof payload === "string"
+                ? payload
+                : payload?.error || payload?.message || `Function ${name} failed with ${response.status}`
+            ),
+          };
+        }
+
+        return { data: payload, error: null };
+      } catch (error) {
+        return {
+          data: null,
+          error: error instanceof Error ? error : new Error("Failed to reach the edge function."),
+        };
+      }
+    };
+
+    try {
+      const functionsClient = supabase.functions;
+      if (typeof functionsClient.setAuth === "function") {
+        functionsClient.setAuth(accessToken);
+      }
+
+      const result = await functionsClient.invoke(name, options);
+      if (!result.error || !String(result.error.message || "").includes("Failed to send a request to the Edge Function")) {
+        return result;
+      }
+
+      return await invokeViaFetch();
+    } catch {
+      return await invokeViaFetch();
+    }
   };
 
   const saveResults = async () => {
@@ -169,12 +218,21 @@ export default function AdminPage({ user }) {
           }
         }
 
-        setInsightResult({ error: detail });
+        const friendlyDetail = /Failed to send a request to the Edge Function/i.test(detail)
+          ? "Could not reach the deployed ai-race-brief function. Refresh your session and confirm the remote function is reachable from localhost."
+          : detail;
+
+        setInsightResult({ error: friendlyDetail });
       } else {
         setInsightResult(data);
       }
     } catch (error) {
-      setInsightResult({ error: error instanceof Error ? error.message : "Unexpected function error." });
+      const detail = error instanceof Error ? error.message : "Unexpected function error.";
+      setInsightResult({
+        error: /Failed to send a request to the Edge Function/i.test(detail)
+          ? "Could not reach the deployed ai-race-brief function. Refresh your session and confirm the remote function is reachable from localhost."
+          : detail,
+      });
     }
 
     setInsightLoading(false);

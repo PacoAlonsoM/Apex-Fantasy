@@ -16,6 +16,8 @@ import {
   SUBTLE_TEXT,
 } from "../constants/design";
 import { fetchSeasonStandings } from "../openf1";
+import { IS_SNAPSHOT } from "../runtimeFlags";
+import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 
 function teamAccent(teamName) {
@@ -277,6 +279,12 @@ export default function StandingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  usePageMetadata({
+    title: "F1 Leaderboard",
+    description: "Track the live Formula 1 drivers and constructors standings in one clean public leaderboard built around completed race-week results.",
+    path: "/leaderboard",
+  });
+
   const seasonYear = useMemo(
     () => Math.max(...CAL.map((race) => Number(String(race.date).slice(0, 4)) || new Date().getFullYear())),
     []
@@ -290,7 +298,7 @@ export default function StandingsPage() {
       setError("");
 
       try {
-        const live = await fetchSeasonStandings(seasonYear);
+        const live = await fetchSeasonStandings(seasonYear, { includeSprints: !IS_SNAPSHOT });
         if (!active) return;
         setStandings(live);
       } catch (loadError) {
