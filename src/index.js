@@ -1,5 +1,5 @@
 import React from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
@@ -12,10 +12,10 @@ const app = (
 );
 
 if (container.hasChildNodes()) {
-  hydrateRoot(container, app);
-} else {
-  const root = createRoot(container);
-  root.render(app);
+  container.innerHTML = "";
 }
+
+const root = createRoot(container);
+root.render(app);
 
 reportWebVitals();
