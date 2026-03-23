@@ -223,7 +223,7 @@ export default function HomePage({ user, setPage, openAuth, demoMode = false, op
       openPredictionsForRace?.(next?.r);
       return;
     }
-    openAuth("login");
+    setPage("public-picks");
   };
 
   return (
@@ -278,7 +278,7 @@ export default function HomePage({ user, setPage, openAuth, demoMode = false, op
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <a
-                href={pageToHref("predictions", { demoMode, raceRound: next?.r })}
+                href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
                 onClick={(event) => {
                   event.preventDefault();
                   openNextRacePicks();

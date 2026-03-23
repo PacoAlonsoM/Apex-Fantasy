@@ -37,6 +37,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
   ];
 
   const admin = isAdminUser(user);
+  const picksTarget = user || demoMode ? "predictions" : "public-picks";
   const menuItems = admin
     ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
     : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"]];
@@ -120,16 +121,17 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             }}
           >
             {tabs.map(([id, label]) => {
-              const active = page === id;
+              const actualId = id === "predictions" ? picksTarget : id;
+              const active = id === "predictions" ? page === "predictions" || page === "public-picks" : page === id;
               const hovered = hoveredTab === id && !active;
               return (
                 <a
                   key={id}
-                  href={pageToHref(id, { demoMode })}
+                  href={pageToHref(actualId, { demoMode })}
                   onClick={(event) => {
                     event.preventDefault();
                     setHoveredTab("");
-                    setPage(id);
+                    setPage(actualId);
                   }}
                   data-hover="minimal"
                   onMouseEnter={() => setHoveredTab(id)}

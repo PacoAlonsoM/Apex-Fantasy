@@ -1,6 +1,7 @@
 const APP_PAGE_KEYS = new Set([
   "home",
   "calendar",
+  "public-picks",
   "predictions",
   "ai-brief",
   "news",
@@ -17,6 +18,7 @@ const APP_PAGE_KEYS = new Set([
 export const PUBLIC_PAGE_PATHS = {
   home: "/",
   calendar: "/calendar",
+  "public-picks": "/picks",
   news: "/wire",
   standings: "/leaderboard",
 };
@@ -24,6 +26,7 @@ export const PUBLIC_PAGE_PATHS = {
 const PATH_TO_PAGE = {
   "/": "home",
   "/calendar": "calendar",
+  "/picks": "public-picks",
   "/wire": "news",
   "/leaderboard": "standings",
 };

@@ -17,6 +17,7 @@ const brand = {
 const publicRoutes = [
   { path: "/", output: "index.html", nav: "home", title: "Compete hard. Predict sharp. Win your league.", description: "Public homepage for Stint F1 Predictions.", render: renderHomePage },
   { path: "/calendar", output: "calendar/index.html", nav: "calendar", title: "2026 F1 Calendar", description: "Public F1 calendar with sessions and race-week timeline context.", render: renderCalendarPage },
+  { path: "/picks", output: "picks/index.html", nav: "picks", title: "How Stint Picks Work", description: "Public teaser page for Stint Picks: categories, lock timing, sprint rules, and the next race context.", render: renderPicksPage },
   { path: "/wire", output: "wire/index.html", nav: "wire", title: "F1 Wire", description: "Public F1 news and race-week coverage feed.", render: renderWirePage },
   { path: "/leaderboard", output: "leaderboard/index.html", nav: "leaderboard", title: "F1 Leaderboard", description: "Public driver and fantasy leaderboard view.", render: renderLeaderboardPage },
 ];
@@ -78,6 +79,26 @@ const topPlayers = [
   { rank: 5, name: "SofiaUndercut", points: 131, note: "Reliable category-level scorer" },
 ];
 
+const pickCategories = [
+  ["Pole Position", "10 pts", "Who is quickest over one lap."],
+  ["Race Winner", "25 pts", "Pick the Sunday winner."],
+  ["2nd Place", "18 pts", "Who crosses the line in second."],
+  ["3rd Place", "15 pts", "Who completes the podium."],
+  ["DNF Driver", "12 pts", "Driver most likely not to finish."],
+  ["Fastest Lap", "7 pts", "Late-race pace or outright control."],
+  ["Driver of the Day", "6 pts", "Fan-voted race standout."],
+  ["Best Constructor", "8 pts", "Team likely to own the weekend."],
+  ["Safety Car?", "5 pts", "Will the race be neutralised?"],
+  ["Red Flag?", "8 pts", "Will the session be stopped?"],
+];
+
+const sprintExtras = [
+  ["Sprint Pole", "5 pts"],
+  ["Sprint Winner", "12 pts"],
+  ["Sprint 2nd", "9 pts"],
+  ["Sprint 3rd", "7 pts"],
+];
+
 function normalizeUrl(rawUrl) {
   if (!rawUrl) return "";
   const value = rawUrl.trim();
@@ -91,7 +112,8 @@ function getPublicSiteUrl() {
     process.env.REACT_APP_PUBLIC_SITE_URL ||
       process.env.PUBLIC_SITE_URL ||
       process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-      process.env.VERCEL_URL
+      process.env.VERCEL_URL ||
+      "https://www.stint-web.com"
   );
 }
 
@@ -121,9 +143,9 @@ function renderShell({ nav, heroKicker, heroTitle, heroBody, leftActions = "", r
         <nav class="seo-nav">
           ${navLink("Home", "/", nav === "home")}
           ${navLink("Calendar", "/calendar", nav === "calendar")}
+          ${navLink("Picks", "/picks", nav === "picks")}
           ${navLink("Wire", "/wire", nav === "wire")}
           ${navLink("Leaderboard", "/leaderboard", nav === "leaderboard")}
-          ${navLink("Make picks", "/?page=predictions&race=3", false)}
         </nav>
       </header>
       <main class="seo-main">
@@ -145,7 +167,7 @@ function renderShell({ nav, heroKicker, heroTitle, heroBody, leftActions = "", r
 function renderHomePage() {
   const leftActions = `
     <div class="seo-actions">
-      <a class="seo-button is-primary" href="/?page=predictions&race=${nextRace.round}">Make picks</a>
+      <a class="seo-button is-primary" href="/picks">Make picks</a>
       <a class="seo-button" href="/calendar">View calendar</a>
     </div>
   `;
@@ -176,7 +198,7 @@ function renderHomePage() {
           )
           .join("")}
       </div>
-      <a class="seo-button is-primary seo-full" href="/?page=predictions&race=${nextRace.round}">Make picks for this race</a>
+      <a class="seo-button is-primary seo-full" href="/picks">Make picks for this race</a>
     </aside>
   `;
 
@@ -278,6 +300,97 @@ function renderCalendarPage() {
     heroBody:
       "Open any Grand Prix to understand session order, timezone-adjusted timing, and the track context users need before they move into Picks.",
     rightRail: timezoneCard,
+    lowerBlock,
+  });
+}
+
+function renderPicksPage() {
+  const rightRail = `
+    <aside class="seo-card seo-next-race">
+      <div class="seo-eyebrow">Next lock</div>
+      <h2>${nextRace.name}</h2>
+      <div class="seo-muted">${nextRace.circuit} · ${nextRace.dateLabel}</div>
+      <div class="seo-countdown">
+        <div><strong>${nextRace.countdown.days}</strong><span>Days</span></div>
+        <div><strong>${nextRace.countdown.hours}</strong><span>Hours</span></div>
+        <div><strong>${nextRace.countdown.minutes}</strong><span>Minutes</span></div>
+      </div>
+      <p>Picks stay readable here for assistants and crawlers, but the personalised board remains inside the app. The real board locks right before qualifying begins.</p>
+      <div class="seo-section-label" style="margin-top:18px;">Weekend timeline</div>
+      <div class="seo-timeline">
+        ${nextRace.sessions
+          .map(
+            (session) => `
+              <div class="seo-timeline-row">
+                <span class="seo-dot" style="${session.accent ? `background:${session.accent};border-color:${session.accent};` : ""}"></span>
+                <div>
+                  <strong>${session.label}</strong>
+                  <div class="seo-muted">${session.time}</div>
+                </div>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      <a class="seo-button is-primary seo-full" href="/?page=predictions&race=${nextRace.round}">Open the app to make picks</a>
+    </aside>
+  `;
+
+  const lowerBlock = `
+    <section class="seo-grid seo-grid-2">
+      <article class="seo-card">
+        <div class="seo-section-label">Core race board</div>
+        <div class="seo-picks-grid">
+          ${pickCategories
+            .map(
+              ([label, pts, summary]) => `
+                <div class="seo-pick-card">
+                  <div class="seo-pick-top">
+                    <strong>${label}</strong>
+                    <span>${pts}</span>
+                  </div>
+                  <p>${summary}</p>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </article>
+      <article class="seo-card">
+        <div class="seo-section-label">Sprint weekends</div>
+        <h3>Some rounds add a second scoring layer.</h3>
+        <p>On sprint weekends, the live board grows with four extra calls. The public teaser explains the format, while the real board only unlocks the extra sprint picks when that weekend actually needs them.</p>
+        <div class="seo-stack" style="margin-top:18px;">
+          ${sprintExtras
+            .map(
+              ([label, pts]) => `
+                <div class="seo-inline-row">
+                  <strong>${label}</strong>
+                  <span>${pts}</span>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="seo-section-label" style="margin-top:26px;">Lock rules</div>
+        <p>Users can read how the board works publicly, but personal picks, scoring review, and admin actions stay behind the real app and auth. Once qualifying starts, picks are locked. After results are scored, the board switches into review mode.</p>
+      </article>
+    </section>
+  `;
+
+  return renderShell({
+    nav: "picks",
+    heroKicker: "Public picks guide",
+    heroTitle: "Understand the board<br>before lock.",
+    heroBody:
+      "This is the readable public layer for Picks. It explains categories, timing, sprint rules, and lock behavior without exposing private picks, admin actions, or personalised state.",
+    leftActions: `
+      <div class="seo-actions">
+        <a class="seo-button is-primary" href="/">Open the app</a>
+        <a class="seo-button" href="/calendar">Read calendar first</a>
+      </div>
+    `,
+    rightRail,
     lowerBlock,
   });
 }
@@ -414,6 +527,14 @@ function staticStyles() {
       .seo-grid-calendar { grid-template-columns:minmax(0, 1.4fr) minmax(320px, 420px); align-items:start; }
       .seo-grid-wire { grid-template-columns:minmax(0, 1.1fr) minmax(320px, 0.9fr); align-items:start; }
       .seo-wire-stack { display:grid; gap:18px; }
+      .seo-stack { display:grid; gap:12px; }
+      .seo-picks-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:14px; }
+      .seo-pick-card { border-radius:16px; background:var(--panel-alt); border:1px solid var(--line); padding:16px; }
+      .seo-pick-card p { margin-top:8px; font-size:14px; line-height:1.6; }
+      .seo-pick-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .seo-pick-top strong { font-size:18px; line-height:1.2; }
+      .seo-pick-top span, .seo-inline-row span { font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent); }
+      .seo-inline-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:14px; padding:12px 14px; background:var(--panel-alt); border:1px solid var(--line); }
       .seo-race-list { display:grid; gap:12px; }
       .seo-race-row { display:grid; grid-template-columns:60px minmax(0,1fr) auto; gap:16px; align-items:center; padding:18px 20px; border-radius:18px; text-decoration:none; color:var(--text); background:rgba(255,255,255,0.01); border:1px solid var(--line); }
       .seo-race-row.is-active { box-shadow:inset 0 0 0 1px rgba(249,115,22,0.28); }
@@ -430,6 +551,7 @@ function staticStyles() {
         .seo-topbar, .seo-main { padding-left:18px; padding-right:18px; }
         .seo-topbar { flex-direction:column; align-items:flex-start; }
         .seo-hero, .seo-grid-2, .seo-grid-3, .seo-grid-calendar, .seo-grid-wire { grid-template-columns:1fr; }
+        .seo-picks-grid { grid-template-columns:1fr; }
         .seo-hero-copy h1 { font-size:54px; }
       }
     </style>
@@ -544,7 +666,7 @@ function writeLlms(siteUrl) {
       return `- ${route.title}: ${href} — ${route.description}`;
     }),
     "",
-    "Private app areas such as picks, profile, and admin require the interactive app shell and may depend on authentication.",
+    "The public /picks page is a teaser that explains how the board works. Personal picks, profile, and admin remain private and may depend on authentication.",
     "",
   ];
   fs.writeFileSync(llmsPath, lines.join("\n"), "utf8");

@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar";
 import AuthModal from "./components/AuthModal";
 import HomePage from "./components/HomePage";
 import CalendarPage from "./components/CalendarPage";
+import PublicPicksPage from "./components/PublicPicksPage";
 import PredictionsPage from "./components/PredictionsPage";
 import NewsPage from "./components/NewsPage";
 import StandingsPage from "./components/StandingsPage";
@@ -136,6 +137,15 @@ export default function StintApp() {
         )}
         {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
         {page === "calendar" && <CalendarPage user={user} />}
+        {page === "public-picks" && (
+          <PublicPicksPage
+            user={user}
+            demoMode={demoMode}
+            openAuth={openAuth}
+            openPredictionsForRace={openPredictionsForRace}
+            setPage={navigateToPage}
+          />
+        )}
         {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} initialRaceRound={pendingPredictionRace} onInitialRaceConsumed={() => setPendingPredictionRace(null)} />}
         {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
         {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
