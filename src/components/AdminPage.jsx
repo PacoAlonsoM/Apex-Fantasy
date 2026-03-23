@@ -76,29 +76,33 @@ export default function AdminPage({ user }) {
     setDnfDrivers(getDnfDrivers(result));
   };
 
-  const getAccessToken = async () => {
+  const AUTH_ERROR_PATTERN = /invalid jwt|invalid auth token|missing auth token|jwt/i;
+
+  const getAccessToken = async (forceRefresh = false) => {
     const session = await requireActiveSession();
     if (!session) return null;
 
-    const { data, error } = await supabase.auth.refreshSession();
-    if (!error && data?.session?.access_token) {
-      return data.session.access_token;
+    if (forceRefresh) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data?.session?.access_token) {
+        return data.session.access_token;
+      }
     }
 
     return session.access_token || null;
   };
 
   const invokeAuthedFunction = async (name, options = {}) => {
-    const accessToken = await getAccessToken();
+    const invokeViaFetch = async (forceRefresh = false) => {
+      const accessToken = await getAccessToken(forceRefresh);
 
-    if (!accessToken) {
-      return {
-        data: null,
-        error: new Error("No active auth session found. Log out and log back in, then try again."),
-      };
-    }
+      if (!accessToken) {
+        return {
+          data: null,
+          error: new Error("No active auth session found. Log out and log back in, then try again."),
+        };
+      }
 
-    const invokeViaFetch = async () => {
       try {
         const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
           method: "POST",
@@ -135,21 +139,17 @@ export default function AdminPage({ user }) {
       }
     };
 
-    try {
-      const functionsClient = supabase.functions;
-      if (typeof functionsClient.setAuth === "function") {
-        functionsClient.setAuth(accessToken);
-      }
-
-      const result = await functionsClient.invoke(name, options);
-      if (!result.error || !String(result.error.message || "").includes("Failed to send a request to the Edge Function")) {
-        return result;
-      }
-
-      return await invokeViaFetch();
-    } catch {
-      return await invokeViaFetch();
+    const firstAttempt = await invokeViaFetch(false);
+    if (!firstAttempt.error) {
+      return firstAttempt;
     }
+
+    const firstMessage = String(firstAttempt.error?.message || "");
+    if (!AUTH_ERROR_PATTERN.test(firstMessage)) {
+      return firstAttempt;
+    }
+
+    return await invokeViaFetch(true);
   };
 
   const saveResults = async () => {

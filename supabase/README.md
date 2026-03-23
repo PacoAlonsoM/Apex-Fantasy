@@ -138,7 +138,7 @@ npx supabase secrets set \
 Then deploy:
 
 ```bash
-npx supabase functions deploy ai-race-brief
+npx supabase functions deploy ai-race-brief --no-verify-jwt
 ```
 
 This function is designed for manual admin-triggered testing from the app. It uses the logged-in Supabase user token and only allows your admin user id.

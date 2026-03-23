@@ -5,6 +5,9 @@ const OPENF1_BASE = "https://api.openf1.org/v1";
 const OPENAI_BASE = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-4o-mini";
 const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
+const REQUEST_TIMEOUT_MS = 12000;
+const MAX_NEWS_ARTICLES = 10;
+
 const DRIVER_OPTIONS = [
   "Lando Norris",
   "Oscar Piastri",
@@ -29,6 +32,7 @@ const DRIVER_OPTIONS = [
   "Sergio Perez",
   "Valtteri Bottas",
 ];
+
 const CONSTRUCTOR_OPTIONS = [
   "McLaren",
   "Ferrari",
@@ -42,6 +46,7 @@ const CONSTRUCTOR_OPTIONS = [
   "Audi",
   "Cadillac",
 ];
+
 const CURRENT_GRID = [
   { driver: "Lando Norris", team: "McLaren" },
   { driver: "Oscar Piastri", team: "McLaren" },
@@ -66,6 +71,7 @@ const CURRENT_GRID = [
   { driver: "Sergio Perez", team: "Cadillac" },
   { driver: "Valtteri Bottas", team: "Cadillac" },
 ];
+
 const BASE_CATEGORY_OPTIONS = [
   { key: "pole", label: "Pole Position", type: "driver", allowed: DRIVER_OPTIONS },
   { key: "winner", label: "Race Winner", type: "driver", allowed: DRIVER_OPTIONS },
@@ -78,12 +84,14 @@ const BASE_CATEGORY_OPTIONS = [
   { key: "sc", label: "Safety Car", type: "binary", allowed: ["Yes", "No"] },
   { key: "rf", label: "Red Flag", type: "binary", allowed: ["Yes", "No"] },
 ];
+
 const SPRINT_CATEGORY_OPTIONS = [
   { key: "sp_pole", label: "Sprint Pole", type: "driver", allowed: DRIVER_OPTIONS },
   { key: "sp_winner", label: "Sprint Winner", type: "driver", allowed: DRIVER_OPTIONS },
   { key: "sp_p2", label: "Sprint 2nd", type: "driver", allowed: DRIVER_OPTIONS },
   { key: "sp_p3", label: "Sprint 3rd", type: "driver", allowed: DRIVER_OPTIONS },
 ];
+
 const CATEGORY_ORDER = [
   "pole",
   "winner",
@@ -108,6 +116,100 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+const insightSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["headline", "summary", "race_summary", "confidence", "news_digest", "key_factors", "prediction_edges", "watchlist", "category_predictions"],
+  properties: {
+    headline: { type: "string", minLength: 12 },
+    summary: { type: "string", minLength: 160 },
+    race_summary: { type: "string", minLength: 420 },
+    confidence: { type: "number" },
+    news_digest: {
+      type: "array",
+      minItems: 2,
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["headline", "detail", "why_it_matters"],
+        properties: {
+          headline: { type: "string", minLength: 10 },
+          detail: { type: "string", minLength: 60 },
+          why_it_matters: { type: "string", minLength: 40 },
+        },
+      },
+    },
+    key_factors: {
+      type: "array",
+      minItems: 2,
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "detail", "why_it_matters", "fantasy_take", "impact"],
+        properties: {
+          title: { type: "string", minLength: 10 },
+          detail: { type: "string", minLength: 70 },
+          why_it_matters: { type: "string", minLength: 40 },
+          fantasy_take: { type: "string", minLength: 40 },
+          impact: { type: "string", enum: ["positive", "negative", "mixed"] },
+        },
+      },
+    },
+    prediction_edges: {
+      type: "array",
+      minItems: 2,
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["label", "detail", "action", "risk_level"],
+        properties: {
+          label: { type: "string", minLength: 10 },
+          detail: { type: "string", minLength: 50 },
+          action: { type: "string", minLength: 30 },
+          risk_level: { type: "string", enum: ["low", "medium", "high"] },
+        },
+      },
+    },
+    watchlist: {
+      type: "array",
+      minItems: 2,
+      maxItems: 4,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["label", "trigger", "what_changes", "how_to_react"],
+        properties: {
+          label: { type: "string", minLength: 10 },
+          trigger: { type: "string", minLength: 30 },
+          what_changes: { type: "string", minLength: 30 },
+          how_to_react: { type: "string", minLength: 30 },
+        },
+      },
+    },
+    category_predictions: {
+      type: "array",
+      minItems: 6,
+      maxItems: 14,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["key", "category", "type", "pick", "reason", "confidence"],
+        properties: {
+          key: { type: "string" },
+          category: { type: "string", minLength: 4 },
+          type: { type: "string", enum: ["driver", "constructor", "binary"] },
+          pick: { type: "string", minLength: 2 },
+          reason: { type: "string", minLength: 40 },
+          confidence: { type: "number" },
+        },
+      },
+    },
+  },
+};
+
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
 }
@@ -130,26 +232,47 @@ function pickOutputText(payload: Record<string, unknown>) {
   return null;
 }
 
-async function fetchOpenF1(path: string) {
-  const response = await fetch(`${OPENF1_BASE}${path}`, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "apex-fantasy-ai-race-brief/1.0",
-    },
-  });
+async function fetchJson(url: string, headers: Record<string, string>) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`OpenF1 ${path}: ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
   }
+}
 
-  return await response.json();
+async function fetchOpenF1(path: string) {
+  return await fetchJson(`${OPENF1_BASE}${path}`, {
+    accept: "application/json",
+    "user-agent": "apex-fantasy-ai-race-brief/2.0",
+  });
+}
+
+async function safeOpenF1(path: string) {
+  try {
+    return await fetchOpenF1(path);
+  } catch (error) {
+    console.error(`OpenF1 fetch failed for ${path}`, error);
+    return [];
+  }
 }
 
 async function loadRaceSessionsWithFallback(baseYear: number) {
   const candidateYears = [baseYear, baseYear - 1];
 
   for (const year of candidateYears) {
-    const rawRaceSessions = await fetchOpenF1(`/sessions?year=${year}&session_name=Race`);
+    const rawRaceSessions = await safeOpenF1(`/sessions?year=${year}&session_name=Race`);
     const raceSessions = sortByDate(rawRaceSessions);
     if (raceSessions.length) {
       return { year, raceSessions };
@@ -157,79 +280,6 @@ async function loadRaceSessionsWithFallback(baseYear: number) {
   }
 
   return { year: baseYear, raceSessions: [] };
-}
-
-function buildPreviousRaceSummary(results: Array<Record<string, unknown>>, raceControl: Array<Record<string, unknown>>, drivers: Array<Record<string, unknown>>) {
-  const driverMap = Object.fromEntries(
-    drivers.map((driver) => [driver.driver_number, driver.full_name || driver.name_acronym || `#${driver.driver_number}`])
-  );
-
-  const sortedResults = [...results]
-    .filter((row) => row.position)
-    .sort((left, right) => Number(left.position || 999) - Number(right.position || 999));
-
-  const podium = sortedResults.slice(0, 3).map((row) => driverMap[row.driver_number] || `#${row.driver_number}`);
-  const dnfCount = results.filter((row) => row.position === null || row.classified_position === null).length;
-  const safetyCarCount = raceControl.filter((item) => String(item.category || "").toLowerCase().includes("safety") || String(item.message || "").toUpperCase().includes("SAFETY CAR")).length;
-  const redFlagCount = raceControl.filter((item) => String(item.flag || "").toUpperCase() === "RED" || String(item.message || "").toUpperCase().includes("RED FLAG")).length;
-
-  return {
-    winner: podium[0] || null,
-    podium,
-    dnfCount,
-    safetyCarCount,
-    redFlagCount,
-  };
-}
-
-function summarizeWeather(samples: Array<Record<string, unknown>>) {
-  if (!samples.length) return null;
-
-  const average = (field: string) => {
-    const values = samples
-      .map((sample) => Number(sample[field]))
-      .filter((value) => Number.isFinite(value));
-    if (!values.length) return null;
-    return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
-  };
-
-  const rainfall = samples.some((sample) => Number(sample.rainfall || 0) > 0);
-
-  return {
-    air_temperature_avg: average("air_temperature"),
-    track_temperature_avg: average("track_temperature"),
-    humidity_avg: average("humidity"),
-    rainfall,
-  };
-}
-
-function summarizeStints(stints: Array<Record<string, unknown>>) {
-  if (!stints.length) return null;
-
-  const byDriver = new Map<string, number>();
-  const compounds = new Map<string, number>();
-
-  for (const stint of stints) {
-    const driver = String(stint.driver_number || "");
-    const compound = String(stint.compound || stint.tyre_compound || "").trim();
-
-    if (driver) byDriver.set(driver, (byDriver.get(driver) || 0) + 1);
-    if (compound) compounds.set(compound, (compounds.get(compound) || 0) + 1);
-  }
-
-  const averageStints = byDriver.size
-    ? Number((Array.from(byDriver.values()).reduce((sum, value) => sum + value, 0) / byDriver.size).toFixed(1))
-    : null;
-
-  const compoundUsage = Array.from(compounds.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 4)
-    .map(([compound, count]) => ({ compound, count }));
-
-  return {
-    average_stints_per_driver: averageStints,
-    top_compounds: compoundUsage,
-  };
 }
 
 function formatSessionWindow(sessions: Array<Record<string, unknown>>) {
@@ -241,42 +291,10 @@ function formatSessionWindow(sessions: Array<Record<string, unknown>>) {
   }));
 }
 
-function buildPrompt(context: Record<string, unknown>) {
-  return [
-    "You are an F1 analyst for a fantasy prediction product.",
-    "Your job is to transform race-week news and OpenF1 context into a detailed, useful race brief for fantasy prediction players.",
-    "Do not invent facts. Only infer cautiously from the supplied context.",
-    "Treat the supplied current_grid as the authoritative 2026 driver-team mapping.",
-    "If general F1 knowledge or article context conflicts with current_grid, current_grid wins.",
-    "Never describe a driver as belonging to a different team than the one listed in current_grid.",
-    "Focus on fantasy utility: qualifying outlook, race volatility, constructor trend, strategy shape, and what could move user picks.",
-    "Make the output strong enough that a user gets value without needing to immediately leave the page to read source articles.",
-    "Keep the tone personalized and practical, not generic newsroom copy.",
-    "Write with enough depth that the brief feels like a real premium weekend read, not a short recap.",
-    "The summary should feel like the executive read. The race_summary should feel like the full page read.",
-    "The race_summary should be multi-paragraph, specific, and long enough to cover likely pace hierarchy, qualifying outlook, race-shape risk, strategy variables, and what could change between now and lights out.",
-    "For category_predictions, you must use the exact keys, labels, types and allowed values provided in the category_options context.",
-    "For driver categories, the pick must be one exact driver name from the allowed driver list.",
-    "For constructor categories, the pick must be one exact constructor name from the allowed constructor list.",
-    "For binary categories, the pick must be exactly Yes or No.",
-    "Never answer a driver category with a team name. Never answer a constructor category with a driver name.",
-    "Make key_factors structural, prediction_edges actionable, and watchlist conditional. They must not feel like the same list rewritten three times.",
-    "Use this distinction exactly:",
-    "- key_factors = the underlying forces shaping the weekend",
-    "- prediction_edges = the exploitable fantasy conclusions or category-level leans",
-    "- watchlist = the events or signals that would make you change the board later",
-    "Every item should be concrete and detailed. Avoid vague phrases like 'momentum matters' unless you explain why in this race context.",
-    "If the context is thin on one area, say less there and deepen the areas that are actually supported by the supplied news and OpenF1 data.",
-    "Return JSON only following the schema.",
-    "",
-    JSON.stringify(context, null, 2),
-  ].join("\n");
-}
-
 function getCategoryOptions(upcomingRace: Record<string, unknown>, meetingSessions: Array<Record<string, unknown>>) {
   const hasSprint =
-    String(upcomingRace.meeting_name || "").toLowerCase().includes("sprint")
-    || meetingSessions.some((session) => String(session.session_name || "").toLowerCase().includes("sprint"));
+    String(upcomingRace.meeting_name || "").toLowerCase().includes("sprint") ||
+    meetingSessions.some((session) => String(session.session_name || "").toLowerCase().includes("sprint"));
 
   return hasSprint ? [...BASE_CATEGORY_OPTIONS, ...SPRINT_CATEGORY_OPTIONS] : [...BASE_CATEGORY_OPTIONS];
 }
@@ -305,99 +323,164 @@ function normalizeCategoryPredictions(items: Array<Record<string, unknown>>, all
   return filtered.map(({ allowed, ...item }) => item);
 }
 
-const insightSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["headline", "summary", "race_summary", "confidence", "news_digest", "key_factors", "prediction_edges", "watchlist", "category_predictions"],
-  properties: {
-    headline: { type: "string", minLength: 24 },
-    summary: { type: "string", minLength: 520 },
-    race_summary: { type: "string", minLength: 1500 },
-    confidence: { type: "number" },
-    news_digest: {
-      type: "array",
-      minItems: 3,
-      maxItems: 4,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["headline", "detail", "why_it_matters"],
-        properties: {
-          headline: { type: "string", minLength: 14 },
-          detail: { type: "string", minLength: 240 },
-          why_it_matters: { type: "string", minLength: 120 },
+function trimText(value: unknown, maxLength: number) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
+
+function buildPrompt(context: Record<string, unknown>) {
+  return [
+    "You are writing one sharp F1 race brief for fantasy players.",
+    "Use only the supplied context.",
+    "Be practical, specific, and concise.",
+    "Return JSON only that matches the schema.",
+    "For category_predictions, every pick must be an exact allowed value from category_options.",
+    "Do not use team names for driver categories or driver names for constructor categories.",
+    "",
+    JSON.stringify(context, null, 2),
+  ].join("\n");
+}
+
+function buildFallbackPickMap(hasSprint: boolean) {
+  const picks = {
+    pole: "Max Verstappen",
+    winner: "George Russell",
+    p2: "Oscar Piastri",
+    p3: "Charles Leclerc",
+    dnf: "Lance Stroll",
+    fl: "Max Verstappen",
+    dotd: "Lewis Hamilton",
+    ctor: "McLaren",
+    sc: "No",
+    rf: "No",
+  } as Record<string, string>;
+
+  if (hasSprint) {
+    picks.sp_pole = "Max Verstappen";
+    picks.sp_winner = "George Russell";
+    picks.sp_p2 = "Oscar Piastri";
+    picks.sp_p3 = "Charles Leclerc";
+  }
+
+  return picks;
+}
+
+function buildFallbackInsight(context: Record<string, unknown>, categoryOptions: Array<Record<string, unknown>>, articles: Array<Record<string, unknown>>, reason: string) {
+  const targetRace = context.target_race || {};
+  const raceName = String(targetRace.race_name || "Upcoming Grand Prix");
+  const circuit = String(targetRace.circuit || "the circuit");
+  const country = String(targetRace.country || "the venue");
+  const schedule = Array.isArray(targetRace.schedule) ? targetRace.schedule : [];
+  const hasSprint = categoryOptions.some((option) => String(option.key).startsWith("sp_"));
+  const defaultPickMap = buildFallbackPickMap(hasSprint);
+  const newsLines = articles.slice(0, 3);
+
+  const headline = `${raceName}: the main angles before qualifying`;
+  const summary = newsLines.length
+    ? `${raceName} is shaping up as a weekend where qualifying order and early pace read matter more than noise. The latest feed points to a small group of realistic front-runners, a few swing factors around setup and consistency, and enough uncertainty that fantasy players should keep their board flexible until the final pre-lock checks.`
+    : `${raceName} is the next lock on the board, so the smartest move is to focus on the schedule, the likely front-running teams, and the biggest volatility signals before qualifying starts.`;
+
+  const raceSummaryParts = [
+    `${raceName} at ${circuit} in ${country} should be approached as a precision weekend. The core fantasy edge here is less about chasing every rumor and more about reading who actually looks stable enough to convert pace into qualifying position, race execution and category-level upside.`,
+    newsLines.length
+      ? `The latest stories are still useful because they point toward the themes worth tracking: ${newsLines.map((item) => trimText(item.title, 70)).join("; ")}. Rather than overreacting to every headline, use them to decide which teams and drivers deserve a second look when the final sessions come in.`
+      : `Even without a deep article set, the schedule alone tells you where the pressure points are: qualifying pace, race management, and whether the weekend develops cleanly or turns volatile. That is enough to keep the board actionable.`,
+    schedule.length
+      ? `The session order matters: ${schedule.map((item) => `${item.session_name} on ${trimText(item.date_start, 22)}`).slice(0, 4).join(", ")}. Plan to make your final board decisions as late as possible so you can react to the strongest signals rather than locking too early.`
+      : `Keep your final board decisions as late as possible. The best fantasy move is usually to wait for the clearest pace and reliability signals before lock.`,
+  ];
+
+  const newsDigest = newsLines.length
+    ? newsLines.map((item) => ({
+        headline: trimText(item.title, 70),
+        detail: trimText(item.summary || item.title, 180),
+        why_it_matters: "This headline helps narrow which drivers and constructors deserve the most attention before the board locks.",
+      }))
+    : [
+        {
+          headline: `${raceName} remains the focus`,
+          detail: "The board is open and the priority is reading the session order, likely qualifying hierarchy and volatility signals rather than guessing too early.",
+          why_it_matters: "When the news cycle is thin, timing and discipline become the real fantasy edge.",
         },
-      },
-    },
-    key_factors: {
-      type: "array",
-      minItems: 3,
-      maxItems: 4,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["title", "detail", "why_it_matters", "fantasy_take", "impact"],
-        properties: {
-          title: { type: "string", minLength: 14 },
-          detail: { type: "string", minLength: 220 },
-          why_it_matters: { type: "string", minLength: 120 },
-          fantasy_take: { type: "string", minLength: 120 },
-          impact: { type: "string", enum: ["positive", "negative", "mixed"] },
+        {
+          headline: "Use the late signals",
+          detail: "Keep enough flexibility in the board to react to the clearest pre-lock information instead of relying on stale early-week reads.",
+          why_it_matters: "Late-session pace and team stability usually matter more than broad race-week noise.",
         },
-      },
+      ];
+
+  const keyFactors = [
+    {
+      title: "Qualifying order should drive this board",
+      detail: `${raceName} looks like the kind of weekend where the cleanest front-running package matters more than long-shot chaos picks.`,
+      why_it_matters: "Pole, front-row and podium categories become tightly linked when the pace gap is small at the front.",
+      fantasy_take: "Prioritize stable qualifying candidates before getting aggressive with contrarian picks.",
+      impact: "positive",
     },
-    prediction_edges: {
-      type: "array",
-      minItems: 3,
-      maxItems: 4,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["label", "detail", "action", "risk_level"],
-        properties: {
-          label: { type: "string", minLength: 14 },
-          detail: { type: "string", minLength: 180 },
-          action: { type: "string", minLength: 100 },
-          risk_level: { type: "string", enum: ["low", "medium", "high"] },
-        },
-      },
+    {
+      title: "Late-session confirmation matters more than early noise",
+      detail: "The race-week feed is useful, but the strongest decisions still come from the last pre-lock signals rather than the first headlines.",
+      why_it_matters: "Board value improves when you use the final pace and execution signals instead of locking too early.",
+      fantasy_take: "Treat the brief as a direction setter, then confirm the final board with the latest session read.",
+      impact: "mixed",
     },
-    watchlist: {
-      type: "array",
-      minItems: 3,
-      maxItems: 5,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["label", "trigger", "what_changes", "how_to_react"],
-        properties: {
-          label: { type: "string", minLength: 14 },
-          trigger: { type: "string", minLength: 90 },
-          what_changes: { type: "string", minLength: 100 },
-          how_to_react: { type: "string", minLength: 100 },
-        },
-      },
+  ];
+
+  const predictionEdges = [
+    {
+      label: "Back the cleanest frontrunners",
+      detail: "This board should lean toward drivers and teams that can convert pace into both qualifying position and race execution.",
+      action: "Use the strongest all-around packages for pole, winner and constructor-heavy categories.",
+      risk_level: "medium",
     },
-    category_predictions: {
-      type: "array",
-      minItems: 6,
-      maxItems: 14,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["key", "category", "type", "pick", "reason", "confidence"],
-        properties: {
-          key: { type: "string" },
-          category: { type: "string", minLength: 6 },
-          type: { type: "string", enum: ["driver", "constructor", "binary"] },
-          pick: { type: "string", minLength: 2 },
-          reason: { type: "string", minLength: 90 },
-          confidence: { type: "number" },
-        },
-      },
+    {
+      label: "Avoid overreacting to one headline",
+      detail: "Single stories can shift sentiment fast, but they do not always change the race-shape fundamentals.",
+      action: "Use news to refine the shortlist, not to rebuild the whole board from scratch.",
+      risk_level: "low",
     },
-  },
-};
+  ];
+
+  const watchlist = [
+    {
+      label: "Front-running pace spread",
+      trigger: "One team clears the field in the final pre-lock sessions.",
+      what_changes: "That team becomes harder to fade for pole, winner and constructor calls.",
+      how_to_react: "Concentrate the board instead of spreading picks across too many frontrunners.",
+    },
+    {
+      label: "Weekend volatility signal",
+      trigger: "Repeated incidents, interruptions or unstable execution start showing up before lock.",
+      what_changes: "Safety car, red flag and DNF-style categories become more live.",
+      how_to_react: "Upgrade chaos categories and reduce confidence on the cleanest-script assumptions.",
+    },
+  ];
+
+  const categoryPredictions = categoryOptions.map((option) => ({
+    key: option.key,
+    category: option.label,
+    type: option.type,
+    pick: defaultPickMap[option.key] || option.allowed[0],
+    reason: `Fallback brief: this pick keeps the board usable while upstream AI context is temporarily limited. Reconfirm it with the final pre-lock read for ${raceName}.`,
+    confidence: 0.55,
+  }));
+
+  return {
+    mode: "fallback",
+    note: reason,
+    headline,
+    summary,
+    race_summary: raceSummaryParts.join("\n\n"),
+    confidence: 0.55,
+    news_digest: newsDigest,
+    key_factors: keyFactors,
+    prediction_edges: predictionEdges,
+    watchlist,
+    category_predictions: categoryPredictions,
+  };
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
@@ -448,7 +531,6 @@ Deno.serve(async (req: Request) => {
     const { year, raceSessions } = await loadRaceSessionsWithFallback(requestedYear);
     const now = Date.now();
     const upcomingRace = raceSessions.find((session) => new Date(String(session.date_start)).getTime() > now) || raceSessions[raceSessions.length - 1];
-    const previousRace = [...raceSessions].reverse().find((session) => new Date(String(session.date_start)).getTime() <= now) || null;
 
     if (!upcomingRace) {
       throw new Error(`No OpenF1 race sessions were found for ${requestedYear} or ${requestedYear - 1}.`);
@@ -456,21 +538,22 @@ Deno.serve(async (req: Request) => {
 
     raceName = String(upcomingRace.meeting_name || upcomingRace.country_name || "Upcoming race");
 
-    const [meetingSessions, articleResponse] = await Promise.all([
-      fetchOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`),
+    const [meetingSessionsRaw, articleResponse] = await Promise.all([
+      safeOpenF1(`/sessions?meeting_key=${upcomingRace.meeting_key}`),
       supabase
         .from("news_articles")
         .select("id,title,summary,url,source,published_at")
         .order("published_at", { ascending: false })
-        .limit(24),
+        .limit(MAX_NEWS_ARTICLES),
     ]);
 
     if (articleResponse.error) throw new Error(articleResponse.error.message);
 
+    const meetingSessions = sortByDate(meetingSessionsRaw);
     const articles = (articleResponse.data || []).map((article) => ({
       id: article.id,
-      title: article.title,
-      summary: article.summary,
+      title: trimText(article.title, 140),
+      summary: trimText(article.summary, 260),
       source: article.source,
       published_at: article.published_at,
       url: article.url,
@@ -478,28 +561,6 @@ Deno.serve(async (req: Request) => {
 
     articleCount = articles.length;
     sourceCount = new Set(articles.map((article) => article.source).filter(Boolean)).size;
-
-    let previousRaceSummary = null;
-    let previousRaceWeather = null;
-    let previousRaceStrategy = null;
-    if (previousRace?.session_key) {
-      const [results, raceControl, drivers, weather, stints] = await Promise.all([
-        fetchOpenF1(`/session_result?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/race_control?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/drivers?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/weather?session_key=${previousRace.session_key}`),
-        fetchOpenF1(`/stints?session_key=${previousRace.session_key}`),
-      ]);
-
-      previousRaceSummary = {
-        meeting_name: previousRace.meeting_name,
-        country_name: previousRace.country_name,
-        date_start: previousRace.date_start,
-        ...buildPreviousRaceSummary(results, raceControl, drivers),
-      };
-      previousRaceWeather = summarizeWeather(weather);
-      previousRaceStrategy = summarizeStints(stints);
-    }
 
     const categoryOptions = getCategoryOptions(upcomingRace, meetingSessions);
 
@@ -511,59 +572,73 @@ Deno.serve(async (req: Request) => {
         country: upcomingRace.country_name,
         location: upcomingRace.location,
         date_start: upcomingRace.date_start,
-        meeting_key: upcomingRace.meeting_key,
-        session_key: upcomingRace.session_key,
-        schedule: formatSessionWindow(sortByDate(meetingSessions)),
+        schedule: formatSessionWindow(meetingSessions),
       },
       category_options: categoryOptions,
       current_grid: CURRENT_GRID,
-      previous_race: previousRaceSummary,
-      previous_race_weather: previousRaceWeather,
-      previous_race_strategy: previousRaceStrategy,
-      recent_news: articles.map((article) => ({
-        title: article.title,
-        summary: article.summary,
-        source: article.source,
-        published_at: article.published_at,
-      })),
+      recent_news: articles,
     };
 
-    const openAiResponse = await fetch(OPENAI_BASE, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openAiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        input: [
-          {
-            role: "user",
-            content: buildPrompt(context),
-          },
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "race_brief",
-            strict: true,
-            schema: insightSchema,
-          },
+    let insight;
+    try {
+      const openAiResponse = await fetch(OPENAI_BASE, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openAiKey}`,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          model,
+          input: [
+            {
+              role: "user",
+              content: buildPrompt(context),
+            },
+          ],
+          text: {
+            format: {
+              type: "json_schema",
+              name: "race_brief",
+              strict: true,
+              schema: insightSchema,
+            },
+          },
+        }),
+      });
 
-    if (!openAiResponse.ok) {
-      const text = await openAiResponse.text();
-      throw new Error(`OpenAI error: ${openAiResponse.status} ${text}`);
+      if (!openAiResponse.ok) {
+        const text = await openAiResponse.text();
+        throw new Error(`OpenAI error: ${openAiResponse.status} ${text}`);
+      }
+
+      const openAiPayload = await openAiResponse.json();
+      const outputText = pickOutputText(openAiPayload);
+      if (!outputText) throw new Error("OpenAI returned no output text.");
+
+      const parsed = JSON.parse(outputText);
+      const normalizedCategoryPredictions = normalizeCategoryPredictions(parsed.category_predictions || [], categoryOptions);
+
+      if (!normalizedCategoryPredictions.length) {
+        throw new Error("OpenAI returned no usable category predictions.");
+      }
+
+      insight = {
+        mode: "openai",
+        headline: parsed.headline,
+        summary: parsed.summary,
+        race_summary: parsed.race_summary,
+        confidence: parsed.confidence,
+        news_digest: parsed.news_digest,
+        key_factors: parsed.key_factors,
+        prediction_edges: parsed.prediction_edges,
+        watchlist: parsed.watchlist,
+        category_predictions: normalizedCategoryPredictions,
+      };
+    } catch (aiError) {
+      const reason = aiError instanceof Error ? aiError.message : "Upstream AI generation failed.";
+      console.error("AI brief fallback activated", reason);
+      insight = buildFallbackInsight(context, categoryOptions, articles, reason);
     }
-
-    const openAiPayload = await openAiResponse.json();
-    const outputText = pickOutputText(openAiPayload);
-    if (!outputText) throw new Error("OpenAI returned no output text.");
-
-    const insight = JSON.parse(outputText);
-    const normalizedCategoryPredictions = normalizeCategoryPredictions(insight.category_predictions || [], categoryOptions);
 
     const row = {
       insight_key: "upcoming_race_brief",
@@ -580,20 +655,19 @@ Deno.serve(async (req: Request) => {
       news_article_ids: articles.map((article) => article.id),
       news_article_urls: articles.map((article) => article.url),
       source_count: sourceCount,
-      provider: "openai",
+      provider: insight.mode === "fallback" ? "fallback" : "openai",
       model,
       generated_at: new Date().toISOString(),
       metadata: {
-        category_predictions: normalizedCategoryPredictions,
+        category_predictions: insight.category_predictions,
         race_summary: insight.race_summary,
         news_digest: insight.news_digest,
         source_year: year,
         target_race_date: upcomingRace.date_start,
         circuit: upcomingRace.circuit_short_name,
         country: upcomingRace.country_name,
-        previous_race: previousRaceSummary,
-        previous_race_weather: previousRaceWeather,
-        previous_race_strategy: previousRaceStrategy,
+        generation_mode: insight.mode,
+        fallback_note: insight.note || null,
       },
     };
 
@@ -607,6 +681,7 @@ Deno.serve(async (req: Request) => {
       model,
       source_count: sourceCount,
       article_count: articleCount,
+      error_text: insight.mode === "fallback" ? insight.note : null,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
     });
@@ -617,6 +692,7 @@ Deno.serve(async (req: Request) => {
       articleCount,
       sourceCount,
       headline: insight.headline,
+      mode: insight.mode,
     });
   } catch (error) {
     await supabase.from("ai_insight_runs").insert({
