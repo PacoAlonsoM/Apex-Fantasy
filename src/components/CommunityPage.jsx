@@ -975,7 +975,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                   </div>
 
                   {leagueView === "standings" && (
-                    <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(340px,0.96fr) minmax(0,0.84fr)", gap: 16, alignItems: "start" }}>
+                    <div style={{ display: "grid", gap: 16 }}>
                       <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, flexWrap: "wrap" }}>
                           <div>
@@ -992,7 +992,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                         ) : currentStandings.length === 0 ? (
                           <div style={{ padding: 28, color: MUTED_TEXT }}>No members found in this league yet.</div>
                         ) : (
-                          <div style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: 560, overflowY: "auto" }}>
+                          <div style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: isTablet ? 640 : 720, overflowY: "auto" }}>
                             {currentStandings.map((member, index) => (
                               <div key={member.id} style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 96px", gap: 0, background: PANEL_BG }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: index === 0 ? "#e2e8f0" : index === 1 ? "#cbd5e1" : index === 2 ? "#94a3b8" : SUBTLE_TEXT }}>
@@ -1012,38 +1012,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                             ))}
                           </div>
                         )}
-                      </div>
-
-                      <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
-                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>League pulse</div>
-                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>What matters this week</div>
-                          </div>
-                          <div style={{ padding: 14, display: "grid", gap: 10 }}>
-                            <StatCard label="Leader" value={leagueSummary.leader?.username || "No one"} accent="#dbe4f0" />
-                            <StatCard label="Lead gap" value={`${leagueSummary.gap} pts`} accent="#bfdbfe" />
-                            <StatCard label="Next race" value={next?.n || "TBA"} accent="#cbd5e1" />
-                          </div>
-                        </div>
-
-                        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                          <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Member roster</div>
-                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Who is in the room</div>
-                          </div>
-                          <div style={{ padding: 14, display: "grid", gap: 10, maxHeight: 560, overflowY: "auto" }}>
-                            {currentStandings.map((member) => (
-                              <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "11px 12px" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                  <AvatarChip name={member.username} colorKey={member.avatar_color} size={30} radius={9} fontSize={10} />
-                                  <div style={{ fontSize: 12, fontWeight: 800 }}>{member.username}</div>
-                                </div>
-                                <div style={{ fontSize: 11, color: MUTED_TEXT }}>{member.points || 0} pts</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}

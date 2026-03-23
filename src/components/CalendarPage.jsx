@@ -329,7 +329,7 @@ export default function CalendarPage() {
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 560px", gap: 20, alignItems: "start" }}>
+      <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 620px", gap: 20, alignItems: "start" }}>
         <div>
           {Object.entries(months).map(([month, races]) => (
             <div key={month} style={{ marginBottom: 32 }}>
@@ -352,8 +352,8 @@ export default function CalendarPage() {
         </div>
 
         {sel && (
-          <aside style={{ position: isTablet ? "relative" : "sticky", top: 84 }}>
-            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", maxHeight: isTablet ? "none" : "calc(100vh - 84px)" }}>
+          <aside style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : "max(118px, calc(50vh - 320px))" }}>
+            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", maxHeight: isTablet ? "none" : "calc(100vh - 148px)" }}>
               <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${rc(sel)}, transparent)` }} />
               <div style={{ padding: 26, borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                 <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.02, marginBottom: 8 }}>

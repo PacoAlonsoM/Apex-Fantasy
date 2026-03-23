@@ -385,8 +385,8 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           <div style={{ padding: 40, color: MUTED_TEXT, textAlign: "center" }}>Loading news feed...</div>
         ) : tab === "news" && visibleArticles.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) 350px", gap: 0, alignItems: "start" }}>
-            <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", borderRight: `1px solid ${HAIRLINE}`, display: "block", alignSelf: "start" }}>
-              <article style={{ padding: featuredCompact ? 18 : 22 }}>
+            <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", display: "block", alignSelf: "start", height: "fit-content" }}>
+              <article style={{ padding: featuredCompact ? 18 : 22, borderRight: `1px solid ${HAIRLINE}`, height: "fit-content" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{featured.source || "Source"}</span>
                   {featured.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(featured.published_at)}</span>}
