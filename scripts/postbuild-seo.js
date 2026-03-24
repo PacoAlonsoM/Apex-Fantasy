@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 
 const buildDir = path.join(__dirname, "..", "build");
 const robotsPath = path.join(buildDir, "robots.txt");
@@ -22,33 +23,113 @@ const publicRoutes = [
   { path: "/leaderboard", output: "leaderboard/index.html", nav: "leaderboard", title: "F1 Leaderboard", description: "Public driver and fantasy leaderboard view.", render: renderLeaderboardPage },
 ];
 
-const nextRace = {
-  round: 3,
-  name: "Japanese GP",
-  circuit: "Suzuka International Course",
-  location: "Suzuka, Japan",
-  dateLabel: "29 March 2026",
-  countdown: { days: "07", hours: "20", minutes: "58" },
-  timezone: "America/Mexico_City",
-  sessions: [
-    { label: "FP1", time: "Fri, Mar 27, 12:00 PM" },
-    { label: "FP2", time: "Fri, Mar 27, 12:00 PM" },
-    { label: "FP3", time: "Sat, Mar 28, 12:00 PM" },
-    { label: "Qualifying", time: "Sat, Mar 28, 12:00 PM", accent: "var(--accent)" },
-    { label: "Race", time: "Sun, Mar 29, 12:00 PM", accent: "#ef4444" },
-  ],
-};
+function loadSeasonCalendar() {
+  const calendarPath = path.join(__dirname, "..", "src", "constants", "calendar.js");
+  const source = fs.readFileSync(calendarPath, "utf8");
+  const match = source.match(/export const CAL = (\[[\s\S]*?\n\]);/);
 
-const calendarRows = [
-  { round: "R1", name: "Australian GP", location: "Melbourne, Australia", date: "March 6-8" },
-  { round: "R2", name: "Chinese GP", location: "Shanghai, China", date: "March 13-15", sprint: true },
-  { round: "R3", name: "Japanese GP", location: "Suzuka, Japan", date: "March 26-28", active: true },
-  { round: "R4", name: "Bahrain GP", location: "Sakhir, Bahrain", date: "April 10-12" },
-  { round: "R5", name: "Saudi Arabian GP", location: "Jeddah, Saudi Arabia", date: "April 17-19" },
-  { round: "R6", name: "Miami GP", location: "Miami, USA", date: "May 1-3", sprint: true },
-  { round: "R7", name: "Canadian GP", location: "Montreal, Canada", date: "May 22-24", sprint: true },
-  { round: "R8", name: "Monaco GP", location: "Monte Carlo, Monaco", date: "June 5-7" },
-];
+  if (!match) {
+    throw new Error("Unable to load CAL from src/constants/calendar.js");
+  }
+
+  const context = { module: { exports: [] } };
+  const script = new vm.Script(`module.exports = ${match[1]}`);
+  script.runInNewContext(context);
+  return context.module.exports;
+}
+
+const seasonCalendar = loadSeasonCalendar();
+
+function parseRaceDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
+function shiftDate(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function formatSessionLabel(date, timeText) {
+  const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+  const month = date.toLocaleDateString("en-US", { month: "short" });
+  const day = date.getDate();
+  return `${weekday}, ${month} ${day} at ${timeText}`;
+}
+
+function buildRaceSessions(race) {
+  const raceDate = parseRaceDate(race.date);
+  const layout = race.sprint
+    ? [
+        { label: "FP1", offset: -2, timeText: "8:30 PM" },
+        { label: "Sprint Qualifying", offset: -2, timeText: "11:30 PM", accent: "var(--accent)" },
+        { label: "Sprint", offset: -1, timeText: "9:00 PM" },
+        { label: "Qualifying", offset: -1, timeText: "11:30 PM", accent: "var(--accent)" },
+        { label: "Race", offset: 0, timeText: "11:00 PM", accent: "#ef4444" },
+      ]
+    : [
+        { label: "FP1", offset: -2, timeText: "8:30 PM" },
+        { label: "FP2", offset: -2, timeText: "11:30 PM" },
+        { label: "FP3", offset: -1, timeText: "8:30 PM" },
+        { label: "Qualifying", offset: -1, timeText: "11:30 PM", accent: "var(--accent)" },
+        { label: "Race", offset: 0, timeText: "11:00 PM", accent: "#ef4444" },
+      ];
+
+  return layout.map((session) => ({
+    label: session.label,
+    time: formatSessionLabel(shiftDate(raceDate, session.offset), session.timeText),
+    accent: session.accent,
+  }));
+}
+
+function buildDateWindow(race) {
+  const startDate = race.sprint ? shiftDate(parseRaceDate(race.date), -2) : shiftDate(parseRaceDate(race.date), -2);
+  const endDate = parseRaceDate(race.date);
+  const startMonth = startDate.toLocaleDateString("en-US", { month: "long" });
+  const endMonth = endDate.toLocaleDateString("en-US", { month: "long" });
+  const startDay = startDate.getDate();
+  const endDay = endDate.getDate();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay}-${endDay}`;
+  }
+
+  return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+}
+
+function getNextRaceData() {
+  const now = new Date();
+  const race = seasonCalendar.find((entry) => parseRaceDate(entry.date) >= now) || seasonCalendar[seasonCalendar.length - 1];
+  const raceDate = parseRaceDate(race.date);
+  const diff = Math.max(raceDate - now, 0);
+
+  return {
+    round: race.r,
+    name: race.n,
+    circuit: race.circuit,
+    location: `${race.city}, ${race.cc}`,
+    dateLabel: raceDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    countdown: {
+      days: String(Math.floor(diff / 86400000)).padStart(2, "0"),
+      hours: String(Math.floor((diff % 86400000) / 3600000)).padStart(2, "0"),
+      minutes: String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0"),
+    },
+    timezone: "Mexico City",
+    sessions: buildRaceSessions(race),
+  };
+}
+
+const nextRace = getNextRaceData();
+
+const calendarRows = seasonCalendar.map((race) => ({
+  round: `R${race.r}`,
+  name: race.n,
+  location: `${race.city}, ${race.cc}`,
+  date: buildDateWindow(race),
+  sprint: race.sprint,
+  active: race.r === nextRace.round,
+}));
 
 const wireStories = [
   {
@@ -160,6 +241,23 @@ function renderShell({ nav, heroKicker, heroTitle, heroBody, leftActions = "", r
         </section>
         ${lowerBlock}
       </main>
+      <footer class="seo-footer">
+        <div class="seo-footer-inner">
+          <div class="seo-footer-top">
+            <div class="seo-footer-brand">
+              <strong>${brand.name}</strong> · ${brand.descriptor}
+            </div>
+            <div class="seo-footer-links">
+              <a href="/">Home</a>
+              <a href="/calendar">Calendar</a>
+              <a href="/picks">Picks</a>
+              <a href="/wire">Wire</a>
+              <a href="/leaderboard">Leaderboard</a>
+            </div>
+          </div>
+          <div class="seo-footer-copy">Stint is an independent F1 fantasy product. Contact: ${brand.supportEmail}</div>
+        </div>
+      </footer>
     </div>
   `;
 }
@@ -224,10 +322,10 @@ function renderHomePage() {
 
   return renderShell({
     nav: "home",
-    heroKicker: "Public homepage",
+    heroKicker: "Stint F1 Predictions",
     heroTitle: "Compete hard.<br>Predict sharp.<br>Win your league.",
     heroBody:
-      "Stint brings race-week schedules, F1 news, leaderboard context, and sharper fantasy decisions into one public product that assistants, crawlers, and readers can actually understand.",
+      "Use race-week schedules, clean news reads, and fantasy context in one place so you can make sharper decisions before lock.",
     leftActions,
     rightRail,
     lowerBlock,
@@ -298,7 +396,7 @@ function renderCalendarPage() {
     heroKicker: "2026 Calendar",
     heroTitle: "Read the season as one<br>race-week system.",
     heroBody:
-      "Open any Grand Prix to understand session order, timezone-adjusted timing, and the track context users need before they move into Picks.",
+      "Open any Grand Prix to understand session order, timing in your local view, and the track context that matters before you move into Picks.",
     rightRail: timezoneCard,
     lowerBlock,
   });
@@ -315,7 +413,7 @@ function renderPicksPage() {
         <div><strong>${nextRace.countdown.hours}</strong><span>Hours</span></div>
         <div><strong>${nextRace.countdown.minutes}</strong><span>Minutes</span></div>
       </div>
-      <p>Picks stay readable here for assistants and crawlers, but the personalised board remains inside the app. The real board locks right before qualifying begins.</p>
+      <p>Read how the board works, what locks first, and where sprint weekends add pressure before you open the full picks flow.</p>
       <div class="seo-section-label" style="margin-top:18px;">Weekend timeline</div>
       <div class="seo-timeline">
         ${nextRace.sessions
@@ -380,10 +478,10 @@ function renderPicksPage() {
 
   return renderShell({
     nav: "picks",
-    heroKicker: "Public picks guide",
+    heroKicker: "How picks work",
     heroTitle: "Understand the board<br>before lock.",
     heroBody:
-      "This is the readable public layer for Picks. It explains categories, timing, sprint rules, and lock behavior without exposing private picks, admin actions, or personalised state.",
+      "See the scoring categories, lock timing, and sprint rules first so the full board makes sense the moment you open it.",
     leftActions: `
       <div class="seo-actions">
         <a class="seo-button is-primary" href="/">Open the app</a>
@@ -422,10 +520,10 @@ function renderWirePage() {
 
   return renderShell({
     nav: "wire",
-    heroKicker: "Public wire",
+    heroKicker: "Race-week coverage",
     heroTitle: "Read the stories that can<br>actually change your picks.",
     heroBody:
-      "Wire is the public race-week reading layer inside Stint. It is built to keep more useful F1 context on the page before users leave for a full article or move into the app.",
+      "Use the wire to stay on top of race-week context, key headlines, and the stories that actually affect fantasy decisions.",
     lowerBlock,
   });
 }
@@ -453,20 +551,20 @@ function renderLeaderboardPage() {
         </div>
       </article>
       <article class="seo-card">
-        <div class="seo-section-label">What this page is for</div>
-        <h3>Public standings, private competition.</h3>
-        <p>The public leaderboard gives search engines, assistants, and new users a readable explanation of the standings layer. Logged-in users still get the interactive league spaces, round reviews, and detailed fantasy flow inside the app.</p>
-        <p>This separation is deliberate: the public side stays crawlable, while the private side keeps richer interactivity and account state.</p>
+        <div class="seo-section-label">How the table moves</div>
+        <h3>Standings reward consistency, not just one perfect round.</h3>
+        <p>Big points still come from pole, winner, and podium calls, but the table usually swings when players stay accurate across the deeper categories over several weekends.</p>
+        <p>The public standings give new users enough context to understand the competition before they step into the full app and league flow.</p>
       </article>
     </section>
   `;
 
   return renderShell({
     nav: "leaderboard",
-    heroKicker: "Public leaderboard",
+    heroKicker: "Fantasy standings",
     heroTitle: "Track the table.<br>Understand the race.",
     heroBody:
-      "The public leaderboard is the readable surface for standings, scoring context, and fantasy competition. It explains what Stint is without forcing crawlers or assistants through a JavaScript shell first.",
+      "See who is reading the season best, where the points are coming from, and how the fantasy table is taking shape.",
     lowerBlock,
   });
 }
@@ -547,6 +645,14 @@ function staticStyles() {
       .seo-list-row strong:first-child { font-size:28px; color:rgba(241,245,249,0.55); }
       .seo-list-row span { font-size:28px; font-weight:900; letter-spacing:-0.04em; }
       .seo-timezone-card { max-width:420px; margin-left:auto; }
+      .seo-footer { border-top:1px solid var(--line); margin-top:28px; background:linear-gradient(180deg, rgba(7,11,18,0.35), rgba(9,9,11,0.72)); }
+      .seo-footer-inner { max-width:1280px; margin:0 auto; padding:18px 28px 20px; display:grid; gap:10px; }
+      .seo-footer-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+      .seo-footer-brand { font-size:12px; color:rgba(226,232,240,0.82); }
+      .seo-footer-brand strong { color:#fafafa; font-weight:800; }
+      .seo-footer-links { display:flex; gap:14px; flex-wrap:wrap; }
+      .seo-footer-links a { color:#e2e8f0; text-decoration:none; font-size:11px; font-weight:700; }
+      .seo-footer-copy { font-size:11px; color:rgba(148,163,184,0.8); line-height:1.6; }
       @media (max-width: 980px) {
         .seo-topbar, .seo-main { padding-left:18px; padding-right:18px; }
         .seo-topbar { flex-direction:column; align-items:flex-start; }
@@ -621,7 +727,7 @@ function injectHtml({ template, title, description, path: routePath, bodyHtml, s
   html = html.replace(/<div id="root"><\/div>/i, `<div id="root" data-seo-static="1">${bodyHtml}</div>`);
   html = html.replace(
     /<noscript>.*?<\/noscript>/i,
-    "<noscript>This page includes a readable public fallback. Interactive features load when JavaScript is available.</noscript>"
+    "<noscript>Interactive features load when JavaScript is available.</noscript>"
   );
 
   return html;
