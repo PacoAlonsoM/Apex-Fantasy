@@ -210,12 +210,29 @@ function navLink(label, href, active) {
   return `<a class="seo-nav-link${active ? " is-active" : ""}" href="${href}">${label}</a>`;
 }
 
+function renderSeoBrandMark() {
+  return `
+    <svg class="seo-brand-mark" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="seoTrackCurbs" x1="18" y1="82" x2="80" y2="10" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#f97316" />
+          <stop offset="100%" stop-color="#ef4444" />
+        </linearGradient>
+      </defs>
+      <path d="M20 78C34 69 47 61 47 48C47 34 31 27 44 17C54 10 68 9 83 5" stroke="#f8fafc" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M38 86C53 76 68 64 68 48C68 36 58 28 66 20C73 13 83 10 91 7" stroke="#e2e8f0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M18 75C25 70 32 65 39 59" stroke="url(#seoTrackCurbs)" stroke-width="6" stroke-linecap="butt" stroke-linejoin="round" stroke-dasharray="7 7" />
+      <path d="M58 70C63 63 67 56 68 47C69 39 67 31 72 23" stroke="url(#seoTrackCurbs)" stroke-width="6" stroke-linecap="butt" stroke-linejoin="round" stroke-dasharray="7 7" />
+    </svg>
+  `;
+}
+
 function renderShell({ nav, heroKicker, heroTitle, heroBody, leftActions = "", rightRail = "", lowerBlock = "" }) {
   return `
     <div class="seo-page">
       <header class="seo-topbar">
         <a class="seo-brand" href="/">
-          <span class="seo-brand-mark">S</span>
+          ${renderSeoBrandMark()}
           <span>
             <strong>${brand.wordmark}</strong>
             <small>${brand.descriptor}</small>
@@ -586,7 +603,7 @@ function staticStyles() {
       .seo-page { min-height:100vh; }
       .seo-topbar { max-width:1280px; margin:0 auto; padding:24px 28px 10px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
       .seo-brand { display:flex; align-items:center; gap:14px; text-decoration:none; color:var(--text); }
-      .seo-brand-mark { width:42px; height:42px; border-radius:10px; display:grid; place-items:center; background:linear-gradient(135deg,#f97316,#ea580c); font-weight:900; font-size:22px; }
+      .seo-brand-mark { width:42px; height:42px; display:block; flex:none; }
       .seo-brand strong { display:block; font-size:28px; letter-spacing:-0.04em; line-height:0.95; }
       .seo-brand small { display:block; color:var(--subtle); text-transform:uppercase; letter-spacing:0.12em; font-size:12px; margin-top:3px; }
       .seo-nav { display:flex; align-items:center; gap:6px; padding:6px; border-radius:999px; background:#111b2e; }

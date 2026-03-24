@@ -1,3 +1,5 @@
+export const APP_BASE_PATH = "/app";
+
 const APP_PAGE_KEYS = new Set([
   "home",
   "calendar",
@@ -15,22 +17,6 @@ const APP_PAGE_KEYS = new Set([
   "privacy",
 ]);
 
-export const PUBLIC_PAGE_PATHS = {
-  home: "/",
-  calendar: "/calendar",
-  "public-picks": "/picks",
-  news: "/wire",
-  standings: "/leaderboard",
-};
-
-const PATH_TO_PAGE = {
-  "/": "home",
-  "/calendar": "calendar",
-  "/picks": "public-picks",
-  "/wire": "news",
-  "/leaderboard": "standings",
-};
-
 function normalizePathname(value) {
   if (!value || value === "/") return "/";
   return value.replace(/\/+$/, "") || "/";
@@ -42,28 +28,27 @@ function parseRaceRound(value) {
 }
 
 export function isPublicPage(page) {
-  return Boolean(PUBLIC_PAGE_PATHS[page]);
+  return false;
 }
 
 export function readLocationState() {
   const params = new URLSearchParams(window.location.search);
   const pathname = normalizePathname(window.location.pathname);
   const requestedPage = params.get("page");
-  const publicPage = PATH_TO_PAGE[pathname];
+  const withinPrivateApp = pathname === APP_BASE_PATH || pathname.startsWith(`${APP_BASE_PATH}/`);
 
   return {
     demoMode: params.get("demo") === "1",
-    page: publicPage || (requestedPage && APP_PAGE_KEYS.has(requestedPage) ? requestedPage : "home"),
+    page: withinPrivateApp && requestedPage && APP_PAGE_KEYS.has(requestedPage) ? requestedPage : "home",
     raceRound: parseRaceRound(params.get("race")),
   };
 }
 
 export function pageToHref(page, options = {}) {
   const { demoMode = false, raceRound = null } = options;
-  const pathname = PUBLIC_PAGE_PATHS[page] || "/";
   const params = new URLSearchParams();
 
-  if (!isPublicPage(page) && page !== "home") {
+  if (page !== "home") {
     params.set("page", page);
   }
 
@@ -76,5 +61,5 @@ export function pageToHref(page, options = {}) {
   }
 
   const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
+  return query ? `${APP_BASE_PATH}?${query}` : APP_BASE_PATH;
 }

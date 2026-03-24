@@ -1,22 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Stint">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Stint">
   <defs>
-    <linearGradient id="stintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f97316" />
-      <stop offset="100%" stop-color="#f59e0b" />
+    <linearGradient id="trackCurbs" x1="18" y1="82" x2="80" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f97316" />
+      <stop offset="1" stop-color="#ef4444" />
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#stintGrad)" />
-  <rect x="4" y="4" width="56" height="56" rx="14" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="1" />
-  <text
-    x="32"
-    y="41"
-    text-anchor="middle"
-    font-family="Outfit, Inter, system-ui, sans-serif"
-    font-size="34"
-    font-weight="900"
-    letter-spacing="-1.5"
-    fill="#fff7ed"
-  >
-    S
-  </text>
+  <path
+    d="M20 78C34 69 47 61 47 48C47 34 31 27 44 17C54 10 68 9 83 5"
+    fill="none"
+    stroke="#111827"
+    stroke-width="11"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M38 86C53 76 68 64 68 48C68 36 58 28 66 20C73 13 83 10 91 7"
+    fill="none"
+    stroke="#1f2937"
+    stroke-width="11"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M18 75C25 70 32 65 39 59"
+    fill="none"
+    stroke="url(#trackCurbs)"
+    stroke-width="6"
+    stroke-linecap="butt"
+    stroke-linejoin="round"
+    stroke-dasharray="7 7"
+  />
+  <path
+    d="M58 70C63 63 67 56 68 47C69 39 67 31 72 23"
+    fill="none"
+    stroke="url(#trackCurbs)"
+    stroke-width="6"
+    stroke-linecap="butt"
+    stroke-linejoin="round"
+    stroke-dasharray="7 7"
+  />
 </svg>

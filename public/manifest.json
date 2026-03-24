@@ -3,6 +3,12 @@
   "name": "STINT",
   "icons": [
     {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
       "src": "favicon-16.png",
       "type": "image/png",
       "sizes": "16x16"

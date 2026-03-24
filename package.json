@@ -7,15 +7,17 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "next": "^16.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "postbuild": "node scripts/postbuild-seo.js",
+    "dev": "next dev",
+    "start": "next dev",
+    "build": "next build",
+    "serve": "next start",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
