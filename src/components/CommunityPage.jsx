@@ -673,7 +673,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
           const postComments = comments[post.id] || [];
 
           return (
-            <div key={post.id} style={{ borderRadius: CARD_RADIUS, border: open ? "1px solid rgba(248,250,252,0.14)" : PANEL_BORDER, background: open ? PANEL_BG_ALT : (hoveredPostId === post.id ? "rgba(255,255,255,0.02)" : PANEL_BG), overflow: "hidden", boxShadow: open ? EDGE_RING : "none", transition: "background 180ms ease, border-color 180ms ease" }}>
+            <div key={post.id} style={{ borderRadius: CARD_RADIUS, border: open ? "1px solid rgba(248,250,252,0.14)" : PANEL_BORDER, background: open ? PANEL_BG_ALT : (hoveredPostId === post.id ? "rgba(255,255,255,0.05)" : PANEL_BG), overflow: "hidden", boxShadow: open ? EDGE_RING : "none", transition: "background 180ms ease, border-color 180ms ease" }}>
               <div
                 style={{ padding: "15px 16px", cursor: "pointer", borderRadius: 18 }}
                 onMouseEnter={() => setHoveredPostId(post.id)}

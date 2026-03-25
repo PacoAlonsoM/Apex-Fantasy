@@ -430,7 +430,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                     onMouseEnter={() => setHoveredFeedId(`ticker-${article.id}`)}
                     onMouseLeave={() => setHoveredFeedId(null)}
                   >
-                    <article style={{ padding: "14px 16px 13px", background: hoveredFeedId === `ticker-${article.id}` ? "rgba(255,255,255,0.025)" : PANEL_BG, transition: "background 180ms ease", display: "grid", gridTemplateColumns: "96px minmax(0,1fr)", gap: 12, alignItems: "center" }}>
+                    <article style={{ padding: "14px 16px 13px", background: hoveredFeedId === `ticker-${article.id}` ? "rgba(255,255,255,0.05)" : PANEL_BG, transition: "background 180ms ease", display: "grid", gridTemplateColumns: "96px minmax(0,1fr)", gap: 12, alignItems: "center" }}>
                       <NewsVisual article={article} height={78} compact />
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 7, flexWrap: "wrap" }}>
@@ -758,7 +758,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   onMouseLeave={() => setHoveredFeedId(null)}
                 >
                   <article style={{
-                    background: hoveredFeedId === article.id ? "rgba(255,255,255,0.025)" : PANEL_BG,
+                    background: hoveredFeedId === article.id ? "rgba(255,255,255,0.05)" : PANEL_BG,
                     transition: "background 180ms ease",
                     padding: "16px 18px",
                     display: "grid",
