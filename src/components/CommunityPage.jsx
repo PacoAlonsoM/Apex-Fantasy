@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { CAL, nextRace } from "../constants/calendar";
 import { PTS } from "../constants/scoring";
 import {
+  ACCENT,
   BRAND_GRADIENT,
   CARD_RADIUS,
   CONTENT_MAX,
@@ -200,6 +201,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
   const [leagueMessage, setLeagueMessage] = useState("");
   const [leagueName, setLeagueName] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [hoveredPostId, setHoveredPostId] = useState(null);
   const demoPreview = demoMode && !user;
 
   const currentLeague = useMemo(
@@ -671,9 +673,11 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
           const postComments = comments[post.id] || [];
 
           return (
-            <div key={post.id} style={{ borderRadius: CARD_RADIUS, border: open ? "1px solid rgba(248,250,252,0.14)" : PANEL_BORDER, background: open ? PANEL_BG_ALT : PANEL_BG, overflow: "hidden", boxShadow: open ? EDGE_RING : "none" }}>
+            <div key={post.id} style={{ borderRadius: CARD_RADIUS, border: open ? "1px solid rgba(248,250,252,0.14)" : PANEL_BORDER, background: open ? PANEL_BG_ALT : (hoveredPostId === post.id ? "rgba(255,255,255,0.02)" : PANEL_BG), overflow: "hidden", boxShadow: open ? EDGE_RING : "none", transition: "background 180ms ease, border-color 180ms ease" }}>
               <div
                 style={{ padding: "15px 16px", cursor: "pointer", borderRadius: 18 }}
+                onMouseEnter={() => setHoveredPostId(post.id)}
+                onMouseLeave={() => setHoveredPostId(null)}
                 onClick={() => toggleThread(scope, post.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -914,6 +918,39 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
             </div>
 
             <div>
+              {currentLeague && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {isMobile ? (
+                    <button
+                      onClick={() => setSelectedLeagueId(null)}
+                      style={{ background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0, display: "flex", alignItems: "center", gap: 5 }}
+                    >
+                      ← Back
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setSelectedLeagueId(null)}
+                        style={{ background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0 }}
+                      >
+                        Leagues
+                      </button>
+                      <span style={{ color: ACCENT }}>›</span>
+                      <button
+                        onClick={() => setLeagueView("standings")}
+                        style={{ background: "none", border: "none", color: leagueView === "standings" ? "rgba(214,223,239,0.62)" : SUBTLE_TEXT, cursor: leagueView === "standings" ? "default" : "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0 }}
+                        disabled={leagueView === "standings"}
+                      >
+                        {currentLeague.name}
+                      </button>
+                      <span style={{ color: ACCENT }}>›</span>
+                      <span style={{ color: "rgba(214,223,239,0.62)" }}>
+                        {{ standings: "Standings", review: "Round Review", chat: "Chat", info: "League Info" }[leagueView] || leagueView}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
               {currentLeague ? (
                 <>
                   <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16, boxShadow: SOFT_SHADOW }}>

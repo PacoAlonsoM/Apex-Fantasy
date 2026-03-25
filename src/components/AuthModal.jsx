@@ -17,7 +17,33 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
-  const upd = (k, v) => setF((current) => ({ ...current, [k]: v }));
+  const [isDirty, setIsDirty] = useState(false);
+  const [shaking, setShaking] = useState(false);
+
+  const upd = (k, v) => {
+    setIsDirty(true);
+    setF((current) => ({ ...current, [k]: v }));
+  };
+
+  const triggerShake = () => {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 350);
+  };
+
+  const handleBackdropClick = () => {
+    if (isDirty) {
+      triggerShake();
+    } else {
+      onClose();
+    }
+  };
+
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setErr("");
+    setNote("");
+    setIsDirty(false);
+  };
 
   const inputStyle = {
     background: PANEL_BG_ALT,
@@ -51,6 +77,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
       if (mode === "forgot") {
         if (!f.email) {
           setErr("Enter your email.");
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -60,6 +87,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         });
         if (error) {
           setErr(error.message);
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -72,16 +100,19 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
       if (mode === "reset") {
         if (!f.pass || !f.confirm) {
           setErr("Enter and confirm your new password.");
+          triggerShake();
           setLoading(false);
           return;
         }
         if (f.pass.length < 6) {
           setErr("Password must be at least 6 characters.");
+          triggerShake();
           setLoading(false);
           return;
         }
         if (f.pass !== f.confirm) {
           setErr("Passwords do not match.");
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -89,6 +120,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         const { data, error } = await supabase.auth.updateUser({ password: f.pass });
         if (error) {
           setErr(error.message);
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -106,6 +138,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
 
       if (!f.email || !f.pass) {
         setErr("Fill all fields.");
+        triggerShake();
         setLoading(false);
         return;
       }
@@ -114,6 +147,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         const username = sanitizeUsername(f.username);
         if (!username) {
           setErr("Enter a valid username.");
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -121,6 +155,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         const taken = await isUsernameTaken(username);
         if (taken) {
           setErr("That username is already taken.");
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -139,6 +174,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
 
         if (error) {
           setErr(error.message);
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -156,7 +192,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         }
 
         if (data.user && !data.session) {
-          setMode("login");
+          switchMode("login");
           setNote("Account created. Check your email to confirm it, then sign in.");
           setLoading(false);
           return;
@@ -165,6 +201,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         const { data, error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.pass });
         if (error) {
           setErr(error.message);
+          triggerShake();
           setLoading(false);
           return;
         }
@@ -177,6 +214,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
       }
     } catch (error) {
       setErr(error?.message || "Something went wrong.");
+      triggerShake();
     }
 
     setLoading(false);
@@ -199,8 +237,21 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
         : "Sign in to save picks, join leagues and comment.";
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(1,5,14,0.84)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
-      <div style={{ background: PANEL_BG_STRONG, border: PANEL_BORDER, borderRadius: 26, width: 860, maxWidth: "100%", boxShadow: "0 40px 110px rgba(0,0,0,0.5)", overflow: "hidden" }} onClick={(event) => event.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(1,5,14,0.84)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={handleBackdropClick}>
+      <div
+        className={shaking ? "stint-shake" : undefined}
+        style={{ background: PANEL_BG_STRONG, border: PANEL_BORDER, borderRadius: 26, width: 860, maxWidth: "100%", boxShadow: "0 40px 110px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Explicit close button — always works regardless of dirty state */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{ position: "absolute", top: 14, right: 16, background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 4, zIndex: 10 }}
+        >
+          ×
+        </button>
+
         <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "0.88fr 1.12fr" }}>
           <div style={{ padding: "30px 28px", borderRight: isTablet ? "none" : "1px solid rgba(148,163,184,0.12)", borderBottom: isTablet ? "1px solid rgba(148,163,184,0.12)" : "none", background: "linear-gradient(180deg,rgba(255,255,255,0.02),rgba(10,18,32,0.96))" }}>
             <div style={{ marginBottom: 22 }}>
@@ -231,10 +282,10 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
 
             {mode === "register" && (
               <>
-                <label style={labelStyle}>Username</label>
-                <input style={{ ...inputStyle, marginBottom: 14 }} placeholder="YourUsername" value={f.username} onChange={(event) => upd("username", event.target.value)} />
-                <label style={labelStyle}>Supported team</label>
-                <select style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteTeam} onChange={(event) => upd("favoriteTeam", event.target.value)}>
+                <label htmlFor="auth-username" style={labelStyle}>Username</label>
+                <input id="auth-username" style={{ ...inputStyle, marginBottom: 14 }} placeholder="YourUsername" value={f.username} onChange={(event) => upd("username", event.target.value)} />
+                <label htmlFor="auth-team" style={labelStyle}>Supported team</label>
+                <select id="auth-team" style={{ ...inputStyle, marginBottom: 14, appearance: "none" }} value={f.favoriteTeam} onChange={(event) => upd("favoriteTeam", event.target.value)}>
                   {TEAM_AVATAR_OPTIONS.map((option) => (
                     <option key={option.key} value={option.team}>{option.label}</option>
                   ))}
@@ -244,30 +295,30 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
 
             {(mode === "login" || mode === "register" || mode === "forgot") && (
               <>
-                <label style={labelStyle}>Email</label>
-                <input style={{ ...inputStyle, marginBottom: 14 }} type="email" placeholder="you@email.com" value={f.email} onChange={(event) => upd("email", event.target.value)} />
+                <label htmlFor="auth-email" style={labelStyle}>Email</label>
+                <input id="auth-email" style={{ ...inputStyle, marginBottom: 14 }} type="email" placeholder="you@email.com" value={f.email} onChange={(event) => upd("email", event.target.value)} />
               </>
             )}
 
             {(mode === "login" || mode === "register") && (
               <>
-                <label style={labelStyle}>Password</label>
-                <input style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
+                <label htmlFor="auth-pass" style={labelStyle}>Password</label>
+                <input id="auth-pass" style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
               </>
             )}
 
             {mode === "reset" && (
               <>
-                <label style={labelStyle}>New password</label>
-                <input style={{ ...inputStyle, marginBottom: 14 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} />
-                <label style={labelStyle}>Confirm password</label>
-                <input style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.confirm} onChange={(event) => upd("confirm", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
+                <label htmlFor="auth-newpass" style={labelStyle}>New password</label>
+                <input id="auth-newpass" style={{ ...inputStyle, marginBottom: 14 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} />
+                <label htmlFor="auth-confirm" style={labelStyle}>Confirm password</label>
+                <input id="auth-confirm" style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.confirm} onChange={(event) => upd("confirm", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
               </>
             )}
 
             {mode === "login" && (
               <div style={{ textAlign: "right", marginBottom: 16 }}>
-                <button onClick={() => { setMode("forgot"); setErr(""); setNote(""); }} style={{ background: "none", border: "none", color: "#93c5fd", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0 }}>
+                <button onClick={() => switchMode("forgot")} style={{ background: "none", border: "none", color: "#93c5fd", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0 }}>
                   Forgot password?
                 </button>
               </div>
@@ -277,6 +328,12 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
 
             {err && <p style={{ color: "#fca5a5", fontSize: 12, margin: "0 0 14px" }}>{err}</p>}
             {note && <p style={{ color: "#67e8f9", fontSize: 12, margin: "0 0 14px" }}>{note}</p>}
+
+            {isDirty && !err && (
+              <p style={{ color: "rgba(214,223,239,0.48)", fontSize: 11, margin: "0 0 10px", letterSpacing: "0.04em" }}>
+                Click × to dismiss without saving.
+              </p>
+            )}
 
             <button disabled={loading} onClick={submit} style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 14, fontSize: 14, opacity: loading ? 0.6 : 1, boxShadow: SOFT_SHADOW }}>
               {loading
@@ -293,7 +350,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             {mode === "login" && (
               <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
                 No account?{" "}
-                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("register"); setErr(""); setNote(""); }}>
+                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("register")}>
                   Sign up
                 </span>
               </p>
@@ -302,7 +359,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             {mode === "register" && (
               <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
                 Have one?{" "}
-                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setNote(""); }}>
+                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
                   Sign in
                 </span>
               </p>
@@ -311,7 +368,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
             {mode === "forgot" && (
               <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
                 Back to{" "}
-                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setNote(""); }}>
+                <span style={{ color: "#fb923c", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
                   Sign in
                 </span>
               </p>
