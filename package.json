@@ -14,8 +14,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "next dev",
-    "start": "next dev",
+    "dev": "next dev --webpack",
+    "start": "next dev --webpack",
     "build": "next build",
     "serve": "next start",
     "test": "react-scripts test",
