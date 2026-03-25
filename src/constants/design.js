@@ -16,7 +16,7 @@ export const BG_HOVER = "#1E304A";
 
 export const TEXT_PRIMARY = "#F6F7FB";
 export const TEXT_SECONDARY = "rgba(214,223,239,0.74)";
-export const TEXT_TERTIARY = "rgba(214,223,239,0.44)";
+export const TEXT_TERTIARY = "rgba(214,223,239,0.62)";
 
 export const ACCENT = "#FF6A1A";
 export const ACCENT_DARK = "#E65310";
@@ -57,6 +57,51 @@ export const SECTION_RADIUS = 24;
 export const CARD_RADIUS = RADIUS_LG;
 export const SOFT_SHADOW = "0 22px 46px rgba(2,6,23,0.24)";
 export const LIFTED_SHADOW = "0 28px 72px rgba(2,6,23,0.3)";
+export const CARD_SHADOW = "0 4px 16px rgba(2,6,23,0.18)";
+
+// --- Type Scale (#47) ---
+export const TYPE_SCALE = {
+  XS:  { size: 11, lineHeight: 1.5, weight: 400 },
+  SM:  { size: 12, lineHeight: 1.6, weight: 400 },
+  MD:  { size: 14, lineHeight: 1.7, weight: 400 },
+  LG:  { size: 16, lineHeight: 1.6, weight: 500 },
+  XL:  { size: 20, lineHeight: 1.4, weight: 600 },
+  XXL: { size: 28, lineHeight: 1.2, weight: 700 },
+};
+
+// --- Letter-spacing (#48) ---
+export const TRACKING = {
+  TIGHT:  "-0.03em",
+  NORMAL: "-0.01em",
+  WIDE:   "0.08em",
+  WIDER:  "0.12em",
+};
+
+// --- Line heights (#49) ---
+export const LEADING = {
+  TIGHT:   0.95,
+  SNUG:    1.3,
+  NORMAL:  1.6,
+  RELAXED: 1.75,
+  LOOSE:   1.9,
+};
+
+// --- Spacing scale — 8px base grid (#50) ---
+export const SPACE = {
+  1: 4, 2: 8, 3: 12, 4: 16, 5: 20,
+  6: 24, 8: 32, 10: 40, 12: 48, 16: 64,
+};
+
+// --- Status tokens (#53) ---
+export const ERROR_TEXT   = "#fca5a5";
+export const ERROR_BG     = "rgba(239,68,68,0.08)";
+export const ERROR_BORDER = "rgba(239,68,68,0.24)";
+export const SUCCESS_TEXT   = "#86efac";
+export const SUCCESS_BG     = "rgba(34,197,94,0.08)";
+export const SUCCESS_BORDER = "rgba(34,197,94,0.24)";
+export const WARN_TEXT   = "#fcd34d";
+export const WARN_BG     = "rgba(252,211,77,0.08)";
+export const WARN_BORDER = "rgba(252,211,77,0.24)";
 
 export const DEFAULT_AVATAR_COLOR = "ember";
 

@@ -19,6 +19,7 @@ import useViewport from "../useViewport";
 
 export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMode = false, exitDemo }) {
   const [dropOpen, setDropOpen] = useState(false);
+  const [hoveredTab, setHoveredTab] = useState(null);
   const timeout = useRef(null);
   const { isMobile, isTablet } = useViewport();
   const userTheme = avatarTheme(user?.avatar_color);
@@ -130,6 +131,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     event.preventDefault();
                     setPage(actualId);
                   }}
+                  onMouseEnter={() => !active && setHoveredTab(id)}
+                  onMouseLeave={() => setHoveredTab(null)}
                   data-hover="minimal"
                   style={{
                     position: "relative",
@@ -139,13 +142,14 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     minHeight: 50,
                     padding: isMobile ? "0 14px" : "0 18px",
                     borderRadius: 999,
-                    background: active ? "rgba(255,255,255,0.05)" : "transparent",
-                    color: active ? TEXT_PRIMARY : TEXT_SECONDARY,
+                    background: active ? "rgba(255,255,255,0.05)" : hoveredTab === id ? "rgba(255,255,255,0.06)" : "transparent",
+                    color: active ? TEXT_PRIMARY : hoveredTab === id ? TEXT_PRIMARY : TEXT_SECONDARY,
                     fontSize: 13,
                     fontWeight: active ? 800 : 700,
                     letterSpacing: active ? "-0.02em" : "0",
                     whiteSpace: "nowrap",
                     textDecoration: "none",
+                    transition: "background 150ms ease, color 150ms ease",
                   }}
                 >
                   {label}
@@ -288,7 +292,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                         setDropOpen(false);
                       }}
                       onMouseEnter={(event) => {
-                        event.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                        event.currentTarget.style.background = "rgba(255,255,255,0.07)";
                       }}
                       onMouseLeave={(event) => {
                         event.currentTarget.style.background = "transparent";

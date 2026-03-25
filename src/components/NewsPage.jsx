@@ -235,6 +235,8 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
   const [hasTable, setHasTable] = useState(true);
   const [tab, setTab] = useState(lockedTab || initialTab);
   const [expandedInsight, setExpandedInsight] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hoveredFeedId, setHoveredFeedId] = useState(null);
 
   usePageMetadata({
     title: tab === "news" ? "F1 Wire" : "AI Race Brief",
@@ -297,7 +299,16 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
     [visibleArticles, featured]
   );
   const ticker = useMemo(() => remainingArticles.slice(0, 5), [remainingArticles]);
-  const feed = useMemo(() => remainingArticles, [remainingArticles]);
+  const feed = useMemo(() => {
+    if (!searchQuery.trim()) return remainingArticles;
+    const q = searchQuery.toLowerCase();
+    return remainingArticles.filter(
+      (a) =>
+        a.title?.toLowerCase().includes(q) ||
+        a.summary?.toLowerCase().includes(q) ||
+        a.source?.toLowerCase().includes(q)
+    );
+  }, [remainingArticles, searchQuery]);
   const sourceCount = useMemo(() => new Set(visibleArticles.map((article) => article.source).filter(Boolean)).size, [visibleArticles]);
   const aiPredictions = useMemo(
     () => [...(insight?.metadata?.category_predictions || [])].sort((left, right) => AI_CATEGORY_ORDER.indexOf(left.key) - AI_CATEGORY_ORDER.indexOf(right.key)),
@@ -415,8 +426,11 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               </div>
               <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
                 {ticker.map((article) => (
-                  <a key={article.id} href={article.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                    <article style={{ padding: "14px 16px 13px", background: PANEL_BG, display: "grid", gridTemplateColumns: "96px minmax(0,1fr)", gap: 12, alignItems: "center" }}>
+                  <a key={article.id} href={article.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}
+                    onMouseEnter={() => setHoveredFeedId(`ticker-${article.id}`)}
+                    onMouseLeave={() => setHoveredFeedId(null)}
+                  >
+                    <article style={{ padding: "14px 16px 13px", background: hoveredFeedId === `ticker-${article.id}` ? "rgba(255,255,255,0.05)" : PANEL_BG, transition: "background 180ms ease", display: "grid", gridTemplateColumns: "96px minmax(0,1fr)", gap: 12, alignItems: "center" }}>
                       <NewsVisual article={article} height={78} compact />
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 7, flexWrap: "wrap" }}>
@@ -702,35 +716,77 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
         )}
       </section>
 
-      {tab === "news" && feed.length > 0 && (
+      {tab === "news" && (remainingArticles.length > 0) && (
         <section style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18 }}>
-          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
-              Full feed
+          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                Full feed
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Latest from the wire</div>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>Latest from the wire</div>
+            {/* Search input (#42) */}
+            <input
+              type="search"
+              placeholder="Search stories…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: PANEL_BG,
+                border: "1px solid rgba(214,223,239,0.14)",
+                borderRadius: 999,
+                color: "#fff",
+                padding: "8px 16px",
+                fontSize: 13,
+                outline: "none",
+                width: isMobile ? "100%" : 200,
+                fontFamily: "inherit",
+              }}
+            />
           </div>
 
-          <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
-            {feed.map((article) => (
-              <a key={article.id} href={article.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                <article style={{ background: PANEL_BG, padding: "16px 18px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "148px minmax(0,1fr)", gap: 16, alignItems: "center" }}>
-                  {!isMobile && <NewsVisual article={article} height={108} />}
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-                      <div style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{article.source || "Source"}</span>
-                        {article.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(article.published_at)}</span>}
+          {feed.length > 0 ? (
+            <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+              {feed.map((article) => (
+                <a
+                  key={article.id}
+                  href={article.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                  onMouseEnter={() => setHoveredFeedId(article.id)}
+                  onMouseLeave={() => setHoveredFeedId(null)}
+                >
+                  <article style={{
+                    background: hoveredFeedId === article.id ? "rgba(255,255,255,0.05)" : PANEL_BG,
+                    transition: "background 180ms ease",
+                    padding: "16px 18px",
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "148px minmax(0,1fr)",
+                    gap: 16,
+                    alignItems: "center",
+                  }}>
+                    {!isMobile && <NewsVisual article={article} height={108} />}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                        <div style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{article.source || "Source"}</span>
+                          {article.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(article.published_at)}</span>}
+                        </div>
                       </div>
+                      <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2, letterSpacing: -0.4, marginBottom: 7 }}>{article.title}</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.76, color: MUTED_TEXT }}>{previewText(article.summary || "Open the article to read more.", isMobile ? 340 : 560)}</div>
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2, letterSpacing: -0.4, marginBottom: 7 }}>{article.title}</div>
-                    <div style={{ fontSize: 13, lineHeight: 1.76, color: MUTED_TEXT }}>{previewText(article.summary || "Open the article to read more.", isMobile ? 340 : 560)}</div>
-                  </div>
-                  {isMobile && <NewsVisual article={article} height={146} />}
-                </article>
-              </a>
-            ))}
-          </div>
+                    {isMobile && <NewsVisual article={article} height={146} />}
+                  </article>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: "28px 20px", textAlign: "center", color: MUTED_TEXT, fontSize: 14 }}>
+              No stories match <strong style={{ color: "#fff" }}>"{searchQuery}"</strong>
+            </div>
+          )}
         </section>
       )}
 

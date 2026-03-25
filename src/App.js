@@ -145,28 +145,30 @@ export default function StintApp() {
             }}
           />
         )}
-        {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
-        {page === "calendar" && <CalendarPage user={user} openAuth={openAuth} openPredictionsForRace={openPredictionsForRace} />}
-        {page === "public-picks" && (
-          <PublicPicksPage
-            user={user}
-            demoMode={demoMode}
-            openAuth={openAuth}
-            openPredictionsForRace={openPredictionsForRace}
-            setPage={navigateToPage}
-          />
-        )}
-        {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} initialRaceRound={pendingPredictionRace} onInitialRaceConsumed={() => setPendingPredictionRace(null)} />}
-        {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
-        {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
-        {page === "standings" && <StandingsPage user={user} />}
-        {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} />}
-        {page === "admin" && <AdminPage user={user} />}
-        {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
-        {page === "game-guide" && <GameGuidePage setPage={navigateToPage} />}
-        {page === "support" && <SupportPage />}
-        {page === "terms" && <TermsPage />}
-        {page === "privacy" && <PrivacyPage />}
+        <div key={page} className="stint-page-enter">
+          {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
+          {page === "calendar" && <CalendarPage user={user} openAuth={openAuth} openPredictionsForRace={openPredictionsForRace} />}
+          {page === "public-picks" && (
+            <PublicPicksPage
+              user={user}
+              demoMode={demoMode}
+              openAuth={openAuth}
+              openPredictionsForRace={openPredictionsForRace}
+              setPage={navigateToPage}
+            />
+          )}
+          {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} initialRaceRound={pendingPredictionRace} onInitialRaceConsumed={() => setPendingPredictionRace(null)} />}
+          {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
+          {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
+          {page === "standings" && <StandingsPage user={user} />}
+          {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} />}
+          {page === "admin" && <AdminPage user={user} />}
+          {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
+          {page === "game-guide" && <GameGuidePage setPage={navigateToPage} />}
+          {page === "support" && <SupportPage />}
+          {page === "terms" && <TermsPage />}
+          {page === "privacy" && <PrivacyPage />}
+        </div>
         <LegalFooter setPage={navigateToPage} />
       </div>
     </div>

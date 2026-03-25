@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { CONSTRUCTORS, DRV, TEAMS } from "../constants/teams";
 import { CAL, fmt, fmtFull, nextRace, rc } from "../constants/calendar";
@@ -20,6 +20,14 @@ import {
   SUBTLE_TEXT,
   SUCCESS,
   TEXT_PRIMARY,
+  WARN_BG,
+  WARN_BORDER,
+  WARN_TEXT,
+  INFO,
+  SUCCESS_BG,
+  SUCCESS_BORDER,
+  SUCCESS_TEXT,
+  ERROR_TEXT,
 } from "../constants/design";
 import { requireActiveSession } from "../authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "../resultHelpers";
@@ -159,11 +167,13 @@ function selectionMeta(prompt, value) {
   };
 }
 
-function emptySelectionLabel(prompt) {
+function emptySelectionLabel(prompt, aiByKey) {
   if (!prompt) return "";
+  const ai = aiByKey?.[prompt.key];
+  if (ai?.pick) return `AI suggests: ${ai.pick}`;
   if (prompt.type === "binary") return "Not answered";
-  if (prompt.type === "constructor") return "No constructor selected";
-  return "No driver selected";
+  if (prompt.type === "constructor") return "Pick a constructor";
+  return "Pick a driver";
 }
 
 function hasSavedPickContent(picks) {
@@ -467,6 +477,7 @@ function RoundSidebarItem({ item, active, onClick, status }) {
 }
 
 function PredictionCard({ prompt, value, active, onClick, aiItem }) {
+  const [hovered, setHovered] = useState(false);
   const meta = selectionMeta(prompt, value);
   const leftAccent = value ? SUCCESS : active ? ACCENT : "transparent";
   const statusColor = value ? SUCCESS : ACCENT;
@@ -474,16 +485,19 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => !active && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: "100%",
         border: "none",
         borderRadius: CARD_RADIUS,
-        background: active ? PANEL_BG_ALT : PANEL_BG,
+        background: active ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.05)" : PANEL_BG,
         boxShadow: `inset 3px 0 0 ${leftAccent}`,
         padding: 12,
         textAlign: "left",
         cursor: "pointer",
         minHeight: 92,
+        transition: "background 140ms ease",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
@@ -508,8 +522,8 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
       <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 4 }}>
         {prompt.label}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: meta ? TEXT_PRIMARY : MUTED_TEXT, marginBottom: 5 }}>
-        {meta ? meta.label : emptySelectionLabel(prompt)}
+      <div style={{ fontSize: 12, fontWeight: 600, color: meta ? TEXT_PRIMARY : aiItem ? "#93c5fd" : MUTED_TEXT, marginBottom: 5 }}>
+        {meta ? meta.label : emptySelectionLabel(prompt, aiItem ? { [prompt.key]: aiItem } : {})}
       </div>
       <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED_TEXT, marginBottom: aiItem ? 6 : 0 }}>
         {prompt.hint}
@@ -525,21 +539,25 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
 
 function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = false }) {
   const team = TEAMS[driver.t];
+  const [hovered, setHovered] = useState(false);
 
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: "100%",
         minHeight: 58,
         border: "none",
         borderRadius: RADIUS_MD,
-        background: selected ? PANEL_BG_ALT : BG_BASE,
+        background: selected ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.04)" : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}${selected ? ", 0 0 0 1px rgba(255,255,255,0.04)" : ""}`,
         padding: "8px 10px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
+        transition: "background 140ms ease",
       }}
       disabled={disabled}
     >
@@ -601,21 +619,25 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
 function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disabled = false }) {
   const team = TEAMS[teamName];
   const teammates = DRV.filter((driver) => driver.t === teamName).map((driver) => driver.s).join(" · ");
+  const [hovered, setHovered] = useState(false);
 
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: "100%",
         minHeight: 58,
         border: "none",
         borderRadius: RADIUS_MD,
-        background: selected ? PANEL_BG_ALT : BG_BASE,
+        background: selected ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.04)" : BG_BASE,
         boxShadow: `inset 3px 0 0 ${team.c}`,
         padding: "8px 10px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
+        transition: "background 140ms ease",
       }}
       disabled={disabled}
     >
@@ -657,20 +679,25 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
 }
 
 function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false, disabled = false }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: "100%",
         minHeight: 60,
         border: "none",
         borderRadius: RADIUS_MD,
-        background: selected ? PANEL_BG_ALT : BG_BASE,
+        background: selected ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.04)" : BG_BASE,
         boxShadow: `inset 3px 0 0 ${color}`,
         padding: "10px 11px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !selected ? 0.72 : 1,
+        transition: "background 140ms ease",
       }}
       disabled={disabled}
     >
@@ -748,12 +775,35 @@ export default function PredictionsPage({
   const [resultsByRound, setResultsByRound] = useState({});
   const [tab, setTab] = useState("race");
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPartialWarning, setShowPartialWarning] = useState(false);
   const [liveRaces, setLiveRaces] = useState({});
   const [liveMeetings, setLiveMeetings] = useState({});
   const [aiInsight, setAiInsight] = useState(null);
+  const [aiInsightError, setAiInsightError] = useState(false);
+  const [savePop, setSavePop] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [activePromptKey, setActivePromptKey] = useState("");
   const boardRef = useRef(null);
+  const activeRoundRef = useRef(null);
+
+  const loadAiInsight = useCallback(async () => {
+    setAiInsightError(false);
+    try {
+      const { data, error } = await supabase
+        .from("ai_insights")
+        .select("headline,summary,confidence,race_name,generated_at,metadata")
+        .eq("scope", "upcoming_race")
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      setAiInsight(data || null);
+      if (!data) setAiInsightError(true);
+    } catch {
+      setAiInsightError(true);
+    }
+  }, []);
 
   useEffect(() => {
     loadPicks();
@@ -793,24 +843,12 @@ export default function PredictionsPage({
       setLiveRaces(mapped);
     }
 
-    async function loadAiInsight() {
-      const { data } = await supabase
-        .from("ai_insights")
-        .select("headline,summary,confidence,race_name,generated_at,metadata")
-        .eq("scope", "upcoming_race")
-        .order("generated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!ignore) setAiInsight(data || null);
-    }
-
     loadSeasonSchedule();
     loadAiInsight();
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [loadAiInsight]);
 
   useEffect(() => {
     let ignore = false;
@@ -892,30 +930,43 @@ export default function PredictionsPage({
     if (!user) return openAuth("login");
     if (editingLocked) return;
 
+    if (done < totalPrompts && !showPartialWarning) {
+      setShowPartialWarning(true);
+      return;
+    }
+    setShowPartialWarning(false);
+
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
 
-    const updatedAt = new Date().toISOString();
-    const { error } = await supabase.from("predictions").upsert(
-      { user_id: user.id, race_round: race.r, picks, updated_at: updatedAt },
-      { onConflict: "user_id,race_round" }
-    );
-    if (error) {
-      alert(error.message);
-      return;
+    setIsSaving(true);
+    try {
+      const updatedAt = new Date().toISOString();
+      const { error } = await supabase.from("predictions").upsert(
+        { user_id: user.id, race_round: race.r, picks, updated_at: updatedAt },
+        { onConflict: "user_id,race_round" }
+      );
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      setPredictionsByRound((current) => ({
+        ...current,
+        [race.r]: {
+          ...(current[race.r] || {}),
+          user_id: user.id,
+          race_round: race.r,
+          picks,
+          updated_at: updatedAt,
+        },
+      }));
+      setSaved(true);
+      setSavePop(true);
+      setTimeout(() => setSaved(false), 3000);
+      setTimeout(() => setSavePop(false), 300);
+    } finally {
+      setIsSaving(false);
     }
-    setPredictionsByRound((current) => ({
-      ...current,
-      [race.r]: {
-        ...(current[race.r] || {}),
-        user_id: user.id,
-        race_round: race.r,
-        picks,
-        updated_at: updatedAt,
-      },
-    }));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
   };
 
   const isSprintTab = race.sprint && tab === "sprint";
@@ -928,6 +979,10 @@ export default function PredictionsPage({
       setActivePromptKey(prompts[0].key);
     }
   }, [prompts, activePromptKey]);
+
+  useEffect(() => {
+    activeRoundRef.current?.scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
+  }, [race.r]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activePrompt = prompts.find((prompt) => prompt.key === activePromptKey) || prompts[0];
   const activeIndex = prompts.findIndex((prompt) => prompt.key === activePrompt?.key);
@@ -969,8 +1024,10 @@ export default function PredictionsPage({
     if (!lockSession?.date_start) return null;
     const diff = new Date(lockSession.date_start).getTime() - now;
     if (diff <= 0) return { locked: true };
+    const minsRemaining = Math.floor(diff / 60000);
     return {
       locked: false,
+      minsRemaining,
       d: Math.floor(diff / 86400000),
       h: Math.floor((diff % 86400000) / 3600000),
       m: Math.floor((diff % 3600000) / 60000),
@@ -1011,17 +1068,19 @@ export default function PredictionsPage({
       : editingLocked
         ? (lockLabel ? `Closed at ${lockLabel}. This board is now read-only.` : "This round is locked.")
         : (lockLabel ? `Build your board before ${lockLabel}.` : "Build and save before qualifying starts.");
-  const saveLabel = reviewReady
-    ? "Round Scored"
-    : demoPreview
-      ? "Preview Only"
-    : resultsEntered
-      ? "Round Closed"
-      : editingLocked
-        ? "Predictions Locked"
-        : saved
-          ? "Predictions Saved"
-          : "Save Predictions";
+  const saveLabel = isSaving
+    ? "Saving…"
+    : reviewReady
+      ? "Round Scored"
+      : demoPreview
+        ? "Preview Only"
+      : resultsEntered
+        ? "Round Closed"
+        : editingLocked
+          ? "Predictions Locked"
+          : saved
+            ? "Predictions Saved"
+            : "Save Predictions";
 
   const driverOptions = useMemo(() => (
     [...DRV].sort((left, right) => {
@@ -1110,21 +1169,25 @@ export default function PredictionsPage({
         {isTablet ? (
           <section>
             <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(220px,1fr)", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
-              {sidebarRaces.map((item) => (
-                <RoundSidebarItem
-                  key={item.r}
-                  item={item}
-                  active={race.r === item.r}
-                  status={roundSidebarStatus(
-                    item,
-                    liveRaces[item.r] || null,
-                    resultsByRound[item.r] || null,
-                    now,
-                    predictionsByRound[item.r] || null
-                  )}
-                  onClick={() => selectRace(item)}
-                />
-              ))}
+              {sidebarRaces.map((item) => {
+                const isActive = race.r === item.r;
+                return (
+                  <div key={item.r} ref={isActive ? activeRoundRef : null}>
+                    <RoundSidebarItem
+                      item={item}
+                      active={isActive}
+                      status={roundSidebarStatus(
+                        item,
+                        liveRaces[item.r] || null,
+                        resultsByRound[item.r] || null,
+                        now,
+                        predictionsByRound[item.r] || null
+                      )}
+                      onClick={() => selectRace(item)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </section>
         ) : (
@@ -1209,7 +1272,14 @@ export default function PredictionsPage({
                         {stateTone.label}
                       </div>
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 }}>
+                    <div style={{
+                      fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6,
+                      color: lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
+                        ? lockCountdown.minsRemaining < 30 ? ERROR_TEXT
+                          : lockCountdown.minsRemaining < 120 ? WARN_TEXT
+                          : undefined
+                        : undefined,
+                    }}>
                       {reviewReady
                         ? "Review ready"
                         : lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
@@ -1283,6 +1353,39 @@ export default function PredictionsPage({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Lock status banner (#33) */}
+            {editingLocked && (
+              <div style={{
+                padding: "12px 24px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                borderBottom: `1px solid ${HAIRLINE}`,
+                background: resultsEntered
+                  ? SUCCESS_BG
+                  : raceHasPassed
+                    ? "rgba(59,130,246,0.06)"
+                    : WARN_BG,
+                borderLeft: `3px solid ${resultsEntered ? SUCCESS_BORDER : raceHasPassed ? "rgba(59,130,246,0.4)" : WARN_BORDER}`,
+              }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: resultsEntered ? "#22c55e" : raceHasPassed ? "#3b82f6" : "#fcd34d",
+                  boxShadow: `0 0 8px ${resultsEntered ? "rgba(34,197,94,0.4)" : raceHasPassed ? "rgba(59,130,246,0.4)" : "rgba(252,211,77,0.4)"}`,
+                }} />
+                <span style={{
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                  color: resultsEntered ? SUCCESS_TEXT : raceHasPassed ? "#93c5fd" : WARN_TEXT,
+                }}>
+                  {resultsEntered
+                    ? "Round scored — your picks have been evaluated"
+                    : raceHasPassed
+                      ? "Race weekend in progress — results pending"
+                      : "Qualifying is approaching — picks are locked"}
+                </span>
               </div>
             )}
 
@@ -1489,12 +1592,36 @@ export default function PredictionsPage({
                     <span style={{ borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT, width: "fit-content" }}>
                       {activePrompt?.pts || 0} pts
                     </span>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : MUTED_TEXT }}>
-                      {currentMeta ? currentMeta.label : emptySelectionLabel(activePrompt)}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: currentMeta ? TEXT_PRIMARY : activeAi ? "#93c5fd" : MUTED_TEXT }}>
+                        {currentMeta ? currentMeta.label : emptySelectionLabel(activePrompt, aiByKey)}
+                      </div>
+                      {currentMeta && !editingLocked && (
+                        <button
+                          onClick={() => setPicks((p) => { const n = { ...p }; delete n[activePromptKey]; return n; })}
+                          title="Clear pick"
+                          style={{ background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1, opacity: 0.6 }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#fca5a5"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; e.currentTarget.style.color = SUBTLE_TEXT; }}
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                     {activeAi && (
                       <div style={{ fontSize: 12, lineHeight: 1.45, color: "#93c5fd" }}>
                         AI Insight: {activeAi.pick}. {previewText(activeAi.reason, 88)}
+                      </div>
+                    )}
+                    {aiInsightError && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#fca5a5" }}>
+                        <span>AI brief unavailable</span>
+                        <button
+                          onClick={loadAiInsight}
+                          style={{ background: "none", border: "none", color: "#93c5fd", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, textDecoration: "underline" }}
+                        >
+                          Retry
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1594,6 +1721,28 @@ export default function PredictionsPage({
                   </button>
                 </div>
 
+                {showPartialWarning && (
+                  <div style={{ marginBottom: 12, padding: "12px 14px", borderRadius: CARD_RADIUS, background: WARN_BG, border: `1px solid ${WARN_BORDER}` }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: WARN_TEXT, marginBottom: 8 }}>
+                      You have {done}/{totalPrompts} picks — submit anyway?
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => { setShowPartialWarning(false); const firstEmpty = prompts.find((p) => !picks[p.key]); if (firstEmpty) setActivePromptKey(firstEmpty.key); boardRef.current?.scrollIntoView({ behavior: "smooth" }); }}
+                        style={{ border: "none", borderRadius: 8, background: "rgba(255,255,255,0.08)", color: WARN_TEXT, cursor: "pointer", fontWeight: 700, fontSize: 12, padding: "7px 12px" }}
+                      >
+                        Complete board
+                      </button>
+                      <button
+                        onClick={save}
+                        style={{ border: "none", borderRadius: 8, background: WARN_BORDER, color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12, padding: "7px 12px" }}
+                      >
+                        Save anyway
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) auto", gap: 16, alignItems: "center", borderTop: `1px solid ${HAIRLINE}`, paddingTop: 16 }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
@@ -1618,8 +1767,9 @@ export default function PredictionsPage({
                   </div>
 
                   <button
+                    className={savePop ? "stint-success-pop" : undefined}
                     onClick={save}
-                    disabled={editingLocked || demoPreview}
+                    disabled={isSaving || editingLocked || demoPreview}
                     style={{
                       minHeight: 52,
                       minWidth: isMobile ? "100%" : 184,
@@ -1636,8 +1786,8 @@ export default function PredictionsPage({
                       color: TEXT_PRIMARY,
                       fontSize: 15,
                       fontWeight: 600,
-                      cursor: editingLocked || demoPreview ? "default" : "pointer",
-                      opacity: editingLocked || demoPreview ? 0.8 : 1,
+                      cursor: isSaving || editingLocked || demoPreview ? "default" : "pointer",
+                      opacity: isSaving || editingLocked || demoPreview ? 0.8 : 1,
                       boxShadow: saved ? "0 10px 24px rgba(34,197,94,0.18)" : "0 10px 24px rgba(249,115,22,0.2)",
                     }}
                   >

@@ -196,10 +196,13 @@ export default function ProfilePage({ user, setUser }) {
           <div style={{ flex: 1, minWidth: 280 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Profile</div>
             {editing ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                <input style={{ ...inputStyle, width: 240, fontSize: 20, fontWeight: 900 }} value={newUsername} onChange={(event) => setNewUsername(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} autoFocus />
+              <div style={{ marginBottom: 10 }}>
+                <label htmlFor="profile-username" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, display: "block", marginBottom: 6 }}>Username</label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input id="profile-username" style={{ ...inputStyle, width: 240, fontSize: 20, fontWeight: 900 }} value={newUsername} onChange={(event) => setNewUsername(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} autoFocus />
                 <button onClick={saveProfile} disabled={saving} style={{ background: "linear-gradient(135deg,#10B981,#059669)", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "10px 16px", fontSize: 13 }}>{saving ? "Saving..." : "Save"}</button>
                 <button onClick={() => { setEditing(false); setNewUsername(user.username || ""); setPendingColor(user.avatar_color || DEFAULT_AVATAR_COLOR); setError(""); setNote(""); }} style={{ background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.16)", borderRadius: 10, color: "#cbd5e1", cursor: "pointer", padding: "10px 14px", fontSize: 13 }}>Cancel</button>
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
@@ -232,6 +235,8 @@ export default function ProfilePage({ user, setUser }) {
               <button
                 key={key}
                 onClick={() => saveSupportPreferences(team)}
+                aria-pressed={pendingTeam === team}
+                aria-label={label}
                 style={{
                   borderRadius: 14,
                   border: pendingTeam === team ? "1px solid rgba(248,250,252,0.64)" : `1px solid ${option.border}`,
@@ -265,7 +270,7 @@ export default function ProfilePage({ user, setUser }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 12, marginBottom: 24 }}>
         {[
           ["Total Points", user.points || 0, "#f97316"],
           ["Global Rank", rank ? `#${rank}` : "—", "#bfdbfe"],
