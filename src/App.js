@@ -18,13 +18,14 @@ import TermsPage from "./components/TermsPage";
 import PrivacyPage from "./components/PrivacyPage";
 import LegalFooter from "./components/LegalFooter";
 import { ensureProfileForUser } from "./authProfile";
-import { BG_BASE, BG_SURFACE, getUserAccentTheme } from "./constants/design";
+import { getUserAccentTheme } from "./constants/design";
 import { pageToHref, readLocationState } from "./routing";
 
 export default function StintApp() {
   const initialState = readLocationState();
   const [page, setPageState] = useState(initialState.page);
   const [pendingPredictionRace, setPendingPredictionRace] = useState(initialState.raceRound);
+  const [authRedirect, setAuthRedirect] = useState(null);
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
@@ -66,8 +67,9 @@ export default function StintApp() {
     }
   };
 
-  const openAuth = (mode) => {
+  const openAuth = (mode, redirect = null) => {
     if (demoMode && !user) return;
+    setAuthRedirect(redirect);
     setAuthMode(mode || "login");
     setAuthOpen(true);
   };
@@ -111,7 +113,7 @@ export default function StintApp() {
         minHeight: "100vh",
         color: "var(--text)",
         fontFamily: "var(--font-body)",
-        background: `radial-gradient(circle at 12% 5%, rgba(249,115,22,0.07), transparent 18%), radial-gradient(circle at 86% 12%, rgba(255,255,255,0.03), transparent 18%), linear-gradient(180deg, ${BG_BASE} 0%, ${BG_BASE} 40%, ${BG_SURFACE} 100%)`,
+        background: "transparent",
         "--team-accent": accentTheme.accent,
         "--team-accent-soft": accentTheme.accentSoft,
         "--team-accent-ghost": accentTheme.accentGhost,
@@ -128,15 +130,23 @@ export default function StintApp() {
           <AuthModal
             mode={authMode}
             setMode={setAuthMode}
-            onClose={() => setAuthOpen(false)}
+            onClose={() => {
+              setAuthOpen(false);
+              setAuthRedirect(null);
+            }}
             onAuth={(profile) => {
               setUser(profile);
               setAuthOpen(false);
+              const target = authRedirect;
+              setAuthRedirect(null);
+              if (target?.page) {
+                navigateToPage(target.page, { raceRound: target.raceRound || null });
+              }
             }}
           />
         )}
         {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
-        {page === "calendar" && <CalendarPage user={user} />}
+        {page === "calendar" && <CalendarPage user={user} openAuth={openAuth} openPredictionsForRace={openPredictionsForRace} />}
         {page === "public-picks" && (
           <PublicPicksPage
             user={user}

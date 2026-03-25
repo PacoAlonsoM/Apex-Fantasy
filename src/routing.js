@@ -17,6 +17,42 @@ const APP_PAGE_KEYS = new Set([
   "privacy",
 ]);
 
+const ROOT_PATH_BY_PAGE = {
+  home: "/",
+  calendar: "/calendar",
+  "public-picks": "/picks",
+  "ai-brief": "/insight",
+  news: "/wire",
+  standings: "/leaderboard",
+  community: "/leagues",
+};
+
+const PAGE_BY_ROOT_PATH = new Map(
+  Object.entries(ROOT_PATH_BY_PAGE).map(([page, pathname]) => [pathname, page])
+);
+
+const LEGACY_SLUG_TO_PAGE = {
+  home: "home",
+  calendar: "calendar",
+  picks: "public-picks",
+  "public-picks": "public-picks",
+  predictions: "predictions",
+  insight: "ai-brief",
+  "ai-brief": "ai-brief",
+  news: "news",
+  wire: "news",
+  leaderboard: "standings",
+  standings: "standings",
+  leagues: "community",
+  community: "community",
+  admin: "admin",
+  profile: "profile",
+  "game-guide": "game-guide",
+  support: "support",
+  terms: "terms",
+  privacy: "privacy",
+};
+
 function normalizePathname(value) {
   if (!value || value === "/") return "/";
   return value.replace(/\/+$/, "") || "/";
@@ -27,32 +63,56 @@ function parseRaceRound(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+export function isKnownPage(page) {
+  return APP_PAGE_KEYS.has(page);
+}
+
+export function legacySlugToPage(value) {
+  return LEGACY_SLUG_TO_PAGE[value] || null;
+}
+
+export function pathnameToPage(pathname) {
+  return PAGE_BY_ROOT_PATH.get(normalizePathname(pathname)) || null;
+}
+
 export function isPublicPage(page) {
-  return false;
+  return Object.prototype.hasOwnProperty.call(ROOT_PATH_BY_PAGE, page);
+}
+
+function resolvePage(pathname, params) {
+  const queryPage = params.get("page");
+  const requestedPage = isKnownPage(queryPage) ? queryPage : null;
+  const rootPathPage = pathnameToPage(pathname);
+
+  if (normalizePathname(pathname) === "/") {
+    return requestedPage || "home";
+  }
+
+  return rootPathPage || requestedPage || "home";
 }
 
 export function readLocationState() {
   const params = new URLSearchParams(window.location.search);
   const pathname = normalizePathname(window.location.pathname);
-  const requestedPage = params.get("page");
-  const withinPrivateApp = pathname === APP_BASE_PATH || pathname.startsWith(`${APP_BASE_PATH}/`);
 
   return {
     demoMode: params.get("demo") === "1",
-    page: withinPrivateApp && requestedPage && APP_PAGE_KEYS.has(requestedPage) ? requestedPage : "home",
+    page: resolvePage(pathname, params),
     raceRound: parseRaceRound(params.get("race")),
   };
 }
 
 export function pageToHref(page, options = {}) {
   const { demoMode = false, raceRound = null } = options;
+  const resolvedPage = isKnownPage(page) ? page : "home";
+  const pathname = ROOT_PATH_BY_PAGE[resolvedPage] || "/";
   const params = new URLSearchParams();
 
-  if (page !== "home") {
-    params.set("page", page);
+  if (!ROOT_PATH_BY_PAGE[resolvedPage] && resolvedPage !== "home") {
+    params.set("page", resolvedPage);
   }
 
-  if (page === "predictions" && raceRound) {
+  if (resolvedPage === "predictions" && raceRound) {
     params.set("race", String(raceRound));
   }
 
@@ -61,5 +121,5 @@ export function pageToHref(page, options = {}) {
   }
 
   const query = params.toString();
-  return query ? `${APP_BASE_PATH}?${query}` : APP_BASE_PATH;
+  return query ? `${pathname}?${query}` : pathname;
 }

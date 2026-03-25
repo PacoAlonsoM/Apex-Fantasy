@@ -280,8 +280,8 @@ export default function StandingsPage() {
   const [error, setError] = useState("");
 
   usePageMetadata({
-    title: "F1 Leaderboard",
-    description: "Track the live Formula 1 drivers and constructors standings in one clean public leaderboard built around completed race-week results.",
+    title: "F1 Championship Standings",
+    description: "Track the live Formula 1 drivers and constructors standings in one clean championship view built around completed race-week results.",
     path: "/leaderboard",
   });
 
@@ -359,12 +359,12 @@ export default function StandingsPage() {
               >
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: loading ? "#facc15" : "#34d399" }} />
                 <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
-                  {loading ? "Loading standings" : `${seasonYear} season standings`}
+                  {loading ? "Loading standings" : `${seasonYear} championship standings`}
                 </span>
               </div>
 
               <h1 style={{ fontSize: isMobile ? 38 : 54, lineHeight: 0.98, margin: "0 0 12px", letterSpacing: isMobile ? -1.4 : -2.4 }}>
-                Real championship leaderboard.
+                Real championship standings.
                 <br />
                 Drivers and constructors.
               </h1>

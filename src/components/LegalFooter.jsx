@@ -1,5 +1,6 @@
 import { BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_EMAIL } from "../constants/design";
 import { pageToHref } from "../routing";
+import BrandLockup from "./BrandLockup";
 
 export default function LegalFooter({ setPage }) {
   const year = new Date().getFullYear();
@@ -16,14 +17,17 @@ export default function LegalFooter({ setPage }) {
         style={{
           maxWidth: 1260,
           margin: "0 auto",
-          padding: "18px 28px 20px",
+          padding: "24px 28px 24px",
           display: "grid",
-          gap: 10,
+          gap: 14,
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.82)" }}>
-            <strong style={{ color: "#fafafa", fontWeight: 800 }}>{BRAND_NAME}</strong> · {BRAND_TAGLINE}
+          <div style={{ display: "grid", gap: 10 }}>
+            <BrandLockup compact descriptor />
+            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.82)", maxWidth: 580 }}>
+              {BRAND_NAME} · {BRAND_TAGLINE}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[

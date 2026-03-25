@@ -9,40 +9,43 @@ export const BRAND_TAGLINE = "Compete with sharper picks, cleaner reads, and rac
 export const SUPPORT_EMAIL = "support@stint-web.com";
 export const LEGAL_DISCLAIMER = "Stint is an independent prediction platform and is not affiliated with, endorsed by, or officially connected to Formula 1, Formula One group companies, FIA, or any F1 team.";
 
-export const BG_BASE = "#0B1120";
-export const BG_SURFACE = "#111B2E";
-export const BG_ELEVATED = "#1A2740";
-export const BG_HOVER = "#213352";
+export const BG_BASE = "#06101B";
+export const BG_SURFACE = "#0E1929";
+export const BG_ELEVATED = "#152338";
+export const BG_HOVER = "#1E304A";
 
-export const TEXT_PRIMARY = "#F1F5F9";
-export const TEXT_SECONDARY = "rgba(241,245,249,0.6)";
-export const TEXT_TERTIARY = "rgba(241,245,249,0.35)";
+export const TEXT_PRIMARY = "#F6F7FB";
+export const TEXT_SECONDARY = "rgba(214,223,239,0.74)";
+export const TEXT_TERTIARY = "rgba(214,223,239,0.44)";
 
-export const ACCENT = "#F97316";
-export const ACCENT_DARK = "#EA580C";
-export const ACCENT_GLOW = "rgba(249,115,22,0.15)";
+export const ACCENT = "#FF6A1A";
+export const ACCENT_DARK = "#E65310";
+export const ACCENT_GLOW = "rgba(255,106,26,0.18)";
 export const SUCCESS = "#22C55E";
 export const SPRINT = "#A855F7";
 export const DANGER = "#EF4444";
 export const INFO = "#3B82F6";
-export const WARM = "#FBBF24";
+export const WARM = "#FFC247";
 
-export const BRAND_GRADIENT = "linear-gradient(135deg,#F97316 0%,#EA580C 100%)";
-export const HERO_GRADIENT = "linear-gradient(90deg,#F97316 0%,#FBBF24 100%)";
-export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(249,115,22,0.12),rgba(234,88,12,0.02))";
+export const BRAND_GRADIENT = "linear-gradient(135deg,#FF6A1A 0%,#FFC247 100%)";
+export const HERO_GRADIENT = "linear-gradient(90deg,#FF6A1A 0%,#FFC247 100%)";
+export const BRAND_GRADIENT_SOFT = "linear-gradient(180deg,rgba(255,106,26,0.14),rgba(255,194,71,0.03))";
+export const BRAND_BADGE_BG = "linear-gradient(180deg,rgba(245,239,230,0.98),rgba(233,224,210,0.96))";
+export const BRAND_BADGE_BORDER = "1px solid rgba(255,237,213,0.72)";
+export const BRAND_BADGE_SHADOW = "0 16px 40px rgba(255,106,26,0.16), inset 0 1px 0 rgba(255,255,255,0.5)";
 
 export const PANEL_BG = BG_SURFACE;
 export const PANEL_BG_ALT = BG_ELEVATED;
 export const PANEL_BG_STRONG = BG_SURFACE;
-export const PANEL_BORDER = "1px solid rgba(255,255,255,0.06)";
-export const HAIRLINE = "rgba(255,255,255,0.06)";
-export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.02)";
+export const PANEL_BORDER = "1px solid rgba(214,223,239,0.08)";
+export const HAIRLINE = "rgba(214,223,239,0.08)";
+export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.04)";
 export const MUTED_TEXT = TEXT_SECONDARY;
 export const SUBTLE_TEXT = TEXT_TERTIARY;
 
-export const CONTENT_MAX = 1200;
+export const CONTENT_MAX = 1280;
 export const SHELL_MAX = 1280;
-export const HERO_TEXT_MAX = 720;
+export const HERO_TEXT_MAX = 760;
 
 export const RADIUS_SM = 8;
 export const RADIUS_MD = 12;
@@ -50,10 +53,10 @@ export const RADIUS_LG = 16;
 export const RADIUS_XL = 20;
 export const RADIUS_PILL = 999;
 
-export const SECTION_RADIUS = RADIUS_XL;
+export const SECTION_RADIUS = 24;
 export const CARD_RADIUS = RADIUS_LG;
-export const SOFT_SHADOW = "0 18px 40px rgba(2,6,23,0.22)";
-export const LIFTED_SHADOW = "0 28px 60px rgba(2,6,23,0.28)";
+export const SOFT_SHADOW = "0 22px 46px rgba(2,6,23,0.24)";
+export const LIFTED_SHADOW = "0 28px 72px rgba(2,6,23,0.3)";
 
 export const DEFAULT_AVATAR_COLOR = "ember";
 

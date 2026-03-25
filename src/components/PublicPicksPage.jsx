@@ -16,6 +16,7 @@ import {
 import { pageToHref } from "../routing";
 import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
+import PageHeader from "./PageHeader";
 
 const PICK_CATEGORIES = [
   ["Pole Position", "10 pts", "Who is quickest over one lap."],
@@ -73,9 +74,9 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
   const schedule = next ? raceSessions(next) : [];
 
   usePageMetadata({
-    title: "How Stint Picks work",
+    title: "STINT Picks",
     description:
-      "Read how Stint Picks works before lock: categories, timing, sprint rules, and the next race context, all on a public page assistants can actually read.",
+      "See the STINT board, the lock timing, and the categories that matter before the weekend closes.",
     path: "/picks",
   });
 
@@ -84,7 +85,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
       openPredictionsForRace?.(next?.r);
       return;
     }
-    openAuth?.("login");
+    openAuth?.("register", { page: "predictions", raceRound: next?.r });
   };
 
   return (
@@ -97,142 +98,50 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
         zIndex: 1,
       }}
     >
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) minmax(340px,420px)",
-          gap: 24,
-          alignItems: "start",
-          marginBottom: 28,
-        }}
-      >
-        <div style={{ display: "grid", gap: 20, paddingTop: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-            Public picks guide
-          </div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: isMobile ? 44 : isTablet ? 54 : 62,
-              lineHeight: 0.96,
-              letterSpacing: "-0.05em",
-              fontWeight: 800,
-            }}
-          >
-            Understand the board
-            <br />
-            before lock.
-          </h1>
-          <div style={{ maxWidth: 680, fontSize: 16, lineHeight: 1.7, color: MUTED_TEXT }}>
-            This is the public, readable version of Picks. It explains how the board works, what users predict every weekend,
-            when the board locks, and what changes on sprint weekends. The real personalised board stays inside the app.
-          </div>
-
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+      <PageHeader
+        eyebrow="Picks"
+        title="See the board before lock."
+        description="The real board closes right before qualifying. These are the categories players submit each weekend."
+        actions={(
+          <>
             <a
               href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
               onClick={(event) => {
                 event.preventDefault();
                 handleOpenRealPicks();
               }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 50,
-                padding: "0 24px",
-                borderRadius: RADIUS_MD,
-                border: "none",
-                background: "linear-gradient(135deg,#F97316,#EA580C)",
-                color: TEXT_PRIMARY,
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
-                textDecoration: "none",
-              }}
+              className="stint-button"
             >
-              {user || demoMode ? "Open real picks" : "Log in to make picks"}
+              {user || demoMode ? "Open picks" : "Create account to make picks"}
             </a>
-            <a
-              href={pageToHref("calendar", { demoMode })}
-              onClick={(event) => {
-                event.preventDefault();
-                setPage?.("calendar");
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 50,
-                padding: "0 24px",
-                borderRadius: RADIUS_MD,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "transparent",
-                color: TEXT_PRIMARY,
-                fontSize: 15,
-                fontWeight: 500,
-                cursor: "pointer",
-                textDecoration: "none",
-              }}
-            >
-              View calendar first
-            </a>
-          </div>
-        </div>
-
-        {next && (
+          </>
+        )}
+        aside={next ? (
           <section
             style={{
-              borderRadius: SECTION_RADIUS,
-              background: PANEL_BG,
-              boxShadow: LIFTED_SHADOW,
-              overflow: "hidden",
+              display: "grid",
+              gap: 10,
             }}
           >
-            <div style={{ height: 3, background: `linear-gradient(90deg, ${ACCENT}, rgba(249,115,22,0.08))` }} />
-            <div style={{ padding: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
-                Next lock
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+              Next lock
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 1 }}>{next.n}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.7, color: MUTED_TEXT }}>{next.circuit} · {fmtFull(next.date)}</div>
+            {cd && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
+                <CountdownUnit label="Days" value={cd.d} />
+                <CountdownUnit label="Hours" value={cd.h} />
+                <CountdownUnit label="Minutes" value={cd.m} />
               </div>
-              <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.04, marginBottom: 8 }}>
-                {next.n}
-              </div>
-              <div style={{ fontSize: 14, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: 18 }}>
-                {next.circuit} · {fmtFull(next.date)}
-              </div>
-
-              {cd && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginBottom: 16 }}>
-                  <CountdownUnit label="Days" value={cd.d} />
-                  <CountdownUnit label="Hours" value={cd.h} />
-                  <CountdownUnit label="Minutes" value={cd.m} />
-                </div>
-              )}
-
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 16 }}>
-                The real board locks right before qualifying. Once the weekend passes, users can review scoring but they can no longer edit picks.
-              </div>
-
-              <div style={{ paddingTop: 14, borderTop: `1px solid ${HAIRLINE}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 10 }}>
-                  What happens next
-                </div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {schedule.slice(0, 3).map((session) => (
-                    <div key={session.key} style={{ display: "grid", gridTemplateColumns: "86px 1fr", gap: 10 }}>
-                      <strong style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: session.tone === "qualifying" ? ACCENT : SUBTLE_TEXT }}>
-                        {session.label}
-                      </strong>
-                      <span style={{ fontSize: 13, color: TEXT_PRIMARY }}>{fmtFull(session.date)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            )}
+            <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT }}>
+              The real board locks right before qualifying, then shifts from editing into review mode after scoring.
             </div>
           </section>
-        )}
-      </section>
+        ) : null}
+        marginBottom={26}
+      />
 
       <section style={{ display: "grid", gap: 22 }}>
         <div
@@ -249,6 +158,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
               background: PANEL_BG,
               boxShadow: LIFTED_SHADOW,
               padding: isMobile ? 20 : 24,
+              border: "1px solid rgba(214,223,239,0.08)",
             }}
           >
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
@@ -291,6 +201,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
               padding: isMobile ? 20 : 24,
               display: "grid",
               gap: 18,
+              border: "1px solid rgba(214,223,239,0.08)",
             }}
           >
             <div>
@@ -298,7 +209,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
                 Sprint weekends
               </div>
               <div style={{ fontSize: 15, lineHeight: 1.65, color: MUTED_TEXT }}>
-                Some rounds add a sprint layer. The public teaser explains it clearly, while the real board only shows those extra picks when the weekend format actually needs them.
+                Sprint rounds add four extra categories. They only appear when the selected weekend actually uses the sprint format.
               </div>
             </div>
 
@@ -330,12 +241,28 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
                 Lock rules
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.65, color: MUTED_TEXT }}>
-                Users can read the board publicly, but the real board stays private and personalised. Once qualifying begins, picks are locked. After the race is scored, the experience shifts from editing into review mode.
+                Once qualifying begins, picks are locked. After the race is scored, the board shifts from editing into review mode.
               </div>
             </div>
           </article>
         </div>
       </section>
+
+      {isMobile && (
+        <div style={{ position: "sticky", bottom: 14, marginTop: 18, zIndex: 5 }}>
+          <a
+            href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenRealPicks();
+            }}
+            className="stint-button"
+            style={{ width: "100%" }}
+          >
+            {user || demoMode ? "Open picks" : "Create account to make picks"}
+          </a>
+        </div>
+      )}
     </div>
   );
 }

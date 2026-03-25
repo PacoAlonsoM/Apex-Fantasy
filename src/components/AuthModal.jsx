@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 import { ensureProfileForUser, isUsernameTaken, sanitizeUsername } from "../authProfile";
-import { BRAND_DESCRIPTOR, BRAND_WORDMARK, EDGE_RING, MUTED_TEXT, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SOFT_SHADOW, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
-import BrandMark from "./BrandMark";
+import { EDGE_RING, MUTED_TEXT, PANEL_BG, PANEL_BG_ALT, PANEL_BG_STRONG, PANEL_BORDER, SOFT_SHADOW, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, teamSupportKey } from "../constants/design";
+import BrandLockup from "./BrandLockup";
 import useViewport from "../useViewport";
 
 export default function AuthModal({ mode, setMode, onClose, onAuth }) {
@@ -203,12 +203,8 @@ export default function AuthModal({ mode, setMode, onClose, onAuth }) {
       <div style={{ background: PANEL_BG_STRONG, border: PANEL_BORDER, borderRadius: 26, width: 860, maxWidth: "100%", boxShadow: "0 40px 110px rgba(0,0,0,0.5)", overflow: "hidden" }} onClick={(event) => event.stopPropagation()}>
         <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "0.88fr 1.12fr" }}>
           <div style={{ padding: "30px 28px", borderRight: isTablet ? "none" : "1px solid rgba(148,163,184,0.12)", borderBottom: isTablet ? "1px solid rgba(148,163,184,0.12)" : "none", background: "linear-gradient(180deg,rgba(255,255,255,0.02),rgba(10,18,32,0.96))" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-              <BrandMark size={44} />
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>{BRAND_WORDMARK}</div>
-                <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.6 }}>{BRAND_DESCRIPTOR}</div>
-              </div>
+            <div style={{ marginBottom: 22 }}>
+              <BrandLockup mobile={isMobile} compact descriptor={!isMobile} />
             </div>
 
             <h2 style={{ margin: "0 0 10px", fontWeight: 900, fontSize: isMobile ? 32 : 40, lineHeight: 0.96, letterSpacing: isMobile ? -1.2 : -1.6 }}>{title}</h2>

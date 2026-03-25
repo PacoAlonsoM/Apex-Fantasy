@@ -1,5 +1,4 @@
 import "../src/index.css";
-import "./public-site.css";
 
 const siteUrl = process.env.REACT_APP_PUBLIC_SITE_URL || "https://www.stint-web.com";
 
@@ -23,12 +22,9 @@ export const metadata = {
     description: "Race-week context, picks, AI insight, wire coverage and leaderboard reads in one clean F1 product.",
   },
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
-    ],
-    apple: [{ url: "/logo192.png", sizes: "192x192", type: "image/png" }],
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: ["/favicon.svg"],
+    apple: [{ url: "/favicon.svg", type: "image/svg+xml" }],
   },
 };
 

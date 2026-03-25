@@ -3,26 +3,20 @@ import { countdown, fmtFull, nextRace, raceSessions, rc } from "../constants/cal
 import {
   ACCENT,
   BG_BASE,
-  BRAND_GRADIENT,
-  BRAND_NAME,
-  BRAND_TAGLINE,
   CONTENT_MAX,
   HAIRLINE,
   HERO_GRADIENT,
-  LIFTED_SHADOW,
   MUTED_TEXT,
-  PANEL_BG,
   PANEL_BG_ALT,
   RADIUS_MD,
-  SECTION_RADIUS,
   SUBTLE_TEXT,
   TEXT_PRIMARY,
+  WARM,
 } from "../constants/design";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
 import { pageToHref } from "../routing";
 import { IS_SNAPSHOT } from "../runtimeFlags";
 import usePageMetadata from "../usePageMetadata";
-import BrandMark from "./BrandMark";
 import useViewport from "../useViewport";
 
 const homeSessionMeta = {
@@ -30,7 +24,7 @@ const homeSessionMeta = {
   "Practice 2": { label: "FP2", type: "practice" },
   "Practice 3": { label: "FP3", type: "practice" },
   "Sprint Qualifying": { label: "Sprint Qualifying", type: "qualifying" },
-  "Sprint": { label: "Sprint", type: "sprint" },
+  Sprint: { label: "Sprint", type: "sprint" },
   Qualifying: { label: "Qualifying", type: "qualifying" },
   Race: { label: "Race", type: "race" },
 };
@@ -43,7 +37,6 @@ function normalizeLiveSession(session) {
     label: meta.label,
     type: meta.type,
     date: session.date_start,
-    hasLiveTime: true,
   };
 }
 
@@ -57,24 +50,26 @@ function formatSessionSlot(value) {
   }).format(new Date(value));
 }
 
-function TimelineItem({ session, active, last, compact = false }) {
+function TimelineItem({ session, active, last }) {
   const labelColor = session.type === "race"
     ? "#EF4444"
     : session.type === "qualifying"
       ? ACCENT
-      : SUBTLE_TEXT;
+      : session.type === "sprint"
+        ? "#A855F7"
+        : SUBTLE_TEXT;
 
   return (
-    <div style={{ position: "relative", paddingLeft: compact ? 18 : 20, paddingBottom: last ? 0 : compact ? 14 : 18 }}>
+    <div style={{ position: "relative", paddingLeft: 20, paddingBottom: last ? 0 : 18 }}>
       {!last && (
         <span
           style={{
             position: "absolute",
             left: 3,
-            top: compact ? 10 : 12,
+            top: 12,
             bottom: -8,
             width: 1,
-            background: "rgba(255,255,255,0.12)",
+            background: "rgba(214,223,239,0.12)",
           }}
         />
       )}
@@ -82,73 +77,77 @@ function TimelineItem({ session, active, last, compact = false }) {
         style={{
           position: "absolute",
           left: 0,
-          top: compact ? 6 : 7,
-          width: compact ? 6 : 7,
-          height: compact ? 6 : 7,
+          top: 8,
+          width: 7,
+          height: 7,
           borderRadius: "50%",
           background: active ? ACCENT : PANEL_BG_ALT,
-          border: `1.5px solid ${active ? ACCENT : "rgba(255,255,255,0.2)"}`,
-          boxShadow: active ? "0 0 0 6px rgba(249,115,22,0.08)" : "none",
+          border: `1.5px solid ${active ? ACCENT : "rgba(214,223,239,0.24)"}`,
+          boxShadow: active ? "0 0 0 7px rgba(255,106,26,0.08)" : "none",
         }}
       />
       <div style={{ display: "grid", gap: 4 }}>
-        <div style={{ fontSize: compact ? 11 : 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: labelColor }}>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: labelColor }}>
           {session.label}
         </div>
-        <div style={{ fontSize: compact ? 12 : 13, lineHeight: 1.4, color: TEXT_PRIMARY }}>{formatSessionSlot(session.date)}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.45, color: TEXT_PRIMARY }}>{formatSessionSlot(session.date)}</div>
       </div>
     </div>
   );
 }
 
-function CountdownCard({ race, cd, accent, schedule }) {
+function CountdownCard({ race, cd, accent, schedule, openNextRacePicks, user, demoMode }) {
   return (
-    <section
-      style={{
-        borderRadius: SECTION_RADIUS,
-        background: PANEL_BG,
-        boxShadow: LIFTED_SHADOW,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${accent}, transparent)` }} />
-      <div style={{ padding: 24 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT, animation: "pulseDot 2s infinite" }} />
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-            Next race
+    <section className="stint-panel" style={{ overflow: "hidden", position: "relative" }}>
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 84% 18%, rgba(255,194,71,0.08), transparent 36%)" }} />
+      <div style={{ height: 4, background: `linear-gradient(90deg,${ACCENT},${accent}, ${WARM})` }} />
+      <div style={{ padding: 24, position: "relative" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT, animation: "pulseDot 2s infinite" }} />
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+            Next lock
           </span>
         </div>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.03, marginBottom: 8 }}>{race.n}</div>
-        <div style={{ fontSize: 14, lineHeight: 1.55, color: MUTED_TEXT, marginBottom: 20 }}>
+
+        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 0.98, marginBottom: 8 }}>{race.n}</div>
+        <div style={{ fontSize: 14, lineHeight: 1.65, color: MUTED_TEXT, marginBottom: 20 }}>
           {race.circuit} · {fmtFull(race.date)}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginBottom: 18 }}>
           {[["Days", cd.d], ["Hours", cd.h], ["Minutes", cd.m]].map(([label, value]) => (
             <div
               key={label}
               style={{
                 borderRadius: RADIUS_MD,
-                background: BG_BASE,
-                padding: "12px 8px",
+                background: `linear-gradient(180deg,rgba(255,255,255,0.04),${BG_BASE})`,
+                padding: "14px 10px",
                 textAlign: "center",
+                border: "1px solid rgba(214,223,239,0.08)",
               }}
             >
-              <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1 }}>{String(value).padStart(2, "0")}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 6 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>{String(value).padStart(2, "0")}</div>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 6 }}>
                 {label}
               </div>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize: 12, lineHeight: 1.5, color: MUTED_TEXT, marginBottom: 14 }}>
-          Picks close right before qualifying begins.
-        </div>
+        <a
+          href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: race?.r })}
+          onClick={(event) => {
+            event.preventDefault();
+            openNextRacePicks();
+          }}
+          className="stint-button"
+          style={{ minHeight: 48, padding: "0 18px", fontSize: 13, marginBottom: 18 }}
+        >
+          Open picks
+        </a>
 
-        <div style={{ paddingTop: 12, borderTop: `1px solid ${HAIRLINE}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
+        <div style={{ paddingTop: 14, borderTop: `1px solid ${HAIRLINE}` }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
             Weekend timeline
           </div>
           <div>
@@ -158,18 +157,16 @@ function CountdownCard({ race, cd, accent, schedule }) {
                 session={session}
                 active={session.type === "qualifying"}
                 last={index === schedule.length - 1}
-                compact
               />
             ))}
           </div>
         </div>
-
       </div>
     </section>
   );
 }
 
-export default function HomePage({ user, setPage, openAuth, demoMode = false, openPredictionsForRace }) {
+export default function HomePage({ user, setPage, demoMode = false, openPredictionsForRace, openAuth }) {
   const { isMobile, isTablet } = useViewport();
   const next = nextRace();
   const cd = next ? countdown(next.date) : null;
@@ -214,7 +211,7 @@ export default function HomePage({ user, setPage, openAuth, demoMode = false, op
     return raceSessions(next).map((session, index) => ({
       ...session,
       key: `${session.label}-${index}`,
-      type: session.label === "Race" ? "race" : session.label === "Qualifying" ? "qualifying" : "practice",
+      type: session.label === "Race" ? "race" : session.label === "Qualifying" ? "qualifying" : session.label === "Sprint" ? "sprint" : "practice",
     }));
   }, [liveSchedule, next]);
 
@@ -223,110 +220,63 @@ export default function HomePage({ user, setPage, openAuth, demoMode = false, op
       openPredictionsForRace?.(next?.r);
       return;
     }
+    if (openAuth) {
+      openAuth("register", { page: "predictions", raceRound: next?.r });
+      return;
+    }
     setPage("public-picks");
   };
 
   return (
-    <div
-      style={{
-        maxWidth: CONTENT_MAX,
-        margin: "0 auto",
-        padding: isMobile ? "28px 20px 72px" : isTablet ? "36px 32px 88px" : "34px 48px 88px",
-        position: "relative",
-        zIndex: 1,
-      }}
-    >
+    <div className="stint-page" style={{ maxWidth: CONTENT_MAX }}>
       <section
         style={{
           display: "grid",
-          gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 472px",
+          gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.06fr) 430px",
           gap: 24,
           alignItems: "start",
         }}
       >
-        <div style={{ display: "grid", gap: 18 }}>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-              <BrandMark size={28} />
-              <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-                {BRAND_NAME}
-              </span>
-            </div>
+        <div style={{ display: "grid", gap: 22, paddingTop: 6 }}>
+          <div className="stint-kicker">STINT</div>
 
-            <h1
-              style={{
-                maxWidth: 760,
-                fontSize: isMobile ? 48 : isTablet ? 58 : 64,
-                fontWeight: 800,
-                letterSpacing: "-0.03em",
-                lineHeight: 0.98,
-                marginBottom: 16,
-              }}
-            >
-              Compete hard,
+          <div>
+            <h1 className="stint-title" style={{ maxWidth: 760, marginBottom: 18 }}>
+              Compete hard.
               <br />
-              Predict sharp,
+              <span style={{ color: TEXT_PRIMARY }}>Predict sharp.</span>
               <br />
               <span style={{ background: HERO_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
                 Win your league.
               </span>
             </h1>
 
-            <div style={{ maxWidth: 520, fontSize: 14, lineHeight: 1.62, color: MUTED_TEXT, marginBottom: 22 }}>
-              {BRAND_TAGLINE} Use live schedules, race-week news, and AI Insight without leaving the product.
+            <div className="stint-subtitle">
+              Compete with sharper picks, cleaner reads, and race-week timing that stays in sync.
             </div>
+          </div>
 
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <a
-                href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
-                onClick={(event) => {
-                  event.preventDefault();
-                  openNextRacePicks();
-                }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 50,
-                  padding: "0 24px",
-                  borderRadius: RADIUS_MD,
-                  border: "none",
-                  background: BRAND_GRADIENT,
-                  color: TEXT_PRIMARY,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
-                  textDecoration: "none",
-                }}
-              >
-                Make picks
-              </a>
-              <a
-                href={pageToHref("calendar", { demoMode })}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setPage("calendar");
-                }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 50,
-                  padding: "0 24px",
-                  borderRadius: RADIUS_MD,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "transparent",
-                  color: TEXT_PRIMARY,
-                  fontSize: 15,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  textDecoration: "none",
-                }}
-              >
-                View Calendar
-              </a>
-            </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <a
+              href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
+              onClick={(event) => {
+                event.preventDefault();
+                openNextRacePicks();
+              }}
+              className="stint-button"
+            >
+              {user || demoMode ? "Open picks" : "Create account to make picks"}
+            </a>
+            <a
+              href={pageToHref("calendar", { demoMode })}
+              onClick={(event) => {
+                event.preventDefault();
+                setPage("calendar");
+              }}
+              className="stint-button-secondary"
+            >
+              Open race planner
+            </a>
           </div>
         </div>
 
@@ -336,9 +286,35 @@ export default function HomePage({ user, setPage, openAuth, demoMode = false, op
             cd={cd}
             accent={accent}
             schedule={schedule}
+            openNextRacePicks={openNextRacePicks}
+            user={user}
+            demoMode={demoMode}
           />
         )}
       </section>
+
+      {isMobile && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 14,
+            marginTop: 18,
+            zIndex: 5,
+          }}
+        >
+          <a
+            href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
+            onClick={(event) => {
+              event.preventDefault();
+              openNextRacePicks();
+            }}
+            className="stint-button"
+            style={{ width: "100%" }}
+          >
+            {user || demoMode ? "Open picks" : "Create account to make picks"}
+          </a>
+        </div>
+      )}
     </div>
   );
 }

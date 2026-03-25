@@ -19,6 +19,7 @@ import {
 import { IS_SNAPSHOT } from "../runtimeFlags";
 import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
+import PageHeader from "./PageHeader";
 
 const sessionMeta = {
   "Practice 1": { label: "FP1", type: "practice" },
@@ -87,7 +88,7 @@ function formatEventWindowLabel(race, liveSessions) {
 
 function StatBox({ value, label }) {
   return (
-    <div style={{ borderRadius: RADIUS_MD, background: PANEL_BG, padding: "16px 18px", boxShadow: SOFT_SHADOW }}>
+    <div style={{ borderRadius: RADIUS_MD, background: "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(14,25,41,0.98))", padding: "16px 18px", boxShadow: SOFT_SHADOW, border: "1px solid rgba(214,223,239,0.08)" }}>
       <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 8 }}>
         {label}
@@ -104,11 +105,11 @@ function FilterButton({ active, label, onClick }) {
         minHeight: 38,
         padding: "0 18px",
         borderRadius: 999,
-        border: active ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(255,255,255,0.06)",
-        background: active ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.04)",
+        border: active ? "1px solid rgba(255,106,26,0.32)" : "1px solid rgba(214,223,239,0.08)",
+        background: active ? "rgba(255,106,26,0.16)" : "rgba(255,255,255,0.03)",
         color: active ? ACCENT : MUTED_TEXT,
         fontSize: 13,
-        fontWeight: 500,
+        fontWeight: 700,
         cursor: "pointer",
       }}
     >
@@ -129,8 +130,9 @@ function RaceRow({ race, active, liveSessions, onSelect }) {
         alignItems: "center",
         border: "none",
         borderRadius: RADIUS_MD,
-        background: active ? PANEL_BG_ALT : PANEL_BG,
-        boxShadow: active ? `inset 3px 0 0 ${ACCENT}` : "none",
+        background: active ? "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(21,35,56,0.98))" : PANEL_BG,
+        border: active ? "1px solid rgba(255,106,26,0.16)" : "1px solid rgba(214,223,239,0.06)",
+        boxShadow: active ? `0 20px 40px rgba(255,106,26,0.08), inset 3px 0 0 ${ACCENT}` : "inset 0 1px 0 rgba(255,255,255,0.03)",
         padding: "16px 20px",
         cursor: "pointer",
         textAlign: "left",
@@ -201,7 +203,7 @@ function SessionTimeline({ sessions }) {
   );
 }
 
-export default function CalendarPage() {
+export default function CalendarPage({ user, openAuth, openPredictionsForRace }) {
   const { isMobile, isTablet } = useViewport();
   const [sel, setSel] = useState(nextRace() || CAL[0]);
   const [filt, setFilt] = useState("all");
@@ -284,6 +286,14 @@ export default function CalendarPage() {
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const selectedEventWindow = sel ? formatEventWindowLabel(sel, liveMeetings[sel.r]) : "";
+  const handleOpenPicks = () => {
+    if (!sel) return;
+    if (user) {
+      openPredictionsForRace?.(sel.r);
+      return;
+    }
+    openAuth?.("login", { page: "predictions", raceRound: sel.r });
+  };
 
   return (
     <div
@@ -295,33 +305,15 @@ export default function CalendarPage() {
         zIndex: 1,
       }}
     >
-      <section style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) 360px",
-            gap: 18,
-            alignItems: "start",
-            marginBottom: 14,
-          }}
-        >
-          <div style={{ maxWidth: 620 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-              2026 Calendar
-            </div>
-            <h1 style={{ fontSize: isMobile ? 40 : 44, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 14 }}>
-              Read the season as one race-week system.
-            </h1>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.68, color: MUTED_TEXT }}>
-              Open any Grand Prix to see the exact session order, timezone-adjusted timing, and the track context you need before moving into Picks.
-            </p>
-          </div>
+      <PageHeader
+        eyebrow="Calendar"
+        title="Read the season as one race-week system."
+        description="Pick a Grand Prix to see the session order, local timing, and jump straight into that weekend's board."
+        aside={<StatBox value={timezone.split("/").pop()?.split("_").join(" ") || "Local"} label="Timezone" />}
+        marginBottom={18}
+      />
 
-          <div style={{ width: isTablet ? "100%" : 360, justifySelf: isTablet ? "stretch" : "end" }}>
-            <StatBox value={timezone.split("/").pop()?.split("_").join(" ") || "Local"} label="Timezone" />
-          </div>
-        </div>
-
+      <section style={{ marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {[["all", "All races"], ["sprint", "Sprint weekends"]].map(([value, label]) => (
             <FilterButton key={value} active={filt === value} label={label} onClick={() => setFilt(value)} />
@@ -352,8 +344,8 @@ export default function CalendarPage() {
         </div>
 
         {sel && (
-          <aside style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : "max(118px, calc(50vh - 320px))" }}>
-            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", maxHeight: isTablet ? "none" : "calc(100vh - 148px)" }}>
+          <aside style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : 118 }}>
+            <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", border: "1px solid rgba(214,223,239,0.08)" }}>
               <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${rc(sel)}, transparent)` }} />
               <div style={{ padding: 26, borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                 <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.02, marginBottom: 8 }}>
@@ -375,7 +367,7 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div style={{ padding: 24, borderBottom: `1px solid ${HAIRLINE}`, overflowY: isTablet ? "visible" : "auto" }}>
+              <div style={{ padding: 24, borderBottom: `1px solid ${HAIRLINE}` }}>
                 <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
                   Weekend timeline
                 </div>
@@ -398,10 +390,10 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, lineHeight: 1.55, color: MUTED_TEXT }}>
-                  Session times here follow the same timezone-adjusted schedule used throughout the product.
-                </div>
+              <div style={{ padding: 16 }}>
+                <button onClick={handleOpenPicks} className="stint-button" style={{ width: "100%", minHeight: 50, fontSize: 14 }}>
+                  Open picks
+                </button>
               </div>
             </div>
           </aside>
