@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
-import { CAL } from "../constants/calendar";
+import { ACTIVE_RACE_COUNT, CAL } from "../constants/calendar";
 import { AVATAR_THEMES, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, avatarTheme, getUserAccentTheme, teamSupportKey } from "../constants/design";
 import { isUsernameTaken, sanitizeUsername } from "../authProfile";
 
@@ -274,7 +274,7 @@ export default function ProfilePage({ user, setUser }) {
         {[
           ["Total Points", user.points || 0, "#f97316"],
           ["Global Rank", rank ? `#${rank}` : "—", "#bfdbfe"],
-          ["Races Scored", `${totalRaces} / 24`, "#99f6e4"],
+          ["Races Scored", `${totalRaces} / ${ACTIVE_RACE_COUNT}`, "#99f6e4"],
         ].map(([label, value, color]) => (
           <div key={label} style={{ borderRadius: 18, border: PANEL_BORDER, background: PANEL_BG, padding: "18px 20px 16px" }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>{label}</div>

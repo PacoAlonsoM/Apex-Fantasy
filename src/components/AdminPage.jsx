@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase, SUPABASE_ANON_KEY, SUPABASE_URL } from "../supabase";
 import { fetchRaceData } from "../openf1";
 import { scoreRace } from "../scoring";
@@ -6,6 +6,7 @@ import { CAL } from "../constants/calendar";
 import { CONSTRUCTORS, DRV } from "../constants/teams";
 import { ADMIN_ID, BRAND_GRADIENT, PANEL_BG, PANEL_BORDER } from "../constants/design";
 import { requireActiveSession } from "../authProfile";
+import { getRaceDisplayRound, mergeRaceCalendarRows } from "../raceCalendar";
 import { formatDnfDrivers, getDnfDrivers, serializeDnfDrivers } from "../resultHelpers";
 
 export default function AdminPage({ user }) {
@@ -26,6 +27,55 @@ export default function AdminPage({ user }) {
   const [insightResult, setInsightResult] = useState(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsResult, setNewsResult] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarResult, setCalendarResult] = useState(null);
+  const [calendarRowsLoading, setCalendarRowsLoading] = useState(false);
+  const [calendarRowsError, setCalendarRowsError] = useState("");
+  const [calendarRows, setCalendarRows] = useState([]);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideResult, setOverrideResult] = useState(null);
+
+  const resetManualFields = () => {
+    setPole("");
+    setDotd("");
+    setCtor("");
+    setDnfDrivers([]);
+    setShowDnfEditor(false);
+  };
+
+  const loadCalendarRows = async () => {
+    setCalendarRowsLoading(true);
+    setCalendarRowsError("");
+
+    const { data, error } = await supabase
+      .from("race_calendar")
+      .select("*")
+      .eq("season", 2026)
+      .order("source_round_number", { ascending: true })
+      .order("race_date", { ascending: true });
+
+    if (error) {
+      setCalendarRows([]);
+      setCalendarRowsError(error.message || "Could not load live calendar rows.");
+    } else {
+      setCalendarRows(mergeRaceCalendarRows(data || [], CAL, { includeCancelled: true }));
+    }
+
+    setCalendarRowsLoading(false);
+  };
+
+  useEffect(() => {
+    if (!user || user.id !== ADMIN_ID) return;
+    loadCalendarRows();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const liveRaceByRound = useMemo(
+    () => Object.fromEntries(calendarRows.map((item) => [item.r, item])),
+    [calendarRows]
+  );
+  const fallbackRace = CAL.find((item) => item.r === round) || null;
+  const liveRace = liveRaceByRound[round] || null;
+  const race = liveRace || fallbackRace;
 
   if (!user || user.id !== ADMIN_ID) {
     return (
@@ -36,16 +86,6 @@ export default function AdminPage({ user }) {
       </div>
     );
   }
-
-  const race = CAL.find(r => r.r === round);
-
-  const resetManualFields = () => {
-    setPole("");
-    setDotd("");
-    setCtor("");
-    setDnfDrivers([]);
-    setShowDnfEditor(false);
-  };
 
   const fetchFromAPI = async () => {
     setLoading(true); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null); resetManualFields();
@@ -152,6 +192,24 @@ export default function AdminPage({ user }) {
     return await invokeViaFetch(true);
   };
 
+  const getFunctionErrorDetail = async (error) => {
+    let detail = error?.message || "Function call failed.";
+    const context = error?.context;
+
+    if (!context) return detail;
+
+    try {
+      const payload = await context.json();
+      return payload?.error || payload?.message || JSON.stringify(payload);
+    } catch {
+      try {
+        return await context.text();
+      } catch {
+        return detail;
+      }
+    }
+  };
+
   const saveResults = async () => {
     if (!result || result.error) return;
     setSaveLoading(true);
@@ -202,21 +260,7 @@ export default function AdminPage({ user }) {
       });
 
       if (error) {
-        let detail = error.message;
-        const context = error.context;
-
-        if (context) {
-          try {
-            const payload = await context.json();
-            detail = payload?.error || payload?.message || JSON.stringify(payload);
-          } catch {
-            try {
-              detail = await context.text();
-            } catch {
-              detail = error.message;
-            }
-          }
-        }
+        const detail = await getFunctionErrorDetail(error);
 
         const friendlyDetail = /Failed to send a request to the Edge Function/i.test(detail)
           ? "Could not reach the deployed ai-race-brief function. Refresh your session and confirm the remote function is reachable from localhost."
@@ -246,22 +290,7 @@ export default function AdminPage({ user }) {
       const { data, error } = await invokeAuthedFunction("news-ingest");
 
       if (error) {
-        let detail = error.message;
-        const context = error.context;
-
-        if (context) {
-          try {
-            const payload = await context.json();
-            detail = payload?.error || payload?.message || JSON.stringify(payload);
-          } catch {
-            try {
-              detail = await context.text();
-            } catch {
-              detail = error.message;
-            }
-          }
-        }
-
+        const detail = await getFunctionErrorDetail(error);
         setNewsResult({ error: detail });
       } else {
         setNewsResult(data);
@@ -271,6 +300,55 @@ export default function AdminPage({ user }) {
     }
 
     setNewsLoading(false);
+  };
+
+  const syncCalendar = async () => {
+    setCalendarLoading(true);
+    setCalendarResult(null);
+
+    try {
+      const { data, error } = await invokeAuthedFunction("calendar-sync");
+
+      if (error) {
+        const detail = await getFunctionErrorDetail(error);
+        setCalendarResult({ error: detail || "Calendar sync failed." });
+      } else {
+        setCalendarResult(data);
+        await loadCalendarRows();
+      }
+    } catch (error) {
+      setCalendarResult({ error: error instanceof Error ? error.message : "Calendar sync failed." });
+    }
+
+    setCalendarLoading(false);
+  };
+
+  const setCalendarOverride = async (overrideStatus) => {
+    setOverrideLoading(true);
+    setOverrideResult(null);
+
+    try {
+      const { data, error } = await invokeAuthedFunction("calendar-override", {
+        body: {
+          season: 2026,
+          internalRoundNumber: round,
+          eventSlug: fallbackRace?.slug || null,
+          overrideStatus,
+        },
+      });
+
+      if (error) {
+        const detail = await getFunctionErrorDetail(error);
+        setOverrideResult({ error: detail || "Calendar override failed." });
+      } else {
+        setOverrideResult(data);
+        await loadCalendarRows();
+      }
+    } catch (error) {
+      setOverrideResult({ error: error instanceof Error ? error.message : "Calendar override failed." });
+    }
+
+    setOverrideLoading(false);
   };
 
   const inp = {
@@ -294,17 +372,105 @@ export default function AdminPage({ user }) {
 
       {/* STEP 1 — Fetch & Save */}
       <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginBottom: 20, backdropFilter: "blur(16px)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 0 — Refresh Calendar</div>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 16 }}>
+          Pull the season schedule from OpenF1 into `race_calendar`, then use the manual override below if the feed is wrong. The live app reads this table, not the static fallback list.
+        </p>
+        <button
+          onClick={syncCalendar}
+          disabled={calendarLoading}
+          style={{ background: "linear-gradient(135deg,#7c3aed,#2563eb)", border: "none", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%", padding: 13, fontSize: 14, opacity: calendarLoading ? 0.6 : 1 }}
+        >
+          {calendarLoading ? "Refreshing Calendar..." : "Sync Calendar Schedule"}
+        </button>
+        {calendarResult && (
+          <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: calendarResult.error ? "rgba(239,68,68,0.1)" : "rgba(124,58,237,0.12)", border: `1px solid ${calendarResult.error ? "rgba(239,68,68,0.28)" : "rgba(124,58,237,0.28)"}`, fontSize: 13, color: calendarResult.error ? "#F87171" : "#c4b5fd" }}>
+            {calendarResult.error
+              ? `❌ ${calendarResult.error}`
+              : `✅ Synced ${calendarResult.upsertedCount || 0} active rounds${calendarResult.cancelledCount ? ` and marked ${calendarResult.cancelledCount} as cancelled` : ""}.`}
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>Step 0B — Manual Override</div>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginBottom: 14 }}>
+            If OpenF1 still carries a race that has been canceled or moved, set an override here. Overrides win over the feed in the live app.
+          </p>
+
+          <div style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", padding: "12px 14px", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>
+              {race?.n || `Round ${round}`}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ borderRadius: 999, padding: "5px 9px", fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "1px solid rgba(255,255,255,0.08)" }}>
+                Live status: {String(race?.status || "scheduled").toUpperCase()}
+              </span>
+              <span style={{ borderRadius: 999, padding: "5px 9px", fontSize: 11, fontWeight: 700, background: race?.overrideStatus ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)", color: race?.overrideStatus ? "#fcd34d" : "rgba(255,255,255,0.45)", border: `1px solid ${race?.overrideStatus ? "rgba(245,158,11,0.22)" : "rgba(255,255,255,0.08)"}` }}>
+                Override: {race?.overrideStatus ? String(race.overrideStatus).toUpperCase() : "NONE"}
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>
+                {calendarRowsLoading ? "Refreshing live rows..." : calendarRowsError ? calendarRowsError : `Source: ${race?.sourceName || "Fallback calendar"}`}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setCalendarOverride("cancelled")}
+              disabled={overrideLoading || calendarLoading}
+              style={{ background: "rgba(239,68,68,0.14)", border: "1px solid rgba(239,68,68,0.24)", borderRadius: 9, color: "#fecaca", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 13, opacity: overrideLoading ? 0.6 : 1 }}
+            >
+              {overrideLoading ? "Updating..." : "Mark Cancelled"}
+            </button>
+            <button
+              onClick={() => setCalendarOverride("scheduled")}
+              disabled={overrideLoading || calendarLoading}
+              style={{ background: "rgba(34,197,94,0.14)", border: "1px solid rgba(34,197,94,0.24)", borderRadius: 9, color: "#bbf7d0", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 13, opacity: overrideLoading ? 0.6 : 1 }}
+            >
+              Mark Scheduled
+            </button>
+            <button
+              onClick={() => setCalendarOverride(null)}
+              disabled={overrideLoading || calendarLoading}
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 9, color: "#fff", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 13, opacity: overrideLoading ? 0.6 : 1 }}
+            >
+              Clear Override
+            </button>
+          </div>
+
+          {overrideResult && (
+            <div style={{ marginTop: 10, padding: "12px 16px", borderRadius: 9, background: overrideResult.error ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.12)", border: `1px solid ${overrideResult.error ? "rgba(239,68,68,0.28)" : "rgba(34,197,94,0.28)"}`, fontSize: 13, color: overrideResult.error ? "#F87171" : "#bbf7d0" }}>
+              {overrideResult.error
+                ? `❌ ${overrideResult.error}`
+                : `✅ ${overrideResult.displayName || race?.n || "Race"} now resolves as ${String(overrideResult.effectiveStatus || race?.status || "scheduled").toUpperCase()}.`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ borderRadius: 16, border: PANEL_BORDER, background: PANEL_BG, padding: 24, marginBottom: 20, backdropFilter: "blur(16px)" }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 11 }}>Step 1 — Select Race & Fetch</div>
         <select
           value={round}
           onChange={e => { setRound(Number(e.target.value)); setResult(null); setSaved(false); setSaveResult(null); setScoreResult(null); resetManualFields(); }}
           style={{ ...inp, marginBottom: 16 }}
         >
-          {CAL.map(r => (
-            <option key={r.r} value={r.r} style={{ background: "#08081A" }}>Round {r.r} — {r.n}</option>
-          ))}
+          {CAL.map((baseRace) => {
+            const optionRace = liveRaceByRound[baseRace.r] || baseRace;
+            return (
+            <option key={baseRace.r} value={baseRace.r} style={{ background: "#08081A" }}>
+              {optionRace.status === "cancelled"
+                ? `Cancelled — ${optionRace.n} (ID ${baseRace.r})`
+                : `Round ${getRaceDisplayRound(optionRace) || baseRace.r} — ${optionRace.n} (ID ${baseRace.r})`}
+            </option>
+            );
+          })}
         </select>
-        {race && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>{race.circuit} · {race.date}</div>}
+        {race && (
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>
+            {race.circuit} · {race.date}{race.status === "cancelled" ? " · Cancelled round" : ` · Official round ${getRaceDisplayRound(race) || race.r}`}{race.overrideStatus ? ` · Override ${String(race.overrideStatus).toUpperCase()}` : ""}
+          </div>
+        )}
         <button onClick={fetchFromAPI} disabled={loading} style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 800, width: "100%", padding: 13, fontSize: 14, opacity: loading ? 0.6 : 1 }}>
           {loading ? "Fetching from OpenF1..." : "🔄 Fetch Results from OpenF1"}
         </button>

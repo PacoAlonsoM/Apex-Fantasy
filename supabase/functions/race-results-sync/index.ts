@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
 
     const target = requestedRound
       ? { round: requestedRound }
-      : await inferLatestCompletedRound(requestedYear);
+      : await inferLatestCompletedRound(requestedYear, { supabase });
 
     if (!target?.round) {
       return respond({ error: `No completed OpenF1 race session found for ${requestedYear}.` }, 400);

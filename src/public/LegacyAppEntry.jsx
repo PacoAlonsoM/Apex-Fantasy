@@ -26,11 +26,14 @@ const LegacyApp = dynamic(() => import("../App"), {
         <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: "-0.04em", color: TEXT_PRIMARY }}>
           STINT
         </div>
-        {/* Shimmer bar */}
+        {/* Loading bar */}
         <div
-          className="stint-skeleton"
-          style={{ width: 200, height: 4, borderRadius: 999 }}
-        />
+          className="stint-loading-track"
+          aria-hidden="true"
+          style={{ width: 200 }}
+        >
+          <div className="stint-loading-bar" />
+        </div>
         {/* Label */}
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(214,223,239,0.62)", marginTop: -8 }}>
           Loading

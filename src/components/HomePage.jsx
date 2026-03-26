@@ -232,7 +232,13 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
   };
 
   return (
-    <div className="stint-page" style={{ maxWidth: CONTENT_MAX }}>
+    <div
+      className="stint-page"
+      style={{
+        maxWidth: CONTENT_MAX,
+        paddingBottom: isMobile ? 24 : isTablet ? 28 : 34,
+      }}
+    >
       <section
         style={{
           display: "grid",
@@ -257,7 +263,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
             height: "100%",
             objectFit: "cover",
             objectPosition: "right center",
-            opacity: isMobile ? 0.10 : 0.30,
+            opacity: isMobile ? 0.38 : 0.58,
             pointerEvents: "none",
             zIndex: 0,
           }}
@@ -272,8 +278,8 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
               position: "absolute",
               inset: 0,
               background: isTablet
-                ? "linear-gradient(to bottom, rgba(10,15,26,0.5) 0%, rgba(10,15,26,0.92) 100%)"
-                : "linear-gradient(to right, rgba(10,15,26,0.85) 40%, rgba(10,15,26,0.30) 100%)",
+                ? "linear-gradient(to bottom, rgba(10,15,26,0.4) 0%, rgba(10,15,26,0.88) 100%)"
+                : "linear-gradient(to right, rgba(10,15,26,0.8) 40%, rgba(10,15,26,0.16) 100%)",
               zIndex: 0,
               pointerEvents: "none",
             }}
@@ -367,13 +373,10 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
       <div
         aria-hidden="true"
         style={{
-          backgroundImage: "url('/images/hero-glow.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center top",
-          backgroundRepeat: "no-repeat",
-          opacity: isMobile ? 0.10 : 0.18,
-          height: isMobile ? 100 : 180,
-          marginTop: -20,
+          background:
+            "radial-gradient(62% 100% at 50% 0%, rgba(255,106,26,0.12) 0%, rgba(59,130,246,0.08) 36%, rgba(6,16,27,0) 78%)",
+          height: isMobile ? 28 : isTablet ? 40 : 48,
+          marginTop: -6,
           pointerEvents: "none",
           position: "relative",
           zIndex: 0,

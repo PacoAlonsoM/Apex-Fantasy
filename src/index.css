@@ -351,6 +351,39 @@ code {
   border-radius: 8px;
 }
 
+@keyframes loadingSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.stint-loading-track {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.stint-loading-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255, 106, 26, 0.1) 0%, rgba(255, 106, 26, 0.95) 40%, rgba(255, 194, 71, 1) 100%);
+  box-shadow:
+    0 0 18px rgba(255, 106, 26, 0.38),
+    0 0 28px rgba(255, 194, 71, 0.18);
+  animation: loadingSweep 1.35s ease-in-out infinite;
+}
+
 /* Page enter transition (#56) */
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(5px); }
@@ -386,6 +419,7 @@ code {
 /* Reduced motion — respect user preference */
 @media (prefers-reduced-motion: reduce) {
   .stint-skeleton,
+  .stint-loading-bar,
   .stint-page-enter,
   .stint-shake,
   .stint-success-pop {

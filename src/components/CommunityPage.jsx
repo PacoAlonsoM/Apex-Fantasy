@@ -774,7 +774,15 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
 
           return (
             <div key={post.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
-              <div style={{ width: "min(100%, 520px)", borderRadius: 18, border: bubbleBorder, background: bubbleBg, padding: "12px 13px 11px" }}>
+              <div
+                style={{
+                  width: isMobile ? "100%" : mine ? "min(100%, 88%)" : "100%",
+                  borderRadius: 18,
+                  border: bubbleBorder,
+                  background: bubbleBg,
+                  padding: "12px 13px 11px",
+                }}
+              >
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   {!mine && <AvatarChip name={post.author_name} colorKey={themeKey} size={30} radius={9} fontSize={10} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -797,52 +805,148 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
       <section style={{ marginBottom: 24 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "end", marginBottom: 20 }}>
-          <div style={{ maxWidth: 780 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", marginBottom: 18 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Leagues</span>
-            </div>
-            <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.8 }}>
-              Build the room.
-              <br />
-              Track the table.
-              <br />
-              Own the weekend.
-            </h1>
-            <p style={{ margin: 0, maxWidth: 660, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
-              Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
-            </p>
-          </div>
-
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 999, background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", color: SUBTLE_TEXT, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", height: "fit-content" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 2s infinite" }} />
-            {user ? "League workspace active" : demoPreview ? "Public preview active" : "Login required for league controls"}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setTab(value)}
+        {tab === "leagues" ? (
+          <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+            <div
               style={{
-                background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
-                border: tab === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.12)",
-                borderRadius: 999,
-                color: tab === value ? "#fff" : MUTED_TEXT,
-                cursor: "pointer",
-                padding: "11px 16px",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-                boxShadow: tab === value ? SOFT_SHADOW : "none",
+                padding: "28px 30px 24px",
+                minHeight: isMobile ? 0 : 312,
+                borderBottom: `1px solid ${HAIRLINE}`,
+                background: "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(15,24,44,0.96))",
+                position: "relative",
+                overflow: "hidden",
               }}
             >
-              {label}
-            </button>
-          ))}
-        </div>
+              <img
+                src="/images/Grid%20lights.png"
+                alt=""
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center 84%",
+                  opacity: isMobile ? 0.23 : 0.34,
+                  filter: "saturate(1.14) brightness(1.18)",
+                  transform: "scale(1.04)",
+                  pointerEvents: "none",
+                }}
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to bottom, rgba(10,15,26,0.06) 0%, rgba(10,15,26,0.62) 100%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", alignContent: "space-between", gap: 14, flexWrap: "wrap", minHeight: isMobile ? "auto" : 260 }}>
+                <div style={{ maxWidth: 760 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                    Leagues
+                  </div>
+                  <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
+                    Build the room.
+                    <br />
+                    Track the table.
+                    <br />
+                    Own the weekend.
+                  </h1>
+                  <div style={{ fontSize: 14, lineHeight: 1.8, color: MUTED_TEXT, maxWidth: 640 }}>
+                    Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,minmax(0,116px))", gap: 10, width: isMobile ? "100%" : "auto" }}>
+                  {[
+                    [String(leagues.length || 0), "leagues"],
+                    [String(currentStandings.length || 0), "members"],
+                    [user ? "active" : demoPreview ? "preview" : "login", "status"],
+                  ].map(([value, label]) => (
+                    <div key={label} style={{ borderRadius: 18, border: label === "status" ? `1px solid ${ACCENT}33` : "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.02)", boxShadow: EDGE_RING, padding: "14px 15px 13px" }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
+                      <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: "12px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setTab(value)}
+                  style={{
+                    background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.1),#111c30)" : PANEL_BG_ALT,
+                    border: tab === value ? "1px solid rgba(248,250,252,0.16)" : "1px solid rgba(148,163,184,0.12)",
+                    borderRadius: 12,
+                    color: tab === value ? "#fff" : MUTED_TEXT,
+                    cursor: "pointer",
+                    fontWeight: 800,
+                    fontSize: 12,
+                    padding: "9px 12px",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "end", marginBottom: 20 }}>
+              <div style={{ maxWidth: 780 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", marginBottom: 18 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#cbd5e1" }}>Leagues</span>
+                </div>
+                <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 12px", letterSpacing: isMobile ? -1.6 : -2.8 }}>
+                  Build the room.
+                  <br />
+                  Track the table.
+                  <br />
+                  Own the weekend.
+                </h1>
+                <p style={{ margin: 0, maxWidth: 660, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
+                  Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
+                </p>
+              </div>
+
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 999, background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.12)", color: SUBTLE_TEXT, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", height: "fit-content" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 2s infinite" }} />
+                {user ? "League workspace active" : demoPreview ? "Public preview active" : "Login required for league controls"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {[["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["forum", "Public forum"]].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setTab(value)}
+                  style={{
+                    background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(15,24,44,0.96))" : PANEL_BG_ALT,
+                    border: tab === value ? "1px solid rgba(248,250,252,0.14)" : "1px solid rgba(148,163,184,0.12)",
+                    borderRadius: 999,
+                    color: tab === value ? "#fff" : MUTED_TEXT,
+                    cursor: "pointer",
+                    padding: "11px 16px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: "0.04em",
+                    boxShadow: tab === value ? SOFT_SHADOW : "none",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {tab === "leagues" && (
@@ -1281,7 +1385,15 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                                 </button>
                               </div>
                             </div>
-                            {renderLeagueChat(currentLeaguePosts)}
+                            <div
+                              style={{
+                                maxHeight: isMobile ? 360 : 520,
+                                overflowY: "auto",
+                                paddingRight: 4,
+                              }}
+                            >
+                              {renderLeagueChat(currentLeaguePosts)}
+                            </div>
                           </>
                         )}
                       </div>

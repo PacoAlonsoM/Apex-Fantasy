@@ -5,6 +5,7 @@ This folder contains the database and Edge Function pieces needed for:
 - league-specific forum posts via `posts.league_id`
 - an ingested news feed via `news_articles`
 - AI-generated race briefs via `ai_insights`
+- a synced live race calendar via `race_calendar`
 
 ## 1. Run the migration
 
@@ -12,6 +13,7 @@ Run the SQL in:
 
 - `supabase/migrations/20260302_league_forums_and_news.sql`
 - `supabase/migrations/20260303_ai_race_insights.sql`
+- `supabase/migrations/20260325_race_calendar_sync.sql`
 
 This adds:
 
@@ -20,6 +22,8 @@ This adds:
 - `news_ingest_runs`
 - `ai_insights`
 - `ai_insight_runs`
+- `race_calendar`
+- `race_calendar_sync_runs`
 - helper indexes and policies
 
 ## 2. Deploy the news ingest function
@@ -150,3 +154,48 @@ After deploying the function and running it from the in-app Admin page:
 - `ai_insights` should contain one row for `upcoming_race_brief`
 - `ai_insight_runs` should contain a log row
 - the News page should render an `AI Race Brief` block above the article feed
+
+## 9. Deploy the calendar sync function
+
+The Edge Function lives at:
+
+- `supabase/functions/calendar-sync/index.ts`
+
+Recommended secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `AI_ADMIN_USER_ID`
+- `CALENDAR_SYNC_SECRET`
+
+Then deploy:
+
+```bash
+npx supabase functions deploy calendar-sync --no-verify-jwt
+```
+
+This function supports either:
+
+- an authenticated admin user from the app
+- or the `x-calendar-sync-secret` header for cron jobs
+
+## 10. What success looks like
+
+After deploying the function and running it from the in-app Admin page:
+
+- `race_calendar` should contain the active season schedule
+- missing races from the source should be marked `cancelled`
+- `race_calendar_sync_runs` should contain a log row
+- the homepage, Calendar page, and Predictions page should stop relying on the stale hardcoded order
+
+## 11. Automate the calendar sync
+
+If you want this to run automatically, use the SQL template in:
+
+- `supabase/calendar_sync_schedule.sql`
+
+Suggested cadence:
+
+- every 6 hours during the season
+- manually from admin right after any official schedule change

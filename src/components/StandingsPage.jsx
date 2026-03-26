@@ -342,8 +342,35 @@ export default function StandingsPage() {
           marginBottom: 18,
         }}
       >
-        <div style={{ padding: isMobile ? "22px 20px" : "28px 30px", borderBottom: `1px solid ${HAIRLINE}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ padding: isMobile ? "24px 20px" : "28px 30px 24px", minHeight: isMobile ? 0 : 312, borderBottom: `1px solid ${HAIRLINE}`, position: "relative", overflow: "hidden" }}>
+          <img
+            src="/images/hero-glow.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 78%",
+              opacity: isMobile ? 0.23 : 0.34,
+              filter: "brightness(1.18) saturate(1.14)",
+              transform: "scale(1.04)",
+              pointerEvents: "none",
+            }}
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to bottom, rgba(10,15,26,0.06) 0%, rgba(10,15,26,0.62) 100%)",
+              pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", alignContent: "space-between", flexWrap: "wrap", minHeight: isMobile ? "auto" : 260 }}>
             <div style={{ maxWidth: 760 }}>
               <div
                 style={{

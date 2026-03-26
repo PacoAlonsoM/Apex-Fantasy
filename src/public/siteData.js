@@ -1,7 +1,6 @@
-import { CAL, countdown, fmtFull, nextRace, parseDate } from "../constants/calendar";
+import { ACTIVE_CAL, countdown, fmtFull, nextRace, parseDate } from "../constants/calendar";
 import { BRAND_DESCRIPTOR, BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_EMAIL } from "../constants/design";
-
-export const TIMEZONE_LABEL = "Mexico City";
+import { getViewerTimeZoneLabel } from "../timezone";
 export const PUBLIC_NAV = [
   { href: "/", key: "home", label: "Home" },
   { href: "/calendar", key: "calendar", label: "Calendar" },
@@ -85,18 +84,18 @@ function buildSessionTimeline(race) {
   const raceDate = parseDate(race.date);
   const layouts = race.sprint
     ? [
-        { label: "FP1", offset: -2, time: "8:30 PM" },
-        { label: "Sprint Qualifying", offset: -2, time: "11:30 PM", accent: "#f97316" },
-        { label: "Sprint", offset: -1, time: "9:00 PM", accent: "#a855f7" },
-        { label: "Qualifying", offset: -1, time: "11:30 PM", accent: "#f97316" },
-        { label: "Race", offset: 0, time: "11:00 PM", accent: "#ef4444" },
+        { label: "FP1", offset: -2 },
+        { label: "Sprint Qualifying", offset: -2, accent: "#f97316" },
+        { label: "Sprint", offset: -1, accent: "#a855f7" },
+        { label: "Qualifying", offset: -1, accent: "#f97316" },
+        { label: "Race", offset: 0, accent: "#ef4444" },
       ]
     : [
-        { label: "FP1", offset: -2, time: "8:30 PM" },
-        { label: "FP2", offset: -2, time: "11:30 PM" },
-        { label: "FP3", offset: -1, time: "8:30 PM" },
-        { label: "Qualifying", offset: -1, time: "11:30 PM", accent: "#f97316" },
-        { label: "Race", offset: 0, time: "11:00 PM", accent: "#ef4444" },
+        { label: "FP1", offset: -2 },
+        { label: "FP2", offset: -2 },
+        { label: "FP3", offset: -1 },
+        { label: "Qualifying", offset: -1, accent: "#f97316" },
+        { label: "Race", offset: 0, accent: "#ef4444" },
       ];
 
   return layouts.map((session) => {
@@ -107,7 +106,7 @@ function buildSessionTimeline(race) {
     const day = sessionDate.getDate();
     return {
       ...session,
-      detail: `${weekday}, ${month} ${day} at ${session.time}`,
+      detail: `${weekday}, ${month} ${day} · local time adapts to your browser`,
     };
   });
 }
@@ -117,7 +116,8 @@ export function getNextRaceSnapshot() {
   const count = countdown(race.date) || { d: 0, h: 0, m: 0 };
 
   return {
-    round: race.r,
+    round: race.displayRound || race.r,
+    internalRound: race.r,
     name: race.n,
     circuit: race.circuit,
     location: `${race.city}, ${race.cc}`,
@@ -129,7 +129,7 @@ export function getNextRaceSnapshot() {
       hours: String(count.h).padStart(2, "0"),
       minutes: String(count.m).padStart(2, "0"),
     },
-    timezone: TIMEZONE_LABEL,
+    timezone: getViewerTimeZoneLabel(),
     timeline: buildSessionTimeline(race),
     appHref: `/app?page=predictions&race=${race.r}`,
   };
@@ -138,16 +138,16 @@ export function getNextRaceSnapshot() {
 export function getCalendarGroups() {
   const groups = new Map();
 
-  for (const race of CAL) {
+  for (const race of ACTIVE_CAL) {
     const label = parseDate(race.date).toLocaleDateString("en-GB", { month: "long", year: "numeric" }).toUpperCase();
     const rows = groups.get(label) || [];
     rows.push({
-      round: `R${race.r}`,
+      round: `R${race.displayRound || race.r}`,
       name: race.n,
       location: `${race.city}, ${race.cc}`,
       dateWindow: buildDateWindow(race),
       sprint: race.sprint,
-      active: race.r === getNextRaceSnapshot().round,
+      active: race.r === getNextRaceSnapshot().internalRound,
     });
     groups.set(label, rows);
   }

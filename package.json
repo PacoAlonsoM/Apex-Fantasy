@@ -14,12 +14,12 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "next dev --webpack",
-    "start": "next dev --webpack",
-    "build": "next build",
-    "serve": "next start",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "node ./node_modules/next/dist/bin/next dev --webpack",
+    "start": "node ./node_modules/next/dist/bin/next dev --webpack",
+    "build": "node ./node_modules/next/dist/bin/next build",
+    "serve": "node ./node_modules/next/dist/bin/next start",
+    "test": "node ./node_modules/react-scripts/bin/react-scripts.js test",
+    "eject": "node ./node_modules/react-scripts/bin/react-scripts.js eject"
   },
   "eslintConfig": {
     "extends": [

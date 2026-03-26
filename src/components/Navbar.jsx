@@ -142,14 +142,22 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     minHeight: 50,
                     padding: isMobile ? "0 14px" : "0 18px",
                     borderRadius: 999,
-                    background: active ? "rgba(255,255,255,0.05)" : hoveredTab === id ? "rgba(255,255,255,0.06)" : "transparent",
+                    background: active
+                      ? "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+                      : hoveredTab === id
+                        ? "rgba(255,255,255,0.06)"
+                        : "transparent",
                     color: active ? TEXT_PRIMARY : hoveredTab === id ? TEXT_PRIMARY : TEXT_SECONDARY,
                     fontSize: 13,
                     fontWeight: active ? 800 : 700,
                     letterSpacing: active ? "-0.02em" : "0",
                     whiteSpace: "nowrap",
                     textDecoration: "none",
-                    transition: "background 150ms ease, color 150ms ease",
+                    border: active ? `1px solid ${ACCENT}` : "1px solid transparent",
+                    boxShadow: active
+                      ? `0 14px 30px rgba(255,106,26,0.18), inset 0 1px 0 rgba(255,255,255,0.05)`
+                      : "none",
+                    transition: "background 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
                   }}
                 >
                   {label}

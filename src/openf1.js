@@ -1,4 +1,6 @@
 import { CONSTRUCTORS, DRV } from "./constants/teams";
+import { CAL } from "./constants/calendar";
+import { mapRaceSessionsByCalendar } from "./raceCalendar";
 import { IS_SNAPSHOT } from "./runtimeFlags";
 import { serializeDnfDrivers } from "./resultHelpers";
 
@@ -222,7 +224,8 @@ export async function fetchMeetingSessions(meetingKey) {
 export async function getSessionKey(year, round) {
   try {
     const races = await fetchRaceSessions(year);
-    return races[round - 1]?.session_key || null;
+    const mapped = mapRaceSessionsByCalendar(CAL, races);
+    return mapped[round]?.session_key || null;
   } catch (e) {
     console.error("getSessionKey error:", e);
     return null;

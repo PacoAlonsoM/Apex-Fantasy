@@ -281,14 +281,92 @@ export async function getRaceSessions(year: number) {
   return sortByDate(raw);
 }
 
-export async function inferLatestCompletedRound(year: number) {
+async function findCalendarRowForRound({
+  supabase,
+  year,
+  round,
+}: {
+  supabase?: unknown;
+  year: number;
+  round: number;
+}) {
+  if (!supabase || !round) return null;
+
+  const byInternal = await supabase
+    .from("race_calendar")
+    .select("event_slug,meeting_key,race_session_key,source_round_number,internal_round_number")
+    .eq("season", year)
+    .eq("internal_round_number", round)
+    .maybeSingle();
+
+  if (byInternal?.data) return byInternal.data;
+
+  const bySource = await supabase
+    .from("race_calendar")
+    .select("event_slug,meeting_key,race_session_key,source_round_number,internal_round_number")
+    .eq("season", year)
+    .eq("source_round_number", round)
+    .maybeSingle();
+
+  return bySource?.data || null;
+}
+
+async function findCalendarRowForSession({
+  supabase,
+  year,
+  session,
+}: {
+  supabase?: unknown;
+  year: number;
+  session: Record<string, unknown> | null;
+}) {
+  if (!supabase || !session?.session_key) return null;
+
+  const bySessionKey = await supabase
+    .from("race_calendar")
+    .select("event_slug,meeting_key,race_session_key,source_round_number,internal_round_number")
+    .eq("season", year)
+    .eq("race_session_key", Number(session.session_key))
+    .maybeSingle();
+
+  if (bySessionKey?.data) return bySessionKey.data;
+
+  if (!session?.meeting_key) return null;
+
+  const byMeetingKey = await supabase
+    .from("race_calendar")
+    .select("event_slug,meeting_key,race_session_key,source_round_number,internal_round_number")
+    .eq("season", year)
+    .eq("meeting_key", Number(session.meeting_key))
+    .maybeSingle();
+
+  return byMeetingKey?.data || null;
+}
+
+export async function inferLatestCompletedRound(year: number, options: { supabase?: unknown } = {}) {
+  const { supabase } = options;
   const raceSessions = await getRaceSessions(year);
   const now = Date.now();
   const completed = raceSessions
     .map((session, index) => ({ session, round: index + 1 }))
     .filter(({ session }) => getSessionMoment(session) < now);
 
-  return completed[completed.length - 1] || null;
+  const latest = completed[completed.length - 1] || null;
+  if (!latest) return null;
+
+  try {
+    const calendarRow = await findCalendarRowForSession({ supabase, year, session: latest.session });
+    if (calendarRow?.internal_round_number) {
+      return { ...latest, round: Number(calendarRow.internal_round_number) };
+    }
+    if (calendarRow?.source_round_number) {
+      return { ...latest, round: Number(calendarRow.source_round_number) };
+    }
+  } catch (_error) {
+    // Fall back to OpenF1 ordering if race_calendar is not available yet.
+  }
+
+  return latest;
 }
 
 export async function syncRaceRoundFromOpenF1({
@@ -303,7 +381,21 @@ export async function syncRaceRoundFromOpenF1({
   persist?: boolean;
 }) {
   const raceSessions = await getRaceSessions(year);
-  const raceSession = raceSessions[round - 1];
+  let raceSession = null;
+
+  try {
+    const calendarRow = await findCalendarRowForRound({ supabase, year, round });
+    raceSession = raceSessions.find((session) => (
+      (calendarRow?.race_session_key && Number(session.session_key) === Number(calendarRow.race_session_key))
+      || (calendarRow?.meeting_key && Number(session.meeting_key) === Number(calendarRow.meeting_key))
+    )) || null;
+  } catch (_error) {
+    raceSession = null;
+  }
+
+  if (!raceSession) {
+    raceSession = raceSessions[round - 1] || null;
+  }
 
   if (!raceSession) {
     throw new Error(`No OpenF1 race session found for year ${year} round ${round}.`);

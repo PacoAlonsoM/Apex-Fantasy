@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { CONSTRUCTORS, DRV, TEAMS } from "../constants/teams";
-import { CAL, fmt, fmtFull, nextRace, rc } from "../constants/calendar";
+import { fmt, fmtFull, nextRace, rc } from "../constants/calendar";
 import { PTS } from "../constants/scoring";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
+import { getRaceDisplayRound, mapRaceSessionsByCalendar } from "../raceCalendar";
 import {
   ACCENT,
   BG_BASE,
@@ -31,6 +32,7 @@ import {
 } from "../constants/design";
 import { requireActiveSession } from "../authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "../resultHelpers";
+import useRaceCalendar from "../useRaceCalendar";
 import useViewport from "../useViewport";
 
 function hexToRgba(hex, alpha) {
@@ -384,7 +386,7 @@ function RoundSidebarItem({ item, active, onClick, status }) {
           color: TEXT_PRIMARY,
         }}
       >
-        {item.r}
+        {getRaceDisplayRound(item) || item.r}
         {hasStoredBoard && (
           <span
             title={status.kind === "locked" ? "Full board saved" : "Draft board started"}
@@ -768,7 +770,8 @@ export default function PredictionsPage({
   onInitialRaceConsumed = () => {},
 }) {
   const { isMobile, isTablet } = useViewport();
-  const [race, setRace] = useState(nextRace() || CAL[0]);
+  const { calendar } = useRaceCalendar(2026);
+  const [race, setRace] = useState(() => nextRace(calendar) || calendar[0] || null);
   const demoPreview = demoMode && !user;
   const [picks, setPicks] = useState({});
   const [predictionsByRound, setPredictionsByRound] = useState({});
@@ -836,11 +839,7 @@ export default function PredictionsPage({
       const sessions = await fetchRaceSessions(2026);
       if (ignore || !sessions.length) return;
 
-      const mapped = {};
-      sessions.slice(0, CAL.length).forEach((session, index) => {
-        mapped[CAL[index].r] = session;
-      });
-      setLiveRaces(mapped);
+      setLiveRaces(mapRaceSessionsByCalendar(calendar, sessions));
     }
 
     loadSeasonSchedule();
@@ -848,7 +847,7 @@ export default function PredictionsPage({
     return () => {
       ignore = true;
     };
-  }, [loadAiInsight]);
+  }, [calendar, loadAiInsight]);
 
   useEffect(() => {
     let ignore = false;
@@ -890,6 +889,7 @@ export default function PredictionsPage({
   };
 
   const selectRace = (selectedRace) => {
+    if (!selectedRace) return;
     setRace(selectedRace);
     setSaved(false);
     setPicks(predictionsByRound[selectedRace.r]?.picks || {});
@@ -897,9 +897,21 @@ export default function PredictionsPage({
   };
 
   useEffect(() => {
+    if (!calendar.length) return;
+
+    setRace((current) => {
+      if (current) {
+        const updated = calendar.find((item) => item.r === current.r);
+        if (updated) return updated;
+      }
+      return nextRace(calendar) || calendar[0] || null;
+    });
+  }, [calendar]);
+
+  useEffect(() => {
     if (!initialRaceRound) return;
 
-    const targetRace = CAL.find((item) => Number(item.r) === Number(initialRaceRound));
+    const targetRace = calendar.find((item) => Number(item.r) === Number(initialRaceRound));
     if (!targetRace) {
       onInitialRaceConsumed();
       return;
@@ -910,7 +922,7 @@ export default function PredictionsPage({
     setPicks(predictionsByRound[targetRace.r]?.picks || {});
     setTab("race");
     onInitialRaceConsumed();
-  }, [initialRaceRound, onInitialRaceConsumed, predictionsByRound]);
+  }, [calendar, initialRaceRound, onInitialRaceConsumed, predictionsByRound]);
 
   const setPick = (key, value) => {
     if (editingLocked) return;
@@ -1106,7 +1118,7 @@ export default function PredictionsPage({
     : activePrompt?.type === "binary"
       ? (isMobile ? "1fr" : "repeat(2,minmax(0,1fr))")
       : (isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))");
-  const sidebarRaces = CAL;
+  const sidebarRaces = calendar;
 
   useEffect(() => {
     if (!sidebarRaces.length) return;

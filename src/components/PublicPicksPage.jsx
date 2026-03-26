@@ -14,6 +14,7 @@ import {
   TEXT_PRIMARY,
 } from "../constants/design";
 import { pageToHref } from "../routing";
+import useRaceCalendar from "../useRaceCalendar";
 import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 import PageHeader from "./PageHeader";
@@ -69,7 +70,8 @@ function CountdownUnit({ label, value }) {
 
 export default function PublicPicksPage({ user, demoMode = false, openAuth, openPredictionsForRace, setPage }) {
   const { isMobile, isTablet } = useViewport();
-  const next = nextRace();
+  const { calendar } = useRaceCalendar(2026);
+  const next = nextRace(calendar);
   const cd = next ? countdown(next.date) : null;
   const schedule = next ? raceSessions(next) : [];
 

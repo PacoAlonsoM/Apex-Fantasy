@@ -87,6 +87,7 @@
   min-height: 52px;
   padding: 0 18px;
   border-radius: 999px;
+  border: 1px solid transparent;
   color: var(--muted);
   text-decoration: none;
   font-size: 14px;
@@ -100,8 +101,14 @@
 }
 
 .public-nav-link.is-active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--accent);
   color: var(--text);
   font-weight: 600;
+  box-shadow:
+    0 0 0 1px rgba(249, 115, 22, 0.18),
+    0 14px 30px rgba(249, 115, 22, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .public-nav-link.is-active::after {
