@@ -247,7 +247,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
       >
         {/* Hero background photo */}
         <img
-          src="/images/hero-main.png"
+          src="/images/Hero-Main.png"
           alt=""
           aria-hidden="true"
           style={{
