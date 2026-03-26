@@ -14,8 +14,10 @@ import {
   WARM,
 } from "../constants/design";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
+import { mapRaceSessionsByCalendar } from "../raceCalendar";
 import { pageToHref } from "../routing";
 import { IS_SNAPSHOT } from "../runtimeFlags";
+import useRaceCalendar from "../useRaceCalendar";
 import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 
@@ -168,10 +170,12 @@ function CountdownCard({ race, cd, accent, schedule, openNextRacePicks, user, de
 
 export default function HomePage({ user, setPage, demoMode = false, openPredictionsForRace, openAuth }) {
   const { isMobile, isTablet } = useViewport();
-  const next = nextRace();
+  const { calendar } = useRaceCalendar(2026);
+  const next = nextRace(calendar);
   const cd = next ? countdown(next.date) : null;
   const accent = next ? rc(next) : ACCENT;
   const [liveSchedule, setLiveSchedule] = useState([]);
+  const [heroBgLoaded, setHeroBgLoaded] = useState(false);
 
   usePageMetadata({
     title: "Compete hard. Predict sharp. Win your league.",
@@ -186,7 +190,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
       if (!next || IS_SNAPSHOT) return;
       const year = new Date(next.date).getFullYear();
       const races = await fetchRaceSessions(year);
-      const raceInfo = races[next.r - 1];
+      const raceInfo = mapRaceSessionsByCalendar(calendar, races)[next.r];
 
       if (!raceInfo?.meeting_key) {
         if (!ignore) setLiveSchedule([]);
@@ -203,7 +207,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
     return () => {
       ignore = true;
     };
-  }, [next]);
+  }, [calendar, next]);
 
   const schedule = useMemo(() => {
     if (!next) return [];
@@ -235,9 +239,48 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
           gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.06fr) 430px",
           gap: 24,
           alignItems: "start",
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: 24,
+          padding: isMobile ? "28px 20px 32px" : isTablet ? "32px 28px 36px" : "36px 32px 44px",
         }}
       >
-        <div style={{ display: "grid", gap: 22, paddingTop: 6 }}>
+        {/* Hero background photo */}
+        <img
+          src="/images/hero-bg.jpg"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center 30%",
+            opacity: 0.20,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+          onLoad={() => setHeroBgLoaded(true)}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+        {/* Gradient overlay — only shown when background photo loads */}
+        {heroBgLoaded && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: isTablet
+                ? "linear-gradient(to bottom, rgba(6,16,27,0.45) 0%, rgba(6,16,27,0.92) 100%)"
+                : "linear-gradient(to right, rgba(6,16,27,0.88) 35%, rgba(6,16,27,0.40) 100%)",
+              zIndex: 0,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+
+        <div style={{ display: "grid", gap: 22, paddingTop: 6, position: "relative", zIndex: 1 }}>
           <div className="stint-kicker">STINT</div>
 
           <div>
@@ -280,17 +323,43 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
           </div>
         </div>
 
-        {next && cd && (
-          <CountdownCard
-            race={next}
-            cd={cd}
-            accent={accent}
-            schedule={schedule}
-            openNextRacePicks={openNextRacePicks}
-            user={user}
-            demoMode={demoMode}
-          />
-        )}
+        {/* Right column: hero art + CountdownCard */}
+        <div style={{ display: "grid", gap: 16, position: "relative", zIndex: 1 }}>
+          {!isMobile && (
+            <div>
+              <img
+                src="/images/hero-art.svg"
+                alt=""
+                aria-hidden="true"
+                style={{
+                  width: "100%",
+                  maxHeight: isTablet ? 180 : 240,
+                  objectFit: "contain",
+                  objectPosition: isTablet ? "center" : "right center",
+                  display: "block",
+                }}
+                onError={(e) => {
+                  if (!e.target.src.includes("hero-art.png")) {
+                    e.target.src = "/images/hero-art.png";
+                  } else {
+                    e.target.parentElement.style.display = "none";
+                  }
+                }}
+              />
+            </div>
+          )}
+          {next && cd && (
+            <CountdownCard
+              race={next}
+              cd={cd}
+              accent={accent}
+              schedule={schedule}
+              openNextRacePicks={openNextRacePicks}
+              user={user}
+              demoMode={demoMode}
+            />
+          )}
+        </div>
       </section>
 
       {isMobile && (

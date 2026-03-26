@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { CAL, monthLabel, nextRace, raceSessions, rc } from "../constants/calendar";
+import { monthLabel, nextRace, raceSessions, rc } from "../constants/calendar";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
+import { getRaceDisplayRound, mapRaceSessionsByCalendar } from "../raceCalendar";
 import {
   ACCENT,
   CONTENT_MAX,
@@ -17,6 +18,8 @@ import {
   TEXT_PRIMARY,
 } from "../constants/design";
 import { IS_SNAPSHOT } from "../runtimeFlags";
+import { getViewerTimeZoneLabel } from "../timezone";
+import useRaceCalendar from "../useRaceCalendar";
 import usePageMetadata from "../usePageMetadata";
 import useViewport from "../useViewport";
 import PageHeader from "./PageHeader";
@@ -138,8 +141,16 @@ function RaceRow({ race, active, liveSessions, onSelect }) {
         textAlign: "left",
       }}
     >
-      <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: active ? TEXT_PRIMARY : SUBTLE_TEXT }}>
-        R{race.r}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+        <img
+          src={`/images/flags/${encodeURIComponent(race.flagKey)}.png`}
+          alt={race.cc}
+          style={{ width: 48, height: 32, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)" }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.02em", color: active ? TEXT_PRIMARY : SUBTLE_TEXT }}>
+          R{getRaceDisplayRound(race) || race.r}
+        </div>
       </div>
       <div>
         <div style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 4 }}>{race.n}</div>
@@ -205,7 +216,8 @@ function SessionTimeline({ sessions }) {
 
 export default function CalendarPage({ user, openAuth, openPredictionsForRace }) {
   const { isMobile, isTablet } = useViewport();
-  const [sel, setSel] = useState(nextRace() || CAL[0]);
+  const { calendar } = useRaceCalendar(2026);
+  const [sel, setSel] = useState(null);
   const [filt, setFilt] = useState("all");
   const [liveRaces, setLiveRaces] = useState({});
   const [liveMeetings, setLiveMeetings] = useState({});
@@ -217,10 +229,25 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
   });
 
   const filtered = useMemo(() => {
-    if (filt === "all") return CAL;
-    if (filt === "sprint") return CAL.filter((race) => race.sprint);
-    return CAL.filter((race) => race.type.toLowerCase() === filt.toLowerCase());
-  }, [filt]);
+    if (filt === "all") return calendar;
+    if (filt === "sprint") return calendar.filter((race) => race.sprint);
+    return calendar.filter((race) => race.type.toLowerCase() === filt.toLowerCase());
+  }, [calendar, filt]);
+
+  useEffect(() => {
+    if (!calendar.length) {
+      setSel(null);
+      return;
+    }
+
+    setSel((current) => {
+      if (current) {
+        const updated = calendar.find((race) => race.r === current.r);
+        if (updated) return updated;
+      }
+      return nextRace(calendar) || calendar[0] || null;
+    });
+  }, [calendar]);
 
   useEffect(() => {
     if (sel && !filtered.find((race) => race.r === sel.r)) {
@@ -236,18 +263,14 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
       const sessions = await fetchRaceSessions(2026);
       if (ignore || !sessions.length) return;
 
-      const mapped = {};
-      sessions.slice(0, CAL.length).forEach((session, index) => {
-        mapped[CAL[index].r] = session;
-      });
-      setLiveRaces(mapped);
+      setLiveRaces(mapRaceSessionsByCalendar(calendar, sessions));
     }
 
     loadSeasonSchedule();
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [calendar]);
 
   useEffect(() => {
     let ignore = false;
@@ -284,7 +307,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
     })))
     : [];
 
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = getViewerTimeZoneLabel();
   const selectedEventWindow = sel ? formatEventWindowLabel(sel, liveMeetings[sel.r]) : "";
   const handleOpenPicks = () => {
     if (!sel) return;
@@ -309,7 +332,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
         eyebrow="Calendar"
         title="Read the season as one race-week system."
         description="Pick a Grand Prix to see the session order, local timing, and jump straight into that weekend's board."
-        aside={<StatBox value={timezone.split("/").pop()?.split("_").join(" ") || "Local"} label="Timezone" />}
+        aside={<StatBox value={timezone} label="Timezone" />}
         marginBottom={18}
       />
 
@@ -347,6 +370,26 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
           <aside style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : 118 }}>
             <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", border: "1px solid rgba(214,223,239,0.08)" }}>
               <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${rc(sel)}, transparent)` }} />
+              {/* Circuit illustration / photo — hidden until image loads */}
+              <div style={{ position: "relative", height: 200, overflow: "hidden", background: "rgba(6,16,27,0.6)", display: "none" }}>
+                <img
+                  src={`/images/circuits/${sel.slug}.svg`}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", padding: "20px", boxSizing: "border-box" }}
+                  onLoad={(e) => { e.target.parentElement.style.display = ""; }}
+                  onError={(e) => {
+                    if (!e.target.src.includes(".jpg")) {
+                      e.target.src = `/images/circuits/${sel.slug}.jpg`;
+                      e.target.style.objectFit = "cover";
+                      e.target.style.padding = "0";
+                    } else {
+                      e.target.parentElement.style.display = "none";
+                    }
+                  }}
+                />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 50%, rgba(6,16,27,0.75) 100%)", pointerEvents: "none" }} />
+              </div>
               <div style={{ padding: 26, borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
                 <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.02, marginBottom: 8 }}>
                   {sel.n}
