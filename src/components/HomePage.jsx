@@ -99,11 +99,12 @@ function TimelineItem({ session, active, last }) {
 }
 
 function CountdownCard({ race, cd, accent, schedule, openNextRacePicks, user, demoMode }) {
+  const { isMobile } = useViewport();
   return (
     <section className="stint-panel" style={{ overflow: "hidden", position: "relative" }}>
       <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 84% 18%, rgba(255,194,71,0.08), transparent 36%)" }} />
       <div style={{ height: 4, background: `linear-gradient(90deg,${ACCENT},${accent}, ${WARM})` }} />
-      <div style={{ padding: 24, position: "relative" }}>
+      <div style={{ padding: isMobile ? 16 : 24, position: "relative" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT, animation: "pulseDot 2s infinite" }} />
           <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
@@ -248,7 +249,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
           position: "relative",
           overflow: "hidden",
           borderRadius: 24,
-          padding: isMobile ? "28px 20px 32px" : isTablet ? "32px 28px 36px" : "36px 32px 44px",
+          padding: isMobile ? "28px 20px 20px" : isTablet ? "32px 28px 36px" : "36px 32px 44px",
         }}
       >
         {/* Hero background photo */}

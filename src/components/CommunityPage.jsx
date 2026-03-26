@@ -271,6 +271,10 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
   }, [currentLeague?.id, currentLeagueMemberIds, leagueReviewRound]); // eslint-disable-line
 
   useEffect(() => {
+    if (leagueView === "info") setLeagueView("standings");
+  }, [leagueView]);
+
+  useEffect(() => {
     if (!user?.id) return;
 
     setAuthorProfiles((current) => ({
@@ -846,17 +850,17 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
               />
               <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", alignContent: "space-between", gap: 14, flexWrap: "wrap", minHeight: isMobile ? "auto" : 260 }}>
                 <div style={{ maxWidth: 760 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
                     Leagues
                   </div>
-                  <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
+                  <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
                     Build the room.
                     <br />
                     Track the table.
                     <br />
                     Own the weekend.
                   </h1>
-                  <div style={{ fontSize: 14, lineHeight: 1.8, color: MUTED_TEXT, maxWidth: 640 }}>
+                  <div style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 640 }}>
                     Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
                   </div>
                 </div>
@@ -1049,7 +1053,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                       </button>
                       <span style={{ color: ACCENT }}>›</span>
                       <span style={{ color: "rgba(214,223,239,0.62)" }}>
-                        {{ standings: "Standings", review: "Round Review", chat: "Chat", info: "League Info" }[leagueView] || leagueView}
+                        {{ standings: "Standings", review: "Round Review", chat: "Chat" }[leagueView] || leagueView}
                       </span>
                     </>
                   )}
@@ -1093,7 +1097,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
                       </div>
 
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-                        {[["standings", "Standings"], ["review", "Round Review"], ["chat", "Chat"], ["info", "League Info"]].map(([value, label]) => (
+                        {[["standings", "Standings"], ["review", "Round Review"], ["chat", "Chat"]].map(([value, label]) => (
                           <button
                             key={value}
                             onClick={() => setLeagueView(value)}

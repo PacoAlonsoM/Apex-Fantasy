@@ -288,6 +288,7 @@ code {
   }
 
   .stint-title {
+    font-size: clamp(2.2rem, 8vw, 3rem);
     line-height: 0.98;
     letter-spacing: -0.05em;
   }
@@ -295,6 +296,24 @@ code {
   .stint-subtitle {
     font-size: 14px;
     line-height: 1.72;
+  }
+
+  /* Hide scrollbars on touch screens */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /* Touch-friendly minimum tap targets */
+  .stint-button,
+  .stint-button-secondary {
+    min-height: 50px;
+  }
+
+  /* Footer stacks vertically on mobile */
+  .stint-footer-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
   }
 }
 

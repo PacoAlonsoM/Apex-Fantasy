@@ -22,7 +22,7 @@ export default function LegalFooter({ setPage }) {
           gap: 14,
         }}
       >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div className="stint-footer-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "grid", gap: 10 }}>
             <BrandLockup compact descriptor />
             <div style={{ fontSize: 12, color: "rgba(226,232,240,0.82)", maxWidth: 580 }}>

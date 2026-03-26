@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { monthLabel, nextRace, raceSessions, rc } from "../constants/calendar";
 import { fetchMeetingSessions, fetchRaceSessions } from "../openf1";
 import { getRaceDisplayRound, mapRaceSessionsByCalendar } from "../raceCalendar";
@@ -221,6 +221,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
   const [filt, setFilt] = useState("all");
   const [liveRaces, setLiveRaces] = useState({});
   const [liveMeetings, setLiveMeetings] = useState({});
+  const detailRef = useRef(null);
 
   usePageMetadata({
     title: "2026 F1 Calendar",
@@ -309,6 +310,16 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
 
   const timezone = getViewerTimeZoneLabel();
   const selectedEventWindow = sel ? formatEventWindowLabel(sel, liveMeetings[sel.r]) : "";
+
+  // Scroll to detail panel on mobile when a race is selected
+  useEffect(() => {
+    if (isTablet && sel && detailRef.current) {
+      setTimeout(() => {
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [sel, isTablet]);
+
   const handleOpenPicks = () => {
     if (!sel) return;
     if (user) {
@@ -323,7 +334,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
       style={{
         maxWidth: CONTENT_MAX,
         margin: "0 auto",
-        padding: isMobile ? "32px 20px 72px" : isTablet ? "40px 32px 88px" : "42px 48px 96px",
+        padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px",
         position: "relative",
         zIndex: 1,
       }}
@@ -368,7 +379,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
         </div>
 
         {sel && (
-          <aside style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : 118 }}>
+          <aside ref={detailRef} style={{ position: isTablet ? "relative" : "sticky", top: isTablet ? "auto" : 118 }}>
             <div style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden", border: "1px solid rgba(214,223,239,0.08)" }}>
               <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${rc(sel)}, transparent)` }} />
               {/* Circuit illustration / photo — hidden until image loads */}

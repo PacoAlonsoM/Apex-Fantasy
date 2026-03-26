@@ -373,10 +373,10 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
             }}
           >
             <div style={{ maxWidth: 760 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
                 {tab === "news" ? "Wire" : "AI Insight"}
               </div>
-              <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.95, margin: "0 0 10px", letterSpacing: isMobile ? -1.6 : -2.9 }}>
+              <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
                 {tab === "news" ? (
                   <>
                     The stories that can
@@ -391,7 +391,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                   </>
                 )}
               </h1>
-              <div style={{ fontSize: 14, lineHeight: 1.8, color: MUTED_TEXT, maxWidth: 620 }}>
+              <div style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 620 }}>
                 {loading
                   ? "Loading race-week feed..."
                   : tab === "news"
@@ -450,7 +450,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : featuredCompact ? "minmax(0,1fr) 236px" : "minmax(0,1.06fr) 304px", gap: featuredCompact ? 14 : 20, alignItems: "start" }}>
                   <div>
-                    <div style={{ fontSize: featuredCompact ? 28 : 34, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.04, marginBottom: 12 }}>{featured.title}</div>
+                    <div style={{ fontSize: isMobile ? (featuredCompact ? 22 : 26) : (featuredCompact ? 28 : 34), fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.04, marginBottom: 12 }}>{featured.title}</div>
                     <div style={{ fontSize: 14, lineHeight: 1.76, color: MUTED_TEXT }}>
                       {previewText(featured.summary || "Open the article for the full report.", featuredCompact ? 620 : 1080)}
                     </div>

@@ -40,6 +40,22 @@ function normalizeProfileSeed(authUser, preferredProfile) {
   };
 }
 
+export function profileFallbackFromAuthUser(authUser, preferredProfile) {
+  if (!authUser?.id) return null;
+
+  const seed = normalizeProfileSeed(authUser, preferredProfile);
+
+  return {
+    id: authUser.id,
+    email: authUser.email || null,
+    username: fallbackUsername(authUser, seed.username),
+    points: 0,
+    avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
+    favorite_team: seed.favoriteTeam || null,
+    favorite_driver: seed.favoriteDriver || null,
+  };
+}
+
 export async function isUsernameTaken(username, excludeUserId = null) {
   const normalized = sanitizeUsername(username);
   if (!normalized) return false;
@@ -57,107 +73,114 @@ export async function isUsernameTaken(username, excludeUserId = null) {
 export async function ensureProfileForUser(authUser, preferredProfile) {
   if (!authUser?.id) return null;
   const seed = normalizeProfileSeed(authUser, preferredProfile);
+  const fallbackProfile = profileFallbackFromAuthUser(authUser, preferredProfile);
 
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  if (existing) {
-    const merged = {
-      ...existing,
-      avatar_color: existing.avatar_color || seed.avatarColor || DEFAULT_AVATAR_COLOR,
-      favorite_team: existing.favorite_team || seed.favoriteTeam || null,
-      favorite_driver: existing.favorite_driver || seed.favoriteDriver || null,
-    };
-    const updates = {};
-
-    if (!existing.avatar_color && seed.avatarColor) updates.avatar_color = seed.avatarColor;
-    if (!existing.favorite_team && seed.favoriteTeam) updates.favorite_team = seed.favoriteTeam;
-    if (!existing.favorite_driver && seed.favoriteDriver) updates.favorite_driver = seed.favoriteDriver;
-
-    if (Object.keys(updates).length) {
-      const { data: updated, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", authUser.id)
-        .select("*")
-        .maybeSingle();
-
-      if (!error && updated) return updated;
-    }
-
-    return merged;
-  }
-
-  const base = fallbackUsername(authUser, seed.username);
-  const candidates = [
-    base,
-    `${base}_${String(authUser.id).slice(0, 4)}`,
-    `player_${String(authUser.id).slice(0, 8)}`,
-  ];
-
-  let lastError = null;
-
-  for (const username of candidates) {
-    const fullPayload = {
-      id: authUser.id,
-      username,
-      points: 0,
-      avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
-      favorite_team: seed.favoriteTeam,
-      favorite_driver: seed.favoriteDriver,
-    };
-
-    const { data, error } = await supabase
+  try {
+    const { data: existing, error: existingError } = await supabase
       .from("profiles")
-      .insert(fullPayload)
       .select("*")
-      .single();
+      .eq("id", authUser.id)
+      .maybeSingle();
 
-    if (!error && data) return data;
+    if (existingError) return fallbackProfile;
 
-    lastError = error;
-    if (error?.message?.includes("favorite_team") || error?.message?.includes("favorite_driver")) {
-      const { data: fallbackData, error: fallbackError } = await supabase
+    if (existing) {
+      const merged = {
+        ...existing,
+        avatar_color: existing.avatar_color || seed.avatarColor || DEFAULT_AVATAR_COLOR,
+        favorite_team: existing.favorite_team || seed.favoriteTeam || null,
+        favorite_driver: existing.favorite_driver || seed.favoriteDriver || null,
+      };
+      const updates = {};
+
+      if (!existing.avatar_color && seed.avatarColor) updates.avatar_color = seed.avatarColor;
+      if (!existing.favorite_team && seed.favoriteTeam) updates.favorite_team = seed.favoriteTeam;
+      if (!existing.favorite_driver && seed.favoriteDriver) updates.favorite_driver = seed.favoriteDriver;
+
+      if (Object.keys(updates).length) {
+        const { data: updated, error } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", authUser.id)
+          .select("*")
+          .maybeSingle();
+
+        if (!error && updated) return updated;
+      }
+
+      return merged;
+    }
+
+    const base = fallbackUsername(authUser, seed.username);
+    const candidates = [
+      base,
+      `${base}_${String(authUser.id).slice(0, 4)}`,
+      `player_${String(authUser.id).slice(0, 8)}`,
+    ];
+
+    let lastError = null;
+
+    for (const username of candidates) {
+      const fullPayload = {
+        id: authUser.id,
+        username,
+        points: 0,
+        avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
+        favorite_team: seed.favoriteTeam,
+        favorite_driver: seed.favoriteDriver,
+      };
+
+      const { data, error } = await supabase
         .from("profiles")
-        .insert({
-          id: authUser.id,
-          username,
-          points: 0,
-          avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
-        })
+        .insert(fullPayload)
         .select("*")
         .single();
 
-      if (!fallbackError && fallbackData) return fallbackData;
-      lastError = fallbackError;
+      if (!error && data) return data;
+
+      lastError = error;
+      if (error?.message?.includes("favorite_team") || error?.message?.includes("favorite_driver")) {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("profiles")
+          .insert({
+            id: authUser.id,
+            username,
+            points: 0,
+            avatar_color: seed.avatarColor || DEFAULT_AVATAR_COLOR,
+          })
+          .select("*")
+          .single();
+
+        if (!fallbackError && fallbackData) return fallbackData;
+        lastError = fallbackError;
+      }
+
+      if (error?.message?.includes("avatar_color")) {
+        const { data: bareData, error: bareError } = await supabase
+          .from("profiles")
+          .insert({ id: authUser.id, username, points: 0 })
+          .select("*")
+          .single();
+
+        if (!bareError && bareData) return bareData;
+        lastError = bareError;
+      }
+
+      if (error?.code !== "23505") break;
     }
 
-    if (error?.message?.includes("avatar_color")) {
-      const { data: bareData, error: bareError } = await supabase
-        .from("profiles")
-        .insert({ id: authUser.id, username, points: 0 })
-        .select("*")
-        .single();
+    if (lastError) return fallbackProfile;
 
-      if (!bareError && bareData) return bareData;
-      lastError = bareError;
-    }
+    const { data: retryProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authUser.id)
+      .maybeSingle();
 
-    if (error?.code !== "23505") break;
+    return retryProfile || fallbackProfile;
+  } catch {
+    return fallbackProfile;
   }
-
-  if (lastError) throw lastError;
-
-  const { data: retryProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  return retryProfile;
 }
 
 export async function requireActiveSession() {

@@ -41,20 +41,30 @@ async function fetchJson(path, options = {}) {
   }
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const response = await fetch(`${BASE}${path}`);
-    const payload = await response.json();
+    try {
+      const response = await fetch(`${BASE}${path}`);
+      const payload = await response.json().catch(() => []);
 
-    if (Array.isArray(payload)) {
-      responseCache.set(path, payload);
+      if (Array.isArray(payload)) {
+        responseCache.set(path, payload);
+        return payload;
+      }
+
+      if ((response.status === 429 || isRateLimitPayload(payload)) && attempt < retries) {
+        await wait(REQUEST_GAP_MS * (attempt + 1));
+        continue;
+      }
+
       return payload;
-    }
+    } catch (error) {
+      if (attempt < retries) {
+        await wait(REQUEST_GAP_MS * (attempt + 1));
+        continue;
+      }
 
-    if ((response.status === 429 || isRateLimitPayload(payload)) && attempt < retries) {
-      await wait(REQUEST_GAP_MS * (attempt + 1));
-      continue;
+      console.warn(`OpenF1 request failed for ${path}:`, error);
+      return [];
     }
-
-    return payload;
   }
 
   return [];
@@ -205,7 +215,7 @@ export async function fetchRaceSessions(year) {
     const data = asArray(await fetchJson(`/sessions?year=${year}&session_name=Race`));
     return sortByDate(data);
   } catch (e) {
-    console.error("fetchRaceSessions error:", e);
+    console.warn("fetchRaceSessions fallback:", e);
     return [];
   }
 }
@@ -215,7 +225,7 @@ export async function fetchMeetingSessions(meetingKey) {
     const data = asArray(await fetchJson(`/sessions?meeting_key=${meetingKey}`));
     return sortByDate(data);
   } catch (e) {
-    console.error("fetchMeetingSessions error:", e);
+    console.warn("fetchMeetingSessions fallback:", e);
     return [];
   }
 }
@@ -227,7 +237,7 @@ export async function getSessionKey(year, round) {
     const mapped = mapRaceSessionsByCalendar(CAL, races);
     return mapped[round]?.session_key || null;
   } catch (e) {
-    console.error("getSessionKey error:", e);
+    console.warn("getSessionKey fallback:", e);
     return null;
   }
 }
@@ -238,7 +248,7 @@ export async function getRaceResults(sessionKey) {
     const data = asArray(await fetchJson(`/session_result?session_key=${sessionKey}`));
     return data.sort((a, b) => (a.position || 99) - (b.position || 99));
   } catch (e) {
-    console.error("getRaceResults error:", e);
+    console.warn("getRaceResults fallback:", e);
     return [];
   }
 }
@@ -248,7 +258,7 @@ export async function getRaceControl(sessionKey) {
   try {
     return asArray(await fetchJson(`/race_control?session_key=${sessionKey}`));
   } catch (e) {
-    console.error("getRaceControl error:", e);
+    console.warn("getRaceControl fallback:", e);
     return [];
   }
 }
@@ -263,7 +273,7 @@ export async function getFastestLap(sessionKey) {
     );
     return fastest;
   } catch (e) {
-    console.error("getFastestLap error:", e);
+    console.warn("getFastestLap fallback:", e);
     return null;
   }
 }
@@ -273,7 +283,7 @@ export async function getDrivers(sessionKey) {
   try {
     return asArray(await fetchJson(`/drivers?session_key=${sessionKey}`));
   } catch (e) {
-    console.error("getDrivers error:", e);
+    console.warn("getDrivers fallback:", e);
     return [];
   }
 }

@@ -19,7 +19,7 @@ export default function PageHeader({ eyebrow, title, description, aside = null, 
         border: PANEL_BORDER,
         background: `linear-gradient(180deg,rgba(255,255,255,0.03),${PANEL_BG})`,
         boxShadow: SOFT_SHADOW,
-        padding: isMobile ? "24px 18px" : "28px 30px 24px",
+        padding: isMobile ? "18px 16px 20px" : "28px 30px 24px",
         minHeight: isMobile ? 0 : 312,
         marginBottom,
         overflow: "hidden",
@@ -72,7 +72,7 @@ export default function PageHeader({ eyebrow, title, description, aside = null, 
               {eyebrow}
             </div>
           ) : null}
-          <h1 style={{ fontSize: isMobile ? 38 : 54, fontWeight: 800, letterSpacing: isMobile ? "-0.05em" : "-0.07em", lineHeight: 0.94, marginBottom: 12 }}>
+          <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, letterSpacing: isMobile ? "-0.04em" : "-0.07em", lineHeight: 0.94, marginBottom: 12 }}>
             {title}
           </h1>
           {description ? (

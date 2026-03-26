@@ -17,7 +17,7 @@ import SupportPage from "./components/SupportPage";
 import TermsPage from "./components/TermsPage";
 import PrivacyPage from "./components/PrivacyPage";
 import LegalFooter from "./components/LegalFooter";
-import { ensureProfileForUser } from "./authProfile";
+import { ensureProfileForUser, profileFallbackFromAuthUser } from "./authProfile";
 import { getUserAccentTheme } from "./constants/design";
 import { pageToHref, readLocationState } from "./routing";
 
@@ -60,10 +60,9 @@ export default function StintApp() {
   const loadProfile = async (authUser) => {
     try {
       const profile = await ensureProfileForUser(authUser);
-      if (profile) setUser(profile);
-    } catch (error) {
-      console.error("loadProfile error:", error);
-      setUser(null);
+      setUser(profile || null);
+    } catch {
+      setUser(profileFallbackFromAuthUser(authUser));
     }
   };
 

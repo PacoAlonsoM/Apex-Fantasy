@@ -35,7 +35,7 @@ export default function useRaceCalendar(season = 2026) {
 
       if (error) {
         if (!isIgnorableCalendarError(error)) {
-          console.error("race_calendar load error:", error);
+          console.warn("race_calendar fallback:", error);
         }
         setCalendar(ACTIVE_CAL);
         setSource("fallback");

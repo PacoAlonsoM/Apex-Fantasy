@@ -390,12 +390,12 @@ export default function StandingsPage() {
                 </span>
               </div>
 
-              <h1 style={{ fontSize: isMobile ? 38 : 54, lineHeight: 0.98, margin: "0 0 12px", letterSpacing: isMobile ? -1.4 : -2.4 }}>
+              <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
                 Real championship standings.
                 <br />
                 Drivers and constructors.
               </h1>
-              <div style={{ maxWidth: 720, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT }}>
+              <div style={{ maxWidth: 720, fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT }}>
                 This page now pulls the actual F1 season standings from completed OpenF1 race and sprint sessions. Fantasy user scoring still lives in your picks history, profile, and leagues.
               </div>
             </div>

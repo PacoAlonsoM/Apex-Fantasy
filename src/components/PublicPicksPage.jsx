@@ -95,7 +95,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
       style={{
         maxWidth: CONTENT_MAX,
         margin: "0 auto",
-        padding: isMobile ? "28px 20px 72px" : isTablet ? "34px 32px 88px" : "34px 48px 88px",
+        padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px",
         position: "relative",
         zIndex: 1,
       }}

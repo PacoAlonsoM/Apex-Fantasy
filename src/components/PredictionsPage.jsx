@@ -34,6 +34,7 @@ import { requireActiveSession } from "../authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "../resultHelpers";
 import useRaceCalendar from "../useRaceCalendar";
 import useViewport from "../useViewport";
+import PageHeader from "./PageHeader";
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace("#", "");
@@ -492,6 +493,7 @@ function PredictionCard({ prompt, value, active, onClick, aiItem }) {
       title={prompt.hint}
       style={{
         width: "100%",
+        minHeight: 44,
         border: `1px solid ${active ? "rgba(249,115,22,0.18)" : "rgba(148,163,184,0.07)"}`,
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.05)" : PANEL_BG,
@@ -1073,13 +1075,6 @@ export default function PredictionsPage({
   const lockLabel = lockSession?.date_start ? formatLocalDateTime(lockSession.date_start) : null;
   const roundHasSavedBoard = selectedRoundProgress.hasAny;
   const roundFullyLockedIn = selectedRoundProgress.isComplete;
-  const statusMessage = reviewReady
-    ? "Scored round. Review every hit below."
-    : resultsEntered
-      ? "Results are in. This board is closed while scoring settles."
-      : editingLocked
-        ? (lockLabel ? `Closed at ${lockLabel}. This board is now read-only.` : "This round is locked.")
-        : (lockLabel ? `Build your board before ${lockLabel}.` : "Build and save before qualifying starts.");
   const saveLabel = isSaving
     ? "Saving…"
     : reviewReady
@@ -1114,10 +1109,10 @@ export default function PredictionsPage({
   const currentMeta = activePrompt ? selectionMeta(activePrompt, currentValue) : null;
   const activeAi = activePrompt ? aiByKey[activePrompt.key] : null;
   const optionGrid = activePrompt?.type === "constructor"
-    ? (isMobile ? "1fr" : "repeat(2,minmax(0,1fr))")
+    ? (isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(2,minmax(0,1fr))")
     : activePrompt?.type === "binary"
-      ? (isMobile ? "1fr" : "repeat(2,minmax(0,1fr))")
-      : (isMobile ? "1fr" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))");
+      ? "repeat(2,minmax(0,1fr))"
+      : (isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))");
   const sidebarRaces = calendar;
 
   useEffect(() => {
@@ -1166,21 +1161,47 @@ export default function PredictionsPage({
             outline: "rgba(249,115,22,0.16)",
             detail: "No picks yet",
           };
-
   return (
     <div
       style={{
         maxWidth: CONTENT_MAX,
         margin: "0 auto",
-        padding: isMobile ? "40px 20px 72px" : isTablet ? "48px 32px 88px" : "56px 48px 96px",
+        padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px",
         position: "relative",
         zIndex: 1,
       }}
     >
+      <PageHeader
+        eyebrow="Picks"
+        title="Build the board before lock."
+        description={isMobile ? null : "Move race to race, save your calls early, and switch into review mode once the round is scored."}
+        aside={!isMobile && race ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+              Selected weekend
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.08, color: TEXT_PRIMARY }}>
+              {race.n}
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.55, color: MUTED_TEXT }}>
+              {race.circuit} · {fmtFull(race.date)}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: stateTone.accent }}>
+              {stateTone.label}
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
+              {stateTone.detail}
+            </div>
+          </div>
+        ) : null}
+        marginBottom={isMobile ? 12 : 18}
+        bgImage="/images/Hero-Main.png"
+      />
+
       <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "260px minmax(0,1fr)", gap: 24, alignItems: "start" }}>
         {isTablet ? (
           <section>
-            <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(220px,1fr)", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
+            <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: isMobile ? "minmax(200px,1fr)" : "minmax(220px,1fr)", gap: isMobile ? 8 : 12, overflowX: "auto", paddingBottom: 4 }}>
               {sidebarRaces.map((item) => {
                 const isActive = race.r === item.r;
                 return (
@@ -1225,97 +1246,6 @@ export default function PredictionsPage({
         <main style={{ display: "grid", gap: 24 }}>
           <section style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden" }}>
             <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${color}, transparent)` }} />
-            <div style={{ padding: isMobile ? "22px 20px" : "24px 28px", background: PANEL_BG_ALT, borderBottom: `1px solid ${HAIRLINE}` }}>
-              <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) auto", gap: 20, alignItems: "start" }}>
-                <div>
-                  <h1 style={{ fontSize: isMobile ? 36 : 40, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 10 }}>
-                    {race.n}
-                  </h1>
-                  <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 640, marginBottom: 14 }}>
-                    {statusMessage}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
-                      {race.circuit}
-                    </span>
-                    <span style={{ borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", background: "rgba(255,255,255,0.06)", color: TEXT_PRIMARY }}>
-                      {fmtFull(race.date)}
-                    </span>
-                    {race.sprint && (
-                      <span
-                        style={{
-                          borderRadius: 999,
-                          padding: "4px 12px",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          background: "rgba(249,115,22,0.14)",
-                          color: "#fdba74",
-                          boxShadow: "inset 0 0 0 1px rgba(249,115,22,0.22)",
-                        }}
-                      >
-                        Sprint Weekend
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gap: 12, minWidth: isTablet ? "auto" : 240 }}>
-                  <div
-                    style={{
-                      borderRadius: CARD_RADIUS,
-                      background: stateTone.surface,
-                      boxShadow: `inset 0 0 0 1px ${stateTone.outline}`,
-                      padding: 18,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          background: stateTone.accent,
-                          boxShadow: `0 0 12px ${hexToRgba(stateTone.accent, 0.35)}`,
-                        }}
-                      />
-                      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: stateTone.accent }}>
-                        {stateTone.label}
-                      </div>
-                    </div>
-                    <div style={{
-                      fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6,
-                      color: lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
-                        ? lockCountdown.minsRemaining < 30 ? ERROR_TEXT
-                          : lockCountdown.minsRemaining < 120 ? WARN_TEXT
-                          : undefined
-                        : undefined,
-                    }}>
-                      {reviewReady
-                        ? "Review ready"
-                        : lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
-                          ? `${lockCountdown.d ? `${lockCountdown.d}d ` : ""}${String(lockCountdown.h || 0).padStart(2, "0")}h ${String(lockCountdown.m || 0).padStart(2, "0")}m`
-                          : stateTone.detail}
-                    </div>
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
-                      {roundHasSavedBoard && !showReviewOnly
-                        ? roundFullyLockedIn
-                          ? "Your full board is stored."
-                          : `You have ${selectedRoundProgress.filled} of ${selectedRoundProgress.total} picks saved.`
-                        : reviewReady
-                          ? "Points awarded and locked."
-                          : demoPreview
-                            ? "Preview mode is active. Explore the board without logging in."
-                          : lockCountdown && !lockCountdown.locked && !resultsEntered && !raceHasPassed
-                            ? "Save before qualifying starts."
-                            : "Editing closed."}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {race.sprint && (
               <div style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
                 <div
@@ -1421,7 +1351,7 @@ export default function PredictionsPage({
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: isMobile
-                        ? "repeat(2, minmax(0,1fr))"
+                        ? "1fr"
                         : isTablet
                           ? "repeat(3, minmax(0,1fr))"
                           : `repeat(${group.prompts.length}, minmax(0,1fr))`,
@@ -1713,13 +1643,13 @@ export default function PredictionsPage({
                 )}
               </div>
 
-              <div style={{ padding: "0 20px 20px", display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", paddingTop: 8 }}>
+              <div style={{ padding: isMobile ? "0 14px 16px" : "0 20px 20px", display: "grid", gap: 14 }}>
+                <div style={{ display: isMobile ? "grid" : "flex", gridTemplateColumns: isMobile ? "1fr 1fr" : undefined, justifyContent: isMobile ? undefined : "space-between", gap: isMobile ? 10 : 12, flexWrap: "wrap", paddingTop: 8 }}>
                   <button
                     onClick={() => previousPrompt && setActivePromptKey(previousPrompt.key)}
                     disabled={!previousPrompt}
                     style={{
-                      minHeight: 44,
+                      minHeight: 48,
                       padding: "0 16px",
                       borderRadius: RADIUS_MD,
                       border: "1px solid rgba(255,255,255,0.12)",
@@ -1730,13 +1660,13 @@ export default function PredictionsPage({
                       cursor: previousPrompt ? "pointer" : "default",
                     }}
                   >
-                    Previous category
+                    {isMobile ? "← Prev" : "Previous category"}
                   </button>
                   <button
                     onClick={() => nextPromptItem && setActivePromptKey(nextPromptItem.key)}
                     disabled={!nextPromptItem}
                     style={{
-                      minHeight: 44,
+                      minHeight: 48,
                       padding: "0 16px",
                       borderRadius: RADIUS_MD,
                       border: "1px solid rgba(255,255,255,0.12)",
@@ -1747,7 +1677,7 @@ export default function PredictionsPage({
                       cursor: nextPromptItem ? "pointer" : "default",
                     }}
                   >
-                    Next category
+                    {isMobile ? "Next →" : "Next category"}
                   </button>
                 </div>
 
