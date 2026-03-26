@@ -247,7 +247,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
       >
         {/* Hero background photo */}
         <img
-          src="/images/hero-bg.jpg"
+          src="/images/hero-main.png"
           alt=""
           aria-hidden="true"
           style={{
@@ -256,8 +256,8 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            objectPosition: "center 30%",
-            opacity: 0.20,
+            objectPosition: "right center",
+            opacity: isMobile ? 0.10 : 0.30,
             pointerEvents: "none",
             zIndex: 0,
           }}
@@ -272,8 +272,8 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
               position: "absolute",
               inset: 0,
               background: isTablet
-                ? "linear-gradient(to bottom, rgba(6,16,27,0.45) 0%, rgba(6,16,27,0.92) 100%)"
-                : "linear-gradient(to right, rgba(6,16,27,0.88) 35%, rgba(6,16,27,0.40) 100%)",
+                ? "linear-gradient(to bottom, rgba(10,15,26,0.5) 0%, rgba(10,15,26,0.92) 100%)"
+                : "linear-gradient(to right, rgba(10,15,26,0.85) 40%, rgba(10,15,26,0.30) 100%)",
               zIndex: 0,
               pointerEvents: "none",
             }}
@@ -337,6 +337,7 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
                   objectFit: "contain",
                   objectPosition: isTablet ? "center" : "right center",
                   display: "block",
+                  mixBlendMode: "screen",
                 }}
                 onError={(e) => {
                   if (!e.target.src.includes("hero-art.png")) {
@@ -361,6 +362,23 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
           )}
         </div>
       </section>
+
+      {/* Atmospheric glow — fills the space below the hero */}
+      <div
+        aria-hidden="true"
+        style={{
+          backgroundImage: "url('/images/hero-glow.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          backgroundRepeat: "no-repeat",
+          opacity: isMobile ? 0.10 : 0.18,
+          height: isMobile ? 100 : 180,
+          marginTop: -20,
+          pointerEvents: "none",
+          position: "relative",
+          zIndex: 0,
+        }}
+      />
 
       {isMobile && (
         <div

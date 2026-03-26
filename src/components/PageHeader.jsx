@@ -9,7 +9,7 @@ import {
 } from "../constants/design";
 import useViewport from "../useViewport";
 
-export default function PageHeader({ eyebrow, title, description, aside = null, actions = null, marginBottom = 22 }) {
+export default function PageHeader({ eyebrow, title, description, aside = null, actions = null, marginBottom = 22, bgImage = null }) {
   const { isMobile, isTablet } = useViewport();
 
   return (
@@ -22,10 +22,42 @@ export default function PageHeader({ eyebrow, title, description, aside = null, 
         padding: isMobile ? "22px 18px" : "28px 26px",
         marginBottom,
         overflow: "hidden",
+        position: "relative",
       }}
     >
+      {bgImage && (
+        <>
+          <img
+            src={bgImage}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              opacity: isMobile ? 0.06 : 0.15,
+              pointerEvents: "none",
+            }}
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to bottom, rgba(10,15,26,0.2) 0%, rgba(10,15,26,0.85) 100%)",
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
       <div
         style={{
+          position: "relative",
+          zIndex: 1,
           display: "grid",
           gridTemplateColumns: aside && !isTablet ? "minmax(0,1fr) 280px" : "1fr",
           gap: 18,

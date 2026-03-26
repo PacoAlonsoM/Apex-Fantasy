@@ -15,11 +15,13 @@ export const metadata = {
     url: siteUrl,
     siteName: "STINT",
     type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "STINT · F1 Predictions" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "STINT · F1 Predictions",
     description: "Race-week context, picks, AI insight, wire coverage and leaderboard reads in one clean F1 product.",
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],

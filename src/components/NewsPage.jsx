@@ -323,8 +323,33 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
-        <div style={{ padding: "28px 30px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(15,24,44,0.96))" }}>
+      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW, position: "relative" }}>
+        <img
+          src={tab === "news" ? "/images/header-wire.png" : "/images/header-insight.png"}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            opacity: isMobile ? 0.06 : 0.14,
+            pointerEvents: "none",
+          }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(to bottom, rgba(10,15,26,0.2) 0%, rgba(10,15,26,0.88) 100%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div style={{ padding: "28px 30px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(15,24,44,0.96))", position: "relative", zIndex: 1 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
             <div style={{ maxWidth: 760 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>

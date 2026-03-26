@@ -334,6 +334,7 @@ export default function CalendarPage({ user, openAuth, openPredictionsForRace })
         description="Pick a Grand Prix to see the session order, local timing, and jump straight into that weekend's board."
         aside={<StatBox value={timezone} label="Timezone" />}
         marginBottom={18}
+        bgImage="/images/header-calendar.png"
       />
 
       <section style={{ marginBottom: 18 }}>
