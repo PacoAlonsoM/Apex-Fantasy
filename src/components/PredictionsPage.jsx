@@ -479,60 +479,60 @@ function RoundSidebarItem({ item, active, onClick, status }) {
 function PredictionCard({ prompt, value, active, onClick, aiItem }) {
   const [hovered, setHovered] = useState(false);
   const meta = selectionMeta(prompt, value);
-  const leftAccent = value ? SUCCESS : active ? ACCENT : "transparent";
-  const statusColor = value ? SUCCESS : ACCENT;
+  const leftAccent = value ? SUCCESS : active ? ACCENT : "rgba(148,163,184,0.12)";
+  const statusColor = value ? SUCCESS : active ? ACCENT : SUBTLE_TEXT;
 
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => !active && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      title={prompt.hint}
       style={{
         width: "100%",
-        border: "none",
+        border: `1px solid ${active ? "rgba(249,115,22,0.18)" : "rgba(148,163,184,0.07)"}`,
         borderRadius: CARD_RADIUS,
         background: active ? PANEL_BG_ALT : hovered ? "rgba(255,255,255,0.05)" : PANEL_BG,
         boxShadow: `inset 3px 0 0 ${leftAccent}`,
-        padding: 12,
+        padding: "9px 10px 8px",
         textAlign: "left",
         cursor: "pointer",
-        minHeight: 92,
-        transition: "background 140ms ease",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        transition: "background 140ms ease, border-color 140ms ease",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: statusColor,
-              animation: value ? "none" : "pulseDot 2s infinite",
-            }}
-          />
-          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-            {prompt.section}
-          </span>
-        </div>
-        <span style={{ borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 600, background: BG_BASE, color: SUBTLE_TEXT }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: statusColor,
+            animation: value ? "none" : "pulseDot 2s infinite",
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ borderRadius: 999, padding: "1px 7px", fontSize: 9.5, fontWeight: 700, background: BG_BASE, color: SUBTLE_TEXT, letterSpacing: "0.02em" }}>
           {prompt.pts} pts
         </span>
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT_PRIMARY, marginBottom: 4 }}>
-        {prompt.label}
-      </div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: meta ? TEXT_PRIMARY : aiItem ? "#93c5fd" : MUTED_TEXT, marginBottom: 5 }}>
-        {meta ? meta.label : emptySelectionLabel(prompt, aiItem ? { [prompt.key]: aiItem } : {})}
-      </div>
-      <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED_TEXT, marginBottom: aiItem ? 6 : 0 }}>
-        {prompt.hint}
-      </div>
-      {aiItem && (
-        <div style={{ fontSize: 9, color: "#93c5fd", lineHeight: 1.35 }}>
-          AI Insight: {aiItem.pick}
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "-0.01em", color: TEXT_PRIMARY, marginBottom: 2, lineHeight: 1.2 }}>
+          {prompt.label}
         </div>
-      )}
+        <div style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: meta ? (meta.accent && meta.accent !== ACCENT ? meta.accent : TEXT_PRIMARY) : aiItem ? "#93c5fd" : MUTED_TEXT,
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+        }}>
+          {meta ? meta.label : aiItem ? `→ ${aiItem.pick}` : "—"}
+        </div>
+      </div>
     </button>
   );
 }
@@ -1390,13 +1390,31 @@ export default function PredictionsPage({
             )}
 
             {!showReviewOnly && (
-              <div style={{ padding: isMobile ? 20 : 24 }}>
+              <div style={{ padding: isMobile ? "16px 16px 10px" : "18px 20px 10px" }}>
                 {groups.map((group) => (
-                  <div key={group.title} style={{ marginBottom: 24 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
+                  <div key={group.title} style={{ marginBottom: 12 }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 800,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        color: SUBTLE_TEXT,
+                        marginBottom: 7,
+                        opacity: 0.8,
+                      }}
+                    >
                       {group.title}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 12 }}>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile
+                        ? "repeat(2, minmax(0,1fr))"
+                        : isTablet
+                          ? "repeat(3, minmax(0,1fr))"
+                          : `repeat(${group.prompts.length}, minmax(0,1fr))`,
+                      gap: 8,
+                    }}>
                       {group.prompts.map((prompt) => (
                         <PredictionCard
                           key={prompt.key}
