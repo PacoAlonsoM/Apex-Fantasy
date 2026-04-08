@@ -1,6 +1,9 @@
+import { after } from "next/server";
+
 import { jsonError, jsonOk } from "../../_lib/response";
 import { appendOperationRun, buildOperationRun, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
-import { isLocalAdminRequest } from "../../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
+import { markUpcomingAiBriefStale, runAiBriefGeneration } from "../../_lib/aiBriefService";
 import { buildRaceResultsRowFromDraft, deriveManualFieldsUsed, normalizeDraftRecord, normalizeOfficialResultsRow, validateDraftForPublish } from "../../_lib/results";
 import { getSupabaseAdmin, getSupabaseReadClient, invokeSupabaseFunction, requireServiceRole } from "../../_lib/supabaseAdmin";
 
@@ -12,12 +15,9 @@ function rowsDiffer(left, right) {
 }
 
 export async function POST(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin routes only run on localhost.", 403);
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
+    await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     const round = Number(body?.round || 0);
 
@@ -136,12 +136,30 @@ export async function POST(request) {
       warnings = [...warnings, `History refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
     }
 
+    after(async () => {
+      try {
+        await markUpcomingAiBriefStale({
+          round,
+          reason: `Official results changed for round ${round}. Refreshing the upcoming AI brief.`,
+        });
+      } catch (error) {
+        console.warn("AI brief stale marker skipped", error?.message || error);
+      }
+
+      try {
+        await runAiBriefGeneration({ season });
+      } catch (error) {
+        console.warn("Post-publish AI brief refresh skipped", error?.message || error);
+      }
+    });
+
     if (warnings.length) {
       return jsonOk(`Published official results for round ${round}.`, {
         runId: run?.id,
         season,
         round,
         warnings,
+        aiRefreshScheduled: true,
         official: publishedRow,
         draft: nextStore.resultsDrafts[key],
       });
@@ -151,10 +169,11 @@ export async function POST(request) {
       runId: run?.id,
       season,
       round,
+      aiRefreshScheduled: true,
       official: publishedRow,
       draft: nextStore.resultsDrafts[key],
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Could not publish results.");
+    return adminAccessErrorResponse(error, "Could not publish results.");
   }
 }

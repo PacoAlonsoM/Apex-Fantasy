@@ -24,22 +24,33 @@ What this does:
 
 ## Publish flow
 
-Link the repo once:
+Standard release path:
 
 ```bash
-npm run publish:whoami
-npm run publish:link
+npm run check:repo
+npm run check:env
+npm run build
+npm run smoke:local-admin
+git push origin main
+npm run smoke:prod
 ```
 
-Then publish manually only when you want production updated:
+Or run the guarded release command:
 
 ```bash
-npm run publish:preview
-npm run publish:prod
+npm run release:main
 ```
 
-## Working rule
+What that release path means:
 
-Changes requested during development stay local by default.
+- localhost must pass before `main` is pushed
+- Vercel auto-deploys from `main`
+- production verification is read-only
+- if production smoke fails, treat it as a blocked release until fixed
 
-If you did not run a `publish:*` command, the change is not live.
+## Working rules
+
+- all website work happens in `~/Code/apex-fantasy`
+- the Desktop copy is backup only
+- if you did not push `main`, the change is not live
+- if local gates are red, do not push to production

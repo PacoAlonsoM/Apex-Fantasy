@@ -6,11 +6,31 @@ import { getRoundControls, getRoundSessions } from "../admin/_lib/dashboardData"
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function createFallbackAdminStore() {
+  return {
+    version: 2,
+    updatedAt: null,
+    resultsDrafts: {},
+    scheduleSessions: {},
+    roundControls: {},
+    operationRuns: [],
+  };
+}
+
+async function loadPublicAdminStore() {
+  try {
+    return await readLocalAdminStore();
+  } catch (error) {
+    console.warn("Public weekend-state store fallback", error?.message || error);
+    return createFallbackAdminStore();
+  }
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const season = Number(url.searchParams.get("season") || 2026) || 2026;
   const round = Number(url.searchParams.get("round") || 0) || null;
-  const store = await readLocalAdminStore();
+  const store = await loadPublicAdminStore();
 
   if (round) {
     return NextResponse.json({

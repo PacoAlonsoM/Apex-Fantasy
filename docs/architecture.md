@@ -35,6 +35,8 @@ docs/                        local workflow and architecture docs
 - `src/features/`: page behavior and data composition
 - `src/ui/`: reusable page sections and visual components
 - `src/lib/`: integrations and domain helpers
+- `scripts/`: repeatable verification and release gates
+- `docs/`: workflow rules, env contract, and reliability policy
 
 ## Intent
 
@@ -45,3 +47,30 @@ This structure keeps one clear path for changes:
 - product/page changes in `src/features/`
 - visual reuse in `src/ui/`
 - data and service logic in `src/lib/`
+
+## High-risk hotspots
+
+These files have the most blast radius and should stay thin at the route layer:
+
+- `app/api/admin/_lib/aiBrief.js`
+- `supabase/functions/_shared/race-sync.ts`
+- `supabase/functions/ai-race-brief/index.ts`
+
+Working rule:
+
+- route handlers do auth, readiness, and orchestration
+- pure logic belongs in shared helpers
+- UI components render state and messages, not transport logic
+
+## Reliability layers
+
+STINT now has 3 reliability layers:
+
+1. runtime config guard
+   protects the public app from blank-screen env failures
+2. localhost verification gates
+   repo check, env check, build, admin smoke
+3. production verification
+   read-only smoke against the deployed site and readiness endpoint
+
+That split keeps local mutation-heavy checks away from production while still catching deploy regressions quickly.

@@ -1,201 +1,110 @@
-# Supabase Setup
+# STINT
 
-This folder contains the database and Edge Function pieces needed for:
+STINT is the fantasy racing web app, admin control center, and data-sync stack that powers:
 
-- league-specific forum posts via `posts.league_id`
-- an ingested news feed via `news_articles`
-- AI-generated race briefs via `ai_insights`
-- a synced live race calendar via `race_calendar`
+- live weekend state and predictions
+- news ingest and AI race briefs
+- admin-controlled result publishing and scoring
+- synced race calendar and richer OpenF1 history context
 
-## 1. Run the migration
+## Canonical workspace
 
-Run the SQL in:
+Use one repo only:
 
-- `supabase/migrations/20260302_league_forums_and_news.sql`
-- `supabase/migrations/20260303_ai_race_insights.sql`
-- `supabase/migrations/20260325_race_calendar_sync.sql`
+```bash
+cd ~/Code/apex-fantasy
+```
 
-This adds:
+The old Desktop copy is backup-only and should not be used for dev, git, or production release work.
 
-- `posts.league_id`
-- `news_articles`
-- `news_ingest_runs`
-- `ai_insights`
-- `ai_insight_runs`
-- `race_calendar`
-- `race_calendar_sync_runs`
-- helper indexes and policies
+## Local start
 
-## 2. Deploy the news ingest function
+```bash
+npm start
+```
 
-The Edge Function lives at:
+That script:
 
-- `supabase/functions/news-ingest/index.ts`
+- enforces the canonical repo path
+- forces Node 20 if available through `nvm`
+- installs dependencies if needed
+- starts Next.js on `http://localhost:3000`
+- fails clearly if port `3000` is already taken
 
-Recommended secrets:
+## Required local workflow
 
-- `SUPABASE_URL`
+1. Work in `~/Code/apex-fantasy`
+2. Verify locally
+3. Push `main`
+4. Let Vercel auto-deploy from `main`
+5. Run read-only production verification
+
+The verification gates are:
+
+```bash
+npm run check:repo
+npm run check:env
+npm run build
+npm run smoke:local-admin
+npm run smoke:prod
+```
+
+For the full guarded release flow:
+
+```bash
+npm run release:main
+```
+
+## Environment contract
+
+The supported public contract is Next.js-only:
+
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Required server/admin contract:
+
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `NEWS_INGEST_SECRET`
+- `RACE_RESULTS_SYNC_SECRET`
 
-Example:
+Optional integrations:
 
-```bash
-npx supabase secrets set \
-  SUPABASE_URL="https://YOUR_PROJECT.supabase.co" \
-  SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY" \
-  NEWS_INGEST_SECRET="YOUR_LONG_RANDOM_SECRET"
-```
-
-Then deploy:
-
-```bash
-npx supabase login
-npx supabase link --project-ref YOUR_PROJECT_REF
-npx supabase functions deploy news-ingest --no-verify-jwt
-```
-
-`--no-verify-jwt` is intentional here. This function is protected with the custom `x-ingest-secret` header instead of a user JWT.
-
-## 3. Test the function
-
-Call the function once manually and confirm rows land in `news_articles`.
-
-```bash
-curl -X POST "https://YOUR_PROJECT.supabase.co/functions/v1/news-ingest" \
-  -H "x-ingest-secret: YOUR_LONG_RANDOM_SECRET"
-```
-
-## 4. What success looks like
-
-After the curl request:
-
-- `news_articles` should contain rows
-- `news_ingest_runs` should contain a log row
-- the in-app News page should stop showing the empty-state message
-
-## 5. Automate the ingest
-
-If you want this to run automatically, use the SQL template in:
-
-- `supabase/news_ingest_schedule.sql`
-
-That file:
-
-- stores your project URL in Vault
-- stores your `NEWS_INGEST_SECRET` in Vault
-- schedules `news-ingest` every 30 minutes with `pg_cron`
-
-Before running it:
-
-- make sure the function is already deployed
-- make sure `NEWS_INGEST_SECRET` is already set
-- enable `pg_cron`, `pg_net`, and Vault in the Supabase dashboard
-- replace the placeholders in the SQL file
-
-Suggested cadence:
-
-- race weekends: every 30 minutes
-- off week: every 60 minutes
-
-## 6. What the frontend expects
-
-`src/components/NewsPage.jsx` reads:
-
-- `id`
-- `title`
-- `summary`
-- `url`
-- `source`
-- `published_at`
-- `image_url`
-
-Once the table has rows, the News page will render them automatically.
-
-## 7. Deploy the AI race brief function
-
-The Edge Function lives at:
-
-- `supabase/functions/ai-race-brief/index.ts`
-
-Recommended secrets:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
-- `AI_ADMIN_USER_ID`
-
-Example:
-
-```bash
-npx supabase secrets set \
-  SUPABASE_URL="https://YOUR_PROJECT.supabase.co" \
-  SUPABASE_ANON_KEY="YOUR_ANON_KEY" \
-  SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY" \
-  OPENAI_API_KEY="YOUR_OPENAI_API_KEY" \
-  OPENAI_MODEL="gpt-4o-mini" \
-  AI_ADMIN_USER_ID="YOUR_ADMIN_USER_ID"
-```
-
-Then deploy:
-
-```bash
-npx supabase functions deploy ai-race-brief --no-verify-jwt
-```
-
-This function is designed for manual admin-triggered testing from the app. It uses the logged-in Supabase user token and only allows your admin user id.
-
-## 8. What success looks like
-
-After deploying the function and running it from the in-app Admin page:
-
-- `ai_insights` should contain one row for `upcoming_race_brief`
-- `ai_insight_runs` should contain a log row
-- the News page should render an `AI Race Brief` block above the article feed
-
-## 9. Deploy the calendar sync function
-
-The Edge Function lives at:
-
-- `supabase/functions/calendar-sync/index.ts`
-
-Recommended secrets:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `AI_ADMIN_USER_ID`
 - `CALENDAR_SYNC_SECRET`
+- `NEWS_INGEST_SECRET`
 
-Then deploy:
+See [docs/env-contract.md](docs/env-contract.md) for the full contract and failure behavior.
+
+## Reliability guardrails
+
+- public startup config must fail clearly, never as a blank white screen
+- localhost admin writes must use the server-side path when available
+- no push to production unless local gates pass
+- no backup files like `* 2.js` or `* 2.jsx` in the repo
+- no production env change without updating `.env.example` and the env docs in the same change
+
+See [docs/reliability-rules.md](docs/reliability-rules.md) and [docs/local-workflow.md](docs/local-workflow.md).
+
+## Readiness
+
+The app exposes a safe read-only readiness endpoint:
 
 ```bash
-npx supabase functions deploy calendar-sync --no-verify-jwt
+GET /api/health/readiness
 ```
 
-This function supports either:
+It reports:
 
-- an authenticated admin user from the app
-- or the `x-calendar-sync-secret` header for cron jobs
+- app version and commit
+- public env contract presence
+- server env presence
+- Supabase reachability
+- admin capability flags
 
-## 10. What success looks like
+This is the endpoint that the production smoke test uses to catch deploy/config regressions before they waste time.
 
-After deploying the function and running it from the in-app Admin page:
+## Architecture map
 
-- `race_calendar` should contain the active season schedule
-- missing races from the source should be marked `cancelled`
-- `race_calendar_sync_runs` should contain a log row
-- the homepage, Calendar page, and Predictions page should stop relying on the stale hardcoded order
-
-## 11. Automate the calendar sync
-
-If you want this to run automatically, use the SQL template in:
-
-- `supabase/calendar_sync_schedule.sql`
-
-Suggested cadence:
-
-- every 6 hours during the season
-- manually from admin right after any official schedule change
+See [docs/architecture.md](docs/architecture.md) for the route/shell/lib split and the ownership of the high-risk admin/data modules.

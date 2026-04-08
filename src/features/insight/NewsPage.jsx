@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/src/lib/supabase";
-import { chooseInsightForRace } from "@/src/lib/aiInsight";
 import { nextRace } from "@/src/constants/calendar";
 import { ACCENT, CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE } from "@/src/constants/design";
 import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
@@ -259,13 +257,15 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
   const [articles, setArticles] = useState([]);
   const [insight, setInsight] = useState(null);
   const [insightStale, setInsightStale] = useState(false);
+  const [serverCurrentRace, setServerCurrentRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasTable, setHasTable] = useState(true);
   const [tab, setTab] = useState(lockedTab || initialTab);
   const [expandedInsight, setExpandedInsight] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hoveredFeedId, setHoveredFeedId] = useState(null);
-  const currentRace = useMemo(() => nextRace(calendar) || calendar[0] || null, [calendar]);
+  const fallbackCurrentRace = useMemo(() => nextRace(calendar) || calendar[0] || null, [calendar]);
+  const currentRace = serverCurrentRace || fallbackCurrentRace;
 
   usePageMetadata({
     title: tab === "news" ? "F1 Wire" : "AI Race Brief",
@@ -284,38 +284,30 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
     async function loadNews() {
       setLoading(true);
-      const [{ data, error }, insightResponse] = await Promise.all([
-        supabase
-          .from("news_articles")
-          .select("id,title,summary,url,source,published_at,image_url")
-          .order("published_at", { ascending: false })
-          .limit(IS_SNAPSHOT ? 16 : 80),
-        supabase
-          .from("ai_insights")
-          .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,metadata")
-          .eq("scope", "upcoming_race")
-          .order("generated_at", { ascending: false })
-          .limit(6),
-      ]);
+      try {
+        const response = await fetch(`/api/insight?season=2026`, {
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
 
-      if (ignore) return;
+        if (!response.ok) {
+          throw new Error(payload?.message || "Could not load the AI Insight page.");
+        }
 
-      if (error) {
+        if (ignore) return;
+
+        setHasTable(Boolean(payload?.newsConfigured));
+        setArticles(Array.isArray(payload?.articles) ? payload.articles : []);
+        setInsight(payload?.insight || null);
+        setInsightStale(Boolean(payload?.insightStale));
+        setServerCurrentRace(payload?.currentRace || null);
+      } catch (_error) {
+        if (ignore) return;
         setHasTable(false);
         setArticles([]);
-      } else {
-        setHasTable(true);
-        setArticles(data || []);
-      }
-
-      if (insightResponse.error) {
         setInsight(null);
         setInsightStale(false);
-      } else {
-        const rows = insightResponse.data || [];
-        const matched = chooseInsightForRace(rows, currentRace);
-        setInsight(matched);
-        setInsightStale(rows.length > 0 && !matched);
+        setServerCurrentRace(null);
       }
 
       setLoading(false);
@@ -323,7 +315,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
     loadNews();
     return () => { ignore = true; };
-  }, [currentRace]);
+  }, [fallbackCurrentRace?.date, fallbackCurrentRace?.n]);
 
   const visibleArticles = useMemo(
     () => articles.filter((article) => !BLOCKED_NEWS_SOURCES.has(article.source)),
@@ -565,6 +557,11 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                     <div style={{ fontSize: 15, lineHeight: 1.78, color: MUTED_TEXT, marginBottom: 12 }}>
                       {insight.summary}
                     </div>
+                    {insight?.metadata?.freshness_status === "stale" && insight?.metadata?.stale_reason && (
+                      <div style={{ borderRadius: 16, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.1)", padding: "12px 14px", fontSize: 12, lineHeight: 1.7, color: "#fcd34d", marginBottom: 12, maxWidth: 760 }}>
+                        {insight.metadata.stale_reason}
+                      </div>
+                    )}
                     {raceSummary && (
                       <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "12px 14px", fontSize: 12, lineHeight: 1.72, color: "rgba(226,232,240,0.78)", maxWidth: 760 }}>
                         {previewText(raceSummary.replace(/\s+/g, " "), 240)}

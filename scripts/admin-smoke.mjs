@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
+import { createClient } from "@supabase/supabase-js";
 
 const ADMIN_BASE_URL = process.env.ADMIN_BASE_URL || "http://127.0.0.1:3000";
 const SEASON = Number(process.env.ADMIN_SEASON || 2026) || 2026;
 const ROUND = Number(process.env.ADMIN_ROUND || 1) || 1;
+const ADMIN_ACCESS_TOKEN = String(process.env.ADMIN_ACCESS_TOKEN || "").trim();
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || process.env.STINT_ADMIN_EMAIL || "").trim();
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || process.env.STINT_ADMIN_PASSWORD || "").trim();
+const SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+const SUPABASE_ANON_KEY = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
 const REQUIRED_RESULT_FIELDS = [
   "winner",
@@ -14,11 +20,54 @@ const REQUIRED_RESULT_FIELDS = [
   "best_constructor",
 ];
 
+let cachedAccessTokenPromise = null;
+
+async function getAdminAccessToken() {
+  if (!cachedAccessTokenPromise) {
+    cachedAccessTokenPromise = (async () => {
+      if (ADMIN_ACCESS_TOKEN) return ADMIN_ACCESS_TOKEN;
+
+      if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+        throw new Error(
+          "Admin smoke auth is missing. Set ADMIN_ACCESS_TOKEN or ADMIN_EMAIL and ADMIN_PASSWORD in the environment before running npm run smoke:local-admin.",
+        );
+      }
+
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY for admin smoke auth.");
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
+      });
+
+      if (error || !data?.session?.access_token) {
+        throw new Error(error?.message || "Admin smoke could not sign in with the provided admin email/password.");
+      }
+
+      return data.session.access_token;
+    })();
+  }
+
+  return await cachedAccessTokenPromise;
+}
+
 async function api(method, path, body = null) {
+  const accessToken = await getAdminAccessToken();
   const response = await fetch(`${ADMIN_BASE_URL}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: body ? JSON.stringify({ ...body, __authToken: accessToken }) : undefined,
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -188,6 +237,34 @@ async function main() {
     "Expected the saved dashboard AI brief metadata to include live web research sources."
   );
 
+  const repair = await api("POST", "/api/admin/ai/repair-live-data", { season: SEASON });
+  assert.ok(
+    ["ok", "partial"].includes(String(repair?.status || "")),
+    `Expected AI repair to succeed, got status ${repair?.status || "unknown"}.`
+  );
+
+  const publicInsight = await fetch(`${ADMIN_BASE_URL}/api/insight?season=${SEASON}`, {
+    cache: "no-store",
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(`GET /api/insight failed: ${payload?.message || response.statusText}`);
+    }
+    return payload;
+  });
+
+  const previousRace = publicInsight?.historicalEdge?.previousRace || publicInsight?.insight?.metadata?.previous_race || null;
+  const recentResult = Array.isArray(publicInsight?.historicalEdge?.recentResults)
+    ? publicInsight.historicalEdge.recentResults[0] || null
+    : null;
+  assert.ok(previousRace?.winner, "Expected the public AI payload to expose a canonical previous-race winner.");
+  assert.ok(recentResult?.winner, "Expected the public AI payload to expose recent completed results.");
+  assert.equal(
+    String(previousRace?.winner || ""),
+    String(recentResult?.winner || ""),
+    "Expected the public AI previous-race winner to match the canonical recent-results winner.",
+  );
+
   console.log("Admin localhost smoke test passed.");
   console.log(`News sync status: ${news.status}`);
   console.log(`Schedule sync status: ${schedule.status}`);
@@ -199,6 +276,7 @@ async function main() {
   }
   console.log(`AI brief target: ${ai.raceName}`);
   console.log(`AI brief mode: ${ai.mode}`);
+  console.log(`AI repair status: ${repair.status}`);
 }
 
 main().catch((error) => {

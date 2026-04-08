@@ -201,3 +201,7 @@ export function backfillHistory(season = 2026) {
 export function generateAiBrief(season = 2026) {
   return postJson("/api/admin/ai/generate-brief", { season });
 }
+
+export function repairAiLiveData(season = 2026) {
+  return postJson("/api/admin/ai/repair-live-data", { season });
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { LOCAL_ADMIN_TOKEN_COOKIE } from "../_lib/localAdminAccess";
+import { LOCAL_ADMIN_TOKEN_COOKIE, validateAdminAccessToken } from "../_lib/localAdminAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +22,15 @@ export async function POST(request) {
 
   if (!accessToken) {
     return NextResponse.json({ status: "error", message: "Missing access token." }, { status: 400 });
+  }
+
+  try {
+    await validateAdminAccessToken(accessToken);
+  } catch (error) {
+    return NextResponse.json({
+      status: "error",
+      message: error instanceof Error ? error.message : "Could not verify admin session.",
+    }, { status: error?.status || 401 });
   }
 
   const response = NextResponse.json({ status: "ok" });

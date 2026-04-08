@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { BG_BASE, TEXT_PRIMARY, ACCENT } from "@/src/constants/design";
+import { getPublicRuntimeConfigStatus } from "@/src/lib/runtimeConfig";
+import AppConfigError from "@/src/ui/AppConfigError";
 
 const LegacyApp = dynamic(() => import("./StintApp"), {
   ssr: false,
@@ -44,5 +46,11 @@ const LegacyApp = dynamic(() => import("./StintApp"), {
 });
 
 export default function LegacyAppEntry() {
+  const configStatus = getPublicRuntimeConfigStatus();
+
+  if (!configStatus.ok) {
+    return <AppConfigError status={configStatus} />;
+  }
+
   return <LegacyApp />;
 }

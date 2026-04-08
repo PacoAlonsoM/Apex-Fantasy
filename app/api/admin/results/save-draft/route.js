@@ -1,18 +1,15 @@
 import { jsonError, jsonOk } from "../../_lib/response";
 import { appendOperationRun, buildOperationRun, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
-import { isLocalAdminRequest } from "../../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { normalizeDraftRecord } from "../../_lib/results";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin routes only run on localhost.", 403);
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
+    await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     const round = Number(body?.round || 0);
     const draft = body?.draft;
@@ -62,6 +59,6 @@ export async function POST(request) {
       draft: nextStore.resultsDrafts[key],
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Could not save draft.");
+    return adminAccessErrorResponse(error, "Could not save draft.");
   }
 }

@@ -2,18 +2,15 @@ import { jsonError, jsonOk } from "../_lib/response";
 import { buildLocalAdminCapabilities, getSupabaseReadClient } from "../_lib/supabaseAdmin";
 import { readLocalAdminStore, getLatestOperationRun } from "../_lib/localAdminStore";
 import { getDraftForRound, getRoundControls, getRoundSessions } from "../_lib/dashboardData";
-import { isLocalAdminRequest } from "../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
 import { deriveManualFieldsUsed, normalizeDraftRecord, normalizeOfficialResultsRow } from "../_lib/results";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin routes only run on localhost.", 403);
-  }
-
   try {
+    await requireAdminRequest(request);
     const url = new URL(request.url);
     const season = Number(url.searchParams.get("season") || 2026) || 2026;
     const round = Number(url.searchParams.get("round") || 0);
@@ -62,6 +59,6 @@ export async function GET(request) {
       capabilities: buildLocalAdminCapabilities(),
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Could not load round results.");
+    return adminAccessErrorResponse(error, "Could not load round results.");
   }
 }

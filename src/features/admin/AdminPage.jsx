@@ -7,6 +7,7 @@ import {
   generateAiBrief,
   importRoundResults,
   publishRoundResults,
+  repairAiLiveData,
   saveRoundDraft,
   saveScheduleOverride,
   syncNewsFeed,
@@ -440,9 +441,12 @@ export default function AdminPage({ user }) {
               capabilities={capabilities}
               newsResult={actionResults.news}
               aiResult={actionResults.ai}
+              repairResult={actionResults.aiRepair}
               newsBusy={!!loadingFlags.news}
               aiBusy={!!loadingFlags.ai}
+              repairBusy={!!loadingFlags.aiRepair}
               onSyncNews={() => runAction("news", () => syncNewsFeed(SEASON), { refreshDashboard: true })}
+              onRepairAi={() => runAction("aiRepair", () => repairAiLiveData(SEASON), { refreshDashboard: true })}
               onGenerateAi={() => runAction("ai", () => generateAiBrief(SEASON), { refreshDashboard: true })}
             />
           </div>

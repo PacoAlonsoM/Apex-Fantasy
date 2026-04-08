@@ -1,18 +1,15 @@
 import { jsonError, jsonOk } from "../_lib/response";
 import { appendOperationRun, buildOperationRun, updateLocalAdminStore } from "../_lib/localAdminStore";
-import { isLocalAdminRequest } from "../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
 import { invokeSupabaseFunction, requireServiceRole } from "../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin routes only run on localhost.", 403);
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
+    await requireAdminRequest(request, body);
     const season = Number(body?.year || body?.season || 2026) || 2026;
     const payload = {
       year: season,
@@ -55,6 +52,6 @@ export async function POST(request) {
       response,
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Historical context backfill failed.");
+    return adminAccessErrorResponse(error, "Historical context backfill failed.");
   }
 }

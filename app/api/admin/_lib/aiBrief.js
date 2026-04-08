@@ -588,6 +588,95 @@ function topByMetric(entries = [], metric, key, limit = 5) {
     .slice(0, limit);
 }
 
+function countDnfEntries(result = {}) {
+  if (Array.isArray(result?.dnf_list)) return result.dnf_list.filter(Boolean).length;
+  return String(result?.dnf || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .length;
+}
+
+function mergeRaceOutcomeWithOfficial(row = null, result = null) {
+  const outcome = coerceObject(row?.race_outcome);
+  const volatility = coerceObject(row?.volatility_summary);
+  const officialDnfCount = countDnfEntries(result);
+  const winner = result?.winner || outcome.winner || null;
+  const p2 = result?.p2 || outcome.p2 || coerceArray(outcome.podium)[1] || null;
+  const p3 = result?.p3 || outcome.p3 || coerceArray(outcome.podium)[2] || null;
+
+  return {
+    ...outcome,
+    winner,
+    p2,
+    p3,
+    podium: [winner, p2, p3].filter(Boolean),
+    fastest_lap: result?.fastest_lap || outcome.fastest_lap || null,
+    best_constructor: result?.best_constructor || outcome.best_constructor || null,
+    dnf_count: officialDnfCount || toFiniteNumber(outcome.dnf_count) || toFiniteNumber(volatility.dnf_count),
+    safety_car_count: typeof result?.safety_car === "boolean"
+      ? (result.safety_car ? Math.max(1, toFiniteNumber(outcome.safety_car_count) || toFiniteNumber(volatility.safety_car_count) || 0) : 0)
+      : toFiniteNumber(outcome.safety_car_count ?? volatility.safety_car_count),
+    red_flag_count: typeof result?.red_flag === "boolean"
+      ? (result.red_flag ? Math.max(1, toFiniteNumber(outcome.red_flag_count) || toFiniteNumber(volatility.red_flag_count) || 0) : 0)
+      : toFiniteNumber(outcome.red_flag_count ?? volatility.red_flag_count),
+  };
+}
+
+function mergeQualifyingOutcomeWithOfficial(row = null, result = null) {
+  const qualifying = coerceObject(row?.qualifying_outcome);
+  return {
+    ...qualifying,
+    pole: result?.pole || qualifying.pole || null,
+  };
+}
+
+function mergeVolatilitySummaryWithOfficial(row = null, result = null) {
+  const volatility = coerceObject(row?.volatility_summary);
+  const officialDnfCount = countDnfEntries(result);
+  const safetyCar = typeof result?.safety_car === "boolean" ? result.safety_car : Boolean(volatility.safety_car);
+  const redFlag = typeof result?.red_flag === "boolean" ? result.red_flag : Boolean(volatility.red_flag);
+
+  return {
+    ...volatility,
+    dnf_count: officialDnfCount || toFiniteNumber(volatility.dnf_count),
+    safety_car: safetyCar,
+    safety_car_count: typeof result?.safety_car === "boolean"
+      ? (result.safety_car ? Math.max(1, toFiniteNumber(volatility.safety_car_count) || 0) : 0)
+      : toFiniteNumber(volatility.safety_car_count),
+    red_flag: redFlag,
+    red_flag_count: typeof result?.red_flag === "boolean"
+      ? (result.red_flag ? Math.max(1, toFiniteNumber(volatility.red_flag_count) || 0) : 0)
+      : toFiniteNumber(volatility.red_flag_count),
+  };
+}
+
+function mergeOfficialResultIntoHistoryRow(row = null, result = null) {
+  if (!row && !result) return null;
+
+  const base = {
+    ...(row || {}),
+    race_round: Number(row?.race_round || result?.race_round || 0) || 0,
+    race_name: row?.race_name || null,
+    race_date: row?.race_date || null,
+    race_outcome: mergeRaceOutcomeWithOfficial(row, result),
+    qualifying_outcome: mergeQualifyingOutcomeWithOfficial(row, result),
+    volatility_summary: mergeVolatilitySummaryWithOfficial(row, result),
+  };
+
+  return base;
+}
+
+function buildCanonicalHistoryRows(historyRows = [], resultsRows = []) {
+  const historyByRound = new Map((historyRows || []).map((row) => [Number(row?.race_round || 0), row]).filter(([round]) => round));
+  const resultsByRound = new Map((resultsRows || []).map((row) => [Number(row?.race_round || 0), row]).filter(([round]) => round));
+  const rounds = [...new Set([...historyByRound.keys(), ...resultsByRound.keys()])].sort((left, right) => right - left);
+
+  return rounds
+    .map((round) => mergeOfficialResultIntoHistoryRow(historyByRound.get(round) || null, resultsByRound.get(round) || null))
+    .filter(Boolean);
+}
+
 function buildPreviousRace(row = null) {
   if (!row) return null;
 
@@ -844,28 +933,26 @@ function buildFantasyMarket(predictions = [], resultsRows = []) {
   };
 }
 
-function buildRecentResults(historyRows = [], resultsRows = []) {
-  const resultsByRound = new Map(resultsRows.map((row) => [Number(row.race_round || 0), row]));
-
-  return historyRows.slice(0, 6).map((row) => {
+function buildRecentResults(rows = []) {
+  return rows.slice(0, 6).map((row) => {
     const round = Number(row?.race_round || 0);
-    const result = resultsByRound.get(round) || {};
     const raceOutcome = coerceObject(row?.race_outcome);
     const qualifyingOutcome = coerceObject(row?.qualifying_outcome);
+    const volatility = coerceObject(row?.volatility_summary);
     const podium = coerceArray(raceOutcome?.podium);
 
     return {
       race_round: round || null,
       race_name: row?.race_name || null,
       race_date: row?.race_date || null,
-      winner: result?.winner || raceOutcome?.winner || null,
-      pole: result?.pole || qualifyingOutcome?.pole || null,
-      p2: result?.p2 || podium[1] || raceOutcome?.p2 || null,
-      p3: result?.p3 || podium[2] || raceOutcome?.p3 || null,
-      fastest_lap: result?.fastest_lap || raceOutcome?.fastest_lap || null,
-      best_constructor: result?.best_constructor || raceOutcome?.best_constructor || null,
-      safety_car: typeof result?.safety_car === "boolean" ? result.safety_car : Number(raceOutcome?.safety_car_count || 0) > 0,
-      red_flag: typeof result?.red_flag === "boolean" ? result.red_flag : Number(raceOutcome?.red_flag_count || 0) > 0,
+      winner: raceOutcome?.winner || null,
+      pole: qualifyingOutcome?.pole || null,
+      p2: podium[1] || raceOutcome?.p2 || null,
+      p3: podium[2] || raceOutcome?.p3 || null,
+      fastest_lap: raceOutcome?.fastest_lap || null,
+      best_constructor: raceOutcome?.best_constructor || null,
+      safety_car: Boolean(volatility?.safety_car || Number(raceOutcome?.safety_car_count || 0) > 0),
+      red_flag: Boolean(volatility?.red_flag || Number(raceOutcome?.red_flag_count || 0) > 0),
     };
   });
 }
@@ -1395,15 +1482,11 @@ export function buildAiContext({ race, sessions, articles, historyRows, resultsR
   const orderedPredictionRows = [...(predictionRows || [])]
     .filter((row) => row?.score !== null && row?.score !== undefined)
     .sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
-  const previousRace = buildPreviousRace(orderedHistoryRows[0] || null);
-  const previousRaceWeather = buildPreviousRaceWeather(orderedHistoryRows[0] || null);
-  const previousRaceStrategy = buildPreviousRaceStrategy(orderedHistoryRows[0] || null);
-  const historicalForm = buildHistoricalForm(orderedHistoryRows);
-  const seasonStats = buildSeasonStats(orderedHistoryRows);
-  const seasonVolatility = buildSeasonVolatility(orderedHistoryRows);
-  const weatherStrategyPatterns = buildWeatherStrategyPatterns(orderedHistoryRows);
-  const fantasyMarket = buildFantasyMarket(orderedPredictionRows, orderedResultsRows);
-  const recentResults = buildRecentResults(orderedHistoryRows, orderedResultsRows);
+  const historicalContext = buildHistoricalContext({
+    historyRows: orderedHistoryRows,
+    resultsRows: orderedResultsRows,
+    predictionRows: orderedPredictionRows,
+  });
   const databaseSummary = buildDatabaseSummary({
     articles,
     historyRows: orderedHistoryRows,
@@ -1432,17 +1515,17 @@ export function buildAiContext({ race, sessions, articles, historyRows, resultsR
       url: article.url,
     })),
     historical_context: {
-      previous_race: previousRace,
-      previous_race_weather: previousRaceWeather,
-      previous_race_strategy: previousRaceStrategy,
-      last_5_driver_form: historicalForm?.last_5_driver_form || [],
-      last_5_constructor_form: historicalForm?.last_5_constructor_form || [],
-      season_stats: seasonStats,
-      season_volatility: seasonVolatility,
-      weather_strategy_patterns: weatherStrategyPatterns,
-      fantasy_market_signals: fantasyMarket,
-      recent_results: recentResults,
-      detailed_recent_history: orderedHistoryRows.slice(0, 3).map((row) => ({
+      previous_race: historicalContext.previousRace,
+      previous_race_weather: historicalContext.previousRaceWeather,
+      previous_race_strategy: historicalContext.previousRaceStrategy,
+      last_5_driver_form: historicalContext.historicalForm?.last_5_driver_form || [],
+      last_5_constructor_form: historicalContext.historicalForm?.last_5_constructor_form || [],
+      season_stats: historicalContext.seasonStats,
+      season_volatility: historicalContext.seasonVolatility,
+      weather_strategy_patterns: historicalContext.weatherStrategyPatterns,
+      fantasy_market_signals: historicalContext.fantasyMarket,
+      recent_results: historicalContext.recentResults,
+      detailed_recent_history: historicalContext.canonicalHistoryRows.slice(0, 3).map((row) => ({
         race_round: row?.race_round || null,
         race_name: row?.race_name || null,
         race_date: row?.race_date || null,
@@ -1461,6 +1544,28 @@ export function buildAiContext({ race, sessions, articles, historyRows, resultsR
     context,
     categoryOptions,
     databaseSummary,
+  };
+}
+
+export function buildHistoricalContext({ historyRows = [], resultsRows = [], predictionRows = [] }) {
+  const orderedHistoryRows = [...(historyRows || [])].sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+  const orderedResultsRows = [...(resultsRows || [])].sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+  const orderedPredictionRows = [...(predictionRows || [])]
+    .filter((row) => row?.score !== null && row?.score !== undefined)
+    .sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+  const canonicalHistoryRows = buildCanonicalHistoryRows(orderedHistoryRows, orderedResultsRows);
+
+  return {
+    canonicalHistoryRows,
+    previousRace: buildPreviousRace(canonicalHistoryRows[0] || null),
+    previousRaceWeather: buildPreviousRaceWeather(canonicalHistoryRows[0] || null),
+    previousRaceStrategy: buildPreviousRaceStrategy(canonicalHistoryRows[0] || null),
+    historicalForm: buildHistoricalForm(canonicalHistoryRows),
+    seasonStats: buildSeasonStats(canonicalHistoryRows),
+    seasonVolatility: buildSeasonVolatility(canonicalHistoryRows),
+    weatherStrategyPatterns: buildWeatherStrategyPatterns(canonicalHistoryRows),
+    fantasyMarket: buildFantasyMarket(orderedPredictionRows, orderedResultsRows),
+    recentResults: buildRecentResults(canonicalHistoryRows),
   };
 }
 
@@ -1520,6 +1625,11 @@ export function buildAiInsightRow({ race, sessions, articles, historyRows, resul
       recent_context_rows: (historyRows || []).slice(0, 6),
       recent_official_rows: (resultsRows || []).slice(0, 6),
       session_window: formatSessionWindow(sessions),
+      freshness_status: "fresh",
+      freshness_checked_at: new Date().toISOString(),
+      freshness_previous_race_round: context.historical_context.previous_race?.round || null,
+      freshness_previous_race_winner: context.historical_context.previous_race?.winner || null,
+      stale_reason: null,
     },
   };
 }

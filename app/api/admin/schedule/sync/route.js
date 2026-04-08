@@ -1,6 +1,6 @@
 import { jsonError, jsonOk } from "../../_lib/response";
 import { appendOperationRun, buildOperationRun, readLocalAdminStore, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
-import { isLocalAdminRequest } from "../../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { getSupabaseAdmin, getSupabaseReadClient, requireServiceRole } from "../../_lib/supabaseAdmin";
 import { loadAdminCalendarState } from "../../_lib/dashboardData";
 import { buildScheduleSessionsByRound, fetchOpenF1Sessions, syncRaceCalendarLocally } from "../../_lib/scheduleSync";
@@ -9,12 +9,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin routes only run on localhost.", 403);
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
+    await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     requireServiceRole("schedule sync");
     const adminSupabase = getSupabaseAdmin();
@@ -60,6 +57,6 @@ export async function POST(request) {
       counts: run.counts,
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Schedule sync failed.");
+    return adminAccessErrorResponse(error, "Schedule sync failed.");
   }
 }

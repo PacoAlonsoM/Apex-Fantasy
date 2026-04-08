@@ -1,8 +1,8 @@
-import { jsonError, jsonOk } from "../_lib/response";
+import { jsonOk } from "../_lib/response";
 import { buildLocalAdminCapabilities, getSupabaseReadClient } from "../_lib/supabaseAdmin";
 import { readLocalAdminStore } from "../_lib/localAdminStore";
 import { buildDashboardPayload, loadAdminCalendarState } from "../_lib/dashboardData";
-import { isLocalAdminRequest } from "../_lib/localAdminAccess";
+import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,11 +19,8 @@ async function safeTableRows(task, fallback = []) {
 }
 
 export async function GET(request) {
-  if (!isLocalAdminRequest(request)) {
-    return jsonError("The local admin dashboard only runs on localhost.", 403);
-  }
-
   try {
+    await requireAdminRequest(request);
     const season = Number(new URL(request.url).searchParams.get("season") || 2026) || 2026;
     const supabase = getSupabaseReadClient();
     const store = await readLocalAdminStore();
@@ -63,6 +60,13 @@ export async function GET(request) {
     const capabilities = buildLocalAdminCapabilities();
     dashboard.capabilities = capabilities;
     dashboard.warnings = [...(calendarState.warnings || []), ...(capabilities.warnings || [])];
+    if (!dashboard.latestInsight && (insightRows || []).length > 0) {
+      dashboard.warnings.push(
+        dashboard.currentRound?.name
+          ? `A saved AI brief exists, but it does not match ${dashboard.currentRound.name}. Regenerate or repair the AI brief so the live site stays aligned.`
+          : "A saved AI brief exists, but it does not match the next race. Regenerate or repair the AI brief so the live site stays aligned.",
+      );
+    }
     dashboard.health = {
       ...(dashboard.health || {}),
       adminWriteStatus: capabilities.hasServiceRole ? "ready" : "blocked",
@@ -76,6 +80,6 @@ export async function GET(request) {
       dashboard,
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Could not load admin dashboard.");
+    return adminAccessErrorResponse(error, "Could not load admin dashboard.");
   }
 }
