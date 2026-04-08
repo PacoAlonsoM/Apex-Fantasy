@@ -1,6 +1,6 @@
 import "../src/index.css";
 
-const siteUrl = process.env.REACT_APP_PUBLIC_SITE_URL || "https://www.stint-web.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.stint-web.com";
 
 export const metadata = {
   metadataBase: new URL(siteUrl),

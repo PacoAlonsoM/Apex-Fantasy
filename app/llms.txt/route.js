@@ -1,4 +1,4 @@
-import { FOOTER_LINKS, PAGE_META, getNextRaceSnapshot, getPublicSiteUrl } from "../../src/public/siteData";
+import { FOOTER_LINKS, PAGE_META, getNextRaceSnapshot, getPublicSiteUrl } from "@/src/lib/siteData";
 
 export async function GET() {
   const siteUrl = getPublicSiteUrl();

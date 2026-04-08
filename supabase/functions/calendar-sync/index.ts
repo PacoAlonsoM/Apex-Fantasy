@@ -50,7 +50,7 @@ const COUNTRY_TO_SLUG = {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-calendar-sync-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-calendar-sync-secret, x-sync-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
@@ -157,39 +157,47 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || serviceRoleKey;
   const adminId = Deno.env.get("AI_ADMIN_USER_ID") || FALLBACK_ADMIN_ID;
   const calendarSyncSecret = Deno.env.get("CALENDAR_SYNC_SECRET");
+  const sharedSyncSecret = Deno.env.get("RACE_RESULTS_SYNC_SECRET");
 
   if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     return respond({ error: "Missing required environment variables." }, 500);
   }
 
   const secretHeader = req.headers.get("x-calendar-sync-secret");
-  let authorized = Boolean(calendarSyncSecret && secretHeader && secretHeader === calendarSyncSecret);
+  const sharedSecretHeader = req.headers.get("x-sync-secret");
+  const requestApiKey = req.headers.get("apikey");
+  let authorized = Boolean(
+    (calendarSyncSecret && secretHeader && secretHeader === calendarSyncSecret)
+    || (sharedSyncSecret && sharedSecretHeader && sharedSecretHeader === sharedSyncSecret)
+  );
 
   if (!authorized) {
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!token) {
+    if ((serviceRoleKey && requestApiKey === serviceRoleKey) || (token && token === serviceRoleKey)) {
+      authorized = true;
+    } else if (!token) {
       return respond({ error: "Missing auth token." }, 401);
+    } else {
+      const authClient = createClient(supabaseUrl, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const {
+        data: { user },
+        error: authError,
+      } = await authClient.auth.getUser(token);
+
+      if (authError || !user) {
+        return respond({ error: "Invalid auth token." }, 401);
+      }
+
+      if (user.id !== adminId) {
+        return respond({ error: "Forbidden." }, 403);
+      }
+
+      authorized = true;
     }
-
-    const authClient = createClient(supabaseUrl, anonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const {
-      data: { user },
-      error: authError,
-    } = await authClient.auth.getUser(token);
-
-    if (authError || !user) {
-      return respond({ error: "Invalid auth token." }, 401);
-    }
-
-    if (user.id !== adminId) {
-      return respond({ error: "Forbidden." }, 403);
-    }
-
-    authorized = true;
   }
 
   if (!authorized) {

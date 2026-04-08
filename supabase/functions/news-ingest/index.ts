@@ -15,6 +15,14 @@ type NewsArticleRow = {
   updated_at: string;
 };
 
+function buildGoogleNewsFeed(source: string, query: string, priority: number) {
+  return {
+    source,
+    url: `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
+    priority,
+  };
+}
+
 const FEEDS = [
   {
     source: "Formula1.com",
@@ -41,11 +49,14 @@ const FEEDS = [
     url: "https://racer.com/category/f1/feed/",
     priority: 3,
   },
+  buildGoogleNewsFeed("Google News F1", "\"Formula 1\" OR F1", 2),
+  buildGoogleNewsFeed("Google News F1 Tech", "\"Formula 1\" (upgrade OR technical OR FIA OR steward)", 2),
+  buildGoogleNewsFeed("Google News F1 Teams", "\"Formula 1\" (Ferrari OR Mercedes OR McLaren OR Red Bull)", 2),
 ];
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ingest-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ingest-secret, x-sync-secret",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Content-Type": "application/json",
 };
@@ -147,6 +158,13 @@ function truncateSummary(value: string | null, max = 560) {
   return `${value.slice(0, max - 1).trim()}…`;
 }
 
+function normalizeTitleKey(value: string | null) {
+  return normalizeWhitespace(String(value || ""))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function parsePublished(value: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -187,24 +205,34 @@ function parseFeed(source: string, priority: number, xml: string): NewsArticleRo
 }
 
 function dedupeArticles(articles: NewsArticleRow[]) {
-  const seen = new Map<string, NewsArticleRow>();
+  const seenByUrl = new Map<string, NewsArticleRow>();
+  const seenByTitle = new Map<string, NewsArticleRow>();
 
   for (const article of articles) {
     const url = String(article.url || "");
-    if (!url) continue;
+    const titleKey = normalizeTitleKey(article.title);
+    if (!url && !titleKey) continue;
 
-    const current = seen.get(url);
-    if (!current) {
-      seen.set(url, article);
-      continue;
-    }
-
-    const currentPriority = Number(current.source_priority || 0);
+    const current = seenByUrl.get(url) || seenByTitle.get(titleKey) || null;
+    const currentPriority = Number(current?.source_priority || 0);
     const nextPriority = Number(article.source_priority || 0);
-    if (nextPriority > currentPriority) seen.set(url, article);
+    const currentPublished = current?.published_at ? new Date(String(current.published_at)).getTime() : 0;
+    const nextPublished = article?.published_at ? new Date(String(article.published_at)).getTime() : 0;
+
+    const next =
+      !current
+        ? article
+        : nextPriority > currentPriority
+          ? article
+          : nextPriority === currentPriority && nextPublished > currentPublished
+            ? article
+            : current;
+
+    if (url) seenByUrl.set(url, next);
+    if (titleKey) seenByTitle.set(titleKey, next);
   }
 
-  return [...seen.values()].sort((a, b) => {
+  return [...new Set([...seenByUrl.values(), ...seenByTitle.values()])].sort((a, b) => {
     const left = a.published_at ? new Date(String(a.published_at)).getTime() : 0;
     const right = b.published_at ? new Date(String(b.published_at)).getTime() : 0;
     return right - left;
@@ -255,6 +283,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
   const configuredSecret = Deno.env.get("NEWS_INGEST_SECRET");
+  const sharedSyncSecret = Deno.env.get("RACE_RESULTS_SYNC_SECRET");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || serviceRoleKey;
@@ -265,12 +294,21 @@ Deno.serve(async (req: Request) => {
   }
 
   const providedSecret = req.headers.get("x-ingest-secret");
+  const providedSharedSecret = req.headers.get("x-sync-secret");
+  const providedApiKey = req.headers.get("apikey");
   const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   let authorized = false;
 
   if (configuredSecret && providedSecret === configuredSecret) {
+    authorized = true;
+  } else if (sharedSyncSecret && providedSharedSecret === sharedSyncSecret) {
+    authorized = true;
+  } else if (
+    (serviceRoleKey && providedApiKey === serviceRoleKey)
+    || (token && serviceRoleKey && token === serviceRoleKey)
+  ) {
     authorized = true;
   } else if (token) {
     const authClient = createClient(supabaseUrl, anonKey, {
@@ -326,7 +364,7 @@ Deno.serve(async (req: Request) => {
 
   const articles = dedupeArticles(collected);
   const enrichedArticles = await Promise.all(
-    articles.map((article, index) => (index < 18 ? enrichArticle(article) : Promise.resolve(article)))
+    articles.map((article, index) => (index < 48 ? enrichArticle(article) : Promise.resolve(article)))
   );
 
   if (enrichedArticles.length) {
@@ -335,7 +373,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 60);
+  cutoff.setDate(cutoff.getDate() - 120);
   await supabase.from("news_articles").delete().lt("published_at", cutoff.toISOString());
 
   await supabase.from("news_ingest_runs").insert({

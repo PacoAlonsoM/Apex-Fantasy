@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isKnownPage, legacySlugToPage, pageToHref } from "../../../src/routing";
+import { isKnownPage, legacySlugToPage, pageToHref } from "@/src/shell/routing";
 
 export const metadata = {
   title: "STINT App",

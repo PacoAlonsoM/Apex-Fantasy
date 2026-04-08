@@ -1,5 +1,5 @@
-import LegacyAppEntry from "../../src/public/LegacyAppEntry";
-import { PAGE_META } from "../../src/public/siteData";
+import LegacyAppEntry from "@/src/shell/LegacyAppEntry";
+import { PAGE_META } from "@/src/lib/siteData";
 
 export const metadata = PAGE_META.wire;
 

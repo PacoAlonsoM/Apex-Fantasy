@@ -1,4 +1,4 @@
-import { getPublicSiteUrl } from "../src/public/siteData";
+import { getPublicSiteUrl } from "@/src/lib/siteData";
 
 export default function robots() {
   const siteUrl = getPublicSiteUrl();

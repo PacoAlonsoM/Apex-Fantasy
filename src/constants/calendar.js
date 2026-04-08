@@ -52,8 +52,10 @@ export const CAL = [
   { r: 24, displayRound: 22, slug: "abu-dhabi-gp", n: "Abu Dhabi GP", circuit: "Yas Marina Circuit", city: "Abu Dhabi", cc: "UAE", date: "2026-12-06", type: "Permanent", len: 5.281, laps: 58, rec: "1:26.103", recBy: "M. Verstappen", recY: 2021, drs: 2, sprint: false, turns: 16, elev: 3, flagKey: "UAE", aliases: ["Grand Prix of Abu Dhabi", "Abu Dhabi Grand Prix"] },
 ];
 
+const INACTIVE_RACE_STATUSES = new Set(["cancelled", "postponed"]);
+
 export function isRaceCancelled(race) {
-  return String(race?.status || "").toLowerCase() === "cancelled";
+  return INACTIVE_RACE_STATUSES.has(String(race?.status || "").toLowerCase());
 }
 
 export const ACTIVE_CAL = CAL.filter((race) => !isRaceCancelled(race));
