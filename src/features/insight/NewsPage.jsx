@@ -81,6 +81,36 @@ const SOURCE_VISUALS = {
     label: "#d8b4fe",
   },
 };
+
+const CARD_BORDER = "1px solid rgba(148,163,184,0.14)";
+const CARD_BORDER_SOFT = "1px solid rgba(148,163,184,0.12)";
+const SECTION_HEADER_BG = "linear-gradient(180deg,rgba(21,35,56,0.98),rgba(13,25,42,0.98))";
+const PANEL_GRADIENT = `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG} 34%)`;
+const ACCENT_LABEL_STYLE = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "#67e8f9",
+};
+const MUTED_LABEL_STYLE = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: SUBTLE_TEXT,
+};
+
+const BLOCKED_IMAGE_HOST_PARTS = [
+  "news.google.",
+  "googleusercontent.",
+  "gstatic.",
+  "encrypted-tbn",
+  "ggpht.",
+];
+
+const BLOCKED_IMAGE_PATH_RE = /(?:favicon|apple-touch|sprite|logo|icon|placeholder|default-image|blank|pixel|spacer|avatar|profile)(?:[._/-]|$)/i;
+
 const AI_CATEGORY_ORDER = [
   "pole",
   "winner",
@@ -137,8 +167,92 @@ function articleVisualStyle(source) {
   };
 }
 
+function safeArticleImageUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw.startsWith("//") ? `https:${raw}` : raw);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+
+    const host = url.hostname.toLowerCase();
+    if (BLOCKED_IMAGE_HOST_PARTS.some((part) => host.includes(part))) return null;
+
+    const path = decodeURIComponent(url.pathname || "").toLowerCase();
+    if (BLOCKED_IMAGE_PATH_RE.test(path) || /(?:^|[-_/])(?:1x1|pixel)(?:[-_.]|$)/i.test(path)) return null;
+
+    const width = Number(url.searchParams.get("w") || url.searchParams.get("width") || 0);
+    const height = Number(url.searchParams.get("h") || url.searchParams.get("height") || 0);
+    if (width > 0 && height > 0 && (width < 180 || height < 90)) return null;
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function SectionHeader({ eyebrow, title, action }) {
+  return (
+    <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: SECTION_HEADER_BG, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div>
+        <div style={{ ...ACCENT_LABEL_STYLE, marginBottom: 4 }}>{eyebrow}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>{title}</div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, detail }) {
+  return (
+    <div style={{ borderRadius: 16, border: CARD_BORDER, background: "rgba(8,17,29,0.74)", padding: "13px 14px", boxShadow: EDGE_RING }}>
+      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, lineHeight: 1.12 }}>{value}</div>
+      {detail && <div style={{ fontSize: 12, lineHeight: 1.58, color: MUTED_TEXT, marginTop: 6 }}>{detail}</div>}
+    </div>
+  );
+}
+
 function NewsVisual({ article, height = 128, compact = false }) {
   const visual = articleVisualStyle(article.source);
+  const imageUrl = safeArticleImageUrl(article.image_url);
+  const [blockedImageUrl, setBlockedImageUrl] = useState(null);
+
+  if (imageUrl && blockedImageUrl !== imageUrl && !IS_SNAPSHOT) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height,
+          borderRadius: compact ? 16 : 18,
+          border: CARD_BORDER_SOFT,
+          background: visual.gradient,
+          boxShadow: `0 20px 42px ${visual.glow}`,
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          onError={() => setBlockedImageUrl(imageUrl)}
+          onLoad={(event) => {
+            const image = event.currentTarget;
+            if (image.naturalWidth < 180 || image.naturalHeight < 90) setBlockedImageUrl(imageUrl);
+          }}
+        />
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0),rgba(2,6,23,0.52))" }} />
+        <div style={{ position: "absolute", left: compact ? 10 : 14, bottom: compact ? 10 : 14, right: compact ? 10 : 14, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
+          <span style={{ ...ACCENT_LABEL_STYLE, color: "#ecfeff", textShadow: "0 2px 14px rgba(0,0,0,0.55)" }}>
+            {article.source || "F1 feed"}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -146,7 +260,7 @@ function NewsVisual({ article, height = 128, compact = false }) {
         width: "100%",
         height,
         borderRadius: compact ? 16 : 18,
-        border: "1px solid rgba(148,163,184,0.12)",
+        border: CARD_BORDER_SOFT,
         background: visual.gradient,
         boxShadow: `0 20px 42px ${visual.glow}`,
         padding: compact ? "12px 12px 11px" : "16px 16px 14px",
@@ -542,110 +656,89 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
           </div>
         ) : insight ? (
           <div style={{ display: "grid", gap: 16, padding: 18 }}>
-            <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
-              <div style={{ padding: "20px 22px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.2fr) 300px", gap: 18, alignItems: "start" }}>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 6 }}>
-                      AI Brief
-                    </div>
-                    <div style={{ fontSize: isMobile ? 28 : 36, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.02, marginBottom: 10 }}>
-                      {insight.headline}
-                    </div>
-                    <div style={{ fontSize: 15, lineHeight: 1.78, color: MUTED_TEXT, marginBottom: 12 }}>
-                      {insight.summary}
-                    </div>
-                    {insight?.metadata?.freshness_status === "stale" && insight?.metadata?.stale_reason && (
-                      <div style={{ borderRadius: 16, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.1)", padding: "12px 14px", fontSize: 12, lineHeight: 1.7, color: "#fcd34d", marginBottom: 12, maxWidth: 760 }}>
-                        {insight.metadata.stale_reason}
+            <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_GRADIENT, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+              <div
+                style={{
+                  padding: isMobile ? "22px 18px" : "26px 28px 24px",
+                  borderBottom: `1px solid ${HAIRLINE}`,
+                  background: "radial-gradient(circle at 12% 8%,rgba(255,106,26,0.18),transparent 28%), radial-gradient(circle at 86% 14%,rgba(45,212,191,0.14),transparent 30%), linear-gradient(180deg,rgba(21,35,56,0.96),rgba(10,18,32,0.98))",
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.35fr) minmax(280px,0.65fr)", gap: 20, alignItems: "stretch" }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+                    <div>
+                      <div style={{ ...ACCENT_LABEL_STYLE, marginBottom: 8 }}>Race briefing</div>
+                      <div style={{ fontSize: isMobile ? 32 : 48, fontWeight: 950, letterSpacing: isMobile ? -1.5 : -2.2, lineHeight: 0.98, maxWidth: 820, marginBottom: 14 }}>
+                        {insight.headline}
                       </div>
-                    )}
-                    {raceSummary && (
-                      <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "12px 14px", fontSize: 12, lineHeight: 1.72, color: "rgba(226,232,240,0.78)", maxWidth: 760 }}>
-                        {previewText(raceSummary.replace(/\s+/g, " "), 240)}
+                      <div style={{ fontSize: isMobile ? 15 : 17, lineHeight: 1.78, color: "rgba(226,232,240,0.82)", maxWidth: 820 }}>
+                        {insight.summary}
+                      </div>
+                    </div>
+
+                    {insight?.metadata?.freshness_status === "stale" && insight?.metadata?.stale_reason && (
+                      <div style={{ borderRadius: 16, border: "1px solid rgba(245,158,11,0.26)", background: "rgba(245,158,11,0.1)", padding: "12px 14px", fontSize: 12, lineHeight: 1.7, color: "#fcd34d", maxWidth: 820 }}>
+                        {insight.metadata.stale_reason}
                       </div>
                     )}
                   </div>
 
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {[
-                      ["Target race", insight.race_name || currentRace?.n || "Upcoming GP"],
-                      ["Confidence", typeof insight.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "N/A"],
-                      ["Inputs used", String(insight.source_count || sourceCount || 0)],
-                    ].map(([label, value]) => (
-                      <div key={label} style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
-                          {label}
-                        </div>
-                        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4 }}>{value}</div>
-                      </div>
-                    ))}
-                    <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, padding: "12px 14px", fontSize: 11, color: SUBTLE_TEXT }}>
-                      Generated {insight.generated_at ? formatPublished(insight.generated_at) : "recently"} from recent news, the live calendar, and stored race history.
-                    </div>
+                  <div style={{ borderRadius: 22, border: CARD_BORDER, background: "rgba(3,8,18,0.44)", padding: 14, display: "grid", gap: 10, boxShadow: EDGE_RING }}>
+                    <MetricCard label="Target race" value={insight.race_name || currentRace?.n || "Upcoming GP"} detail={currentRace?.date ? formatPublished(currentRace.date) : "Live calendar target"} />
+                    <MetricCard label="Confidence" value={typeof insight.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "N/A"} detail="Model confidence for the saved brief." />
+                    <MetricCard label="Inputs" value={String(insight.source_count || sourceCount || 0)} detail={`Generated ${insight.generated_at ? formatPublished(insight.generated_at) : "recently"}`} />
                   </div>
                 </div>
               </div>
-              <div style={{ padding: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12, background: "linear-gradient(180deg,rgba(2,6,23,0.06),rgba(255,255,255,0.02))" }}>
+
+              <div style={{ padding: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
                 {[
                   ["Race memory", previousRace?.winner ? `${previousRace.winner} won ${previousRace.race_name || "last time"}` : "Waiting for completed history", previousRace?.pole ? `Pole: ${previousRace.pole}` : "Official results drive this card"],
                   ["Primary angle", briefHighlights[0]?.title || "No headline angle yet", briefHighlights[0]?.detail || "Regenerate the brief from Admin once more race-week data exists."],
                   ["Board pressure", aiPredictions[0]?.pick ? `${aiPredictions[0].pick} leads ${aiPredictions[0].category}` : "No category call yet", aiPredictions[0]?.reason || "Category picks appear after AI generation."],
-                ].map(([label, value, detail]) => (
-                  <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: "rgba(8,17,29,0.72)", padding: "14px 15px", boxShadow: EDGE_RING }}>
-                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 8 }}>{label}</div>
-                    <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.22, marginBottom: 7 }}>{value}</div>
-                    <div style={{ fontSize: 12, lineHeight: 1.62, color: MUTED_TEXT }}>{previewText(detail, 118)}</div>
-                  </div>
-                ))}
+                ].map(([label, value, detail]) => <MetricCard key={label} label={label} value={value} detail={previewText(detail, 126)} />)}
               </div>
             </section>
 
-            <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1fr) minmax(320px,0.9fr)", gap: 16 }}>
-              <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
-                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                    What matters most
+            <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.05fr) minmax(320px,0.95fr)", gap: 16 }}>
+              <div style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                <SectionHeader eyebrow="The read" title="What matters before lock" />
+                <div style={{ padding: 16, display: "grid", gap: 14 }}>
+                  <div style={{ borderRadius: 18, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "16px 17px", fontSize: 14, lineHeight: 1.86, color: "rgba(226,232,240,0.82)", boxShadow: EDGE_RING }}>
+                    {raceSummary ? previewText(raceSummary.replace(/\s+/g, " "), 620) : insight.summary}
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
-                    Short briefing
-                  </div>
-                </div>
-                <div style={{ display: "grid", gap: 10, padding: 14 }}>
-                  {briefHighlights.map((item, index) => (
-                    <button
-                      key={`${item.title}-${index}`}
-                      onClick={() => setExpandedInsight({
-                        eyebrow: item.label,
-                        title: item.title,
-                        fields: [["Takeaway", item.detail]],
-                      })}
-                      style={{ width: "100%", textAlign: "left", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "13px 13px 12px", cursor: "pointer" }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.tone }} />
-                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-                          {item.label}
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {(briefHighlights.length ? briefHighlights : [{
+                      title: "No brief highlights yet",
+                      detail: "Regenerate the AI brief from Admin once more race-week data exists.",
+                      tone: "#93c5fd",
+                      label: "Setup",
+                    }]).map((item, index) => (
+                      <button
+                        key={`${item.title}-${index}`}
+                        onClick={() => setExpandedInsight({
+                          eyebrow: item.label,
+                          title: item.title,
+                          fields: [["Takeaway", item.detail]],
+                        })}
+                        style={{ width: "100%", textAlign: "left", borderRadius: 18, border: CARD_BORDER_SOFT, background: "rgba(21,35,56,0.82)", padding: "14px 15px", cursor: "pointer", boxShadow: EDGE_RING }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.tone, boxShadow: `0 0 0 5px ${item.tone}14` }} />
+                          <div style={MUTED_LABEL_STYLE}>{item.label}</div>
                         </div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 7 }}>{item.title}</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(item.detail, 150)}</div>
-                    </button>
-                  ))}
+                        <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25, letterSpacing: -0.35, marginBottom: 7 }}>{item.title}</div>
+                        <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(item.detail, 180)}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
-                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                    Historical edge
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
-                    Signals from recent results
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+              <div style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                <SectionHeader eyebrow="Evidence" title="History and wire signals" />
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
                   {[
                     ["Last winner", previousRace?.winner || "N/A", previousRace?.race_name ? `From ${previousRace.race_name}` : "No completed race stored yet"],
                     ["Hot driver", recentDriverLeader?.driver || "N/A", recentDriverLeader ? `${recentDriverLeader.points} pts in recent rounds` : "Waiting for more completed rounds"],
@@ -653,97 +746,94 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                     ["Volatility", seasonVolatility?.average_dnfs_per_race != null ? `${seasonVolatility.average_dnfs_per_race} DNFs/race` : "N/A", seasonVolatility?.safety_car_rate != null ? `Safety car rate ${Math.round(seasonVolatility.safety_car_rate * 100)}%` : "No volatility sample yet"],
                   ].map(([label, value, detail]) => (
                     <div key={label} style={{ background: PANEL_BG, padding: "14px 16px" }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>{label}</div>
+                      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 6 }}>{label}</div>
                       <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>{value}</div>
                       <div style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>{detail}</div>
                     </div>
                   ))}
                 </div>
 
-                {(historicalResults.length > 0 || crowdFavorite || previousRaceWeather || previousRaceStrategy) && (
-                  <div style={{ padding: "14px 16px", borderTop: `1px solid ${HAIRLINE}`, display: "grid", gap: 10 }}>
-                    {historicalResults.length > 0 && (
-                      <div style={{ borderRadius: 14, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "12px 13px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 6 }}>
-                          Recent completed rounds
-                        </div>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {historicalResults.slice(0, 2).map((item) => (
-                            <div key={`${item.race_round}-${item.race_name}`} style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                              <span style={{ color: "#fff", fontWeight: 700 }}>{item.race_name || `Round ${item.race_round}`}</span>
-                              {" · Winner "}
-                              <span style={{ color: "#fff" }}>{item.winner || "N/A"}</span>
-                              {" · Pole "}
-                              <span style={{ color: "#fff" }}>{item.pole || "N/A"}</span>
-                            </div>
-                          ))}
-                        </div>
+                <div style={{ padding: 14, display: "grid", gap: 10, borderTop: `1px solid ${HAIRLINE}` }}>
+                  {historicalResults.length > 0 && (
+                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px" }}>
+                      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 6 }}>Recent completed rounds</div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {historicalResults.slice(0, 3).map((item) => (
+                          <div key={`${item.race_round}-${item.race_name}`} style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
+                            <span style={{ color: "#fff", fontWeight: 800 }}>{item.race_name || `Round ${item.race_round}`}</span>
+                            {" · Winner "}
+                            <span style={{ color: "#fff" }}>{item.winner || "N/A"}</span>
+                            {" · Pole "}
+                            <span style={{ color: "#fff" }}>{item.pole || "N/A"}</span>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {crowdFavorite && (
-                      <div style={{ borderRadius: 14, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                        <span style={{ color: "#fff", fontWeight: 700 }}>Fantasy market:</span> players most often backed {crowdFavorite.pick} in {crowdFavorite.category}, with {Math.round((crowdFavorite.share || 0) * 100)}% share and {Math.round((crowdFavorite.accuracy || 0) * 100)}% hit rate.
-                      </div>
-                    )}
+                  {newsDigest.slice(0, 3).map((item, index) => (
+                    <button
+                      key={`${item.headline}-${index}`}
+                      onClick={() => setExpandedInsight(detailOverlayPayload("digest", item))}
+                      style={{ width: "100%", textAlign: "left", borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", cursor: "pointer" }}
+                    >
+                      <div style={{ ...MUTED_LABEL_STYLE, color: "#67e8f9", marginBottom: 6 }}>Wire signal</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 5 }}>{item.headline}</div>
+                      <div style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>{previewText(item.why_it_matters || item.detail, 130)}</div>
+                    </button>
+                  ))}
 
-                    {(previousRaceWeather || previousRaceStrategy) && (
-                      <div style={{ borderRadius: 14, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                        <span style={{ color: "#fff", fontWeight: 700 }}>Last-race conditions:</span>{" "}
-                        {previousRaceWeather?.rainfall === true ? "wet running" : "mainly dry running"}
-                        {previousRaceStrategy?.most_common_opening_compound ? ` · most common opening tyre ${previousRaceStrategy.most_common_opening_compound}` : ""}
-                        {previousRaceStrategy?.average_pit_stops_per_driver != null ? ` · avg ${previousRaceStrategy.average_pit_stops_per_driver} pit stops/driver` : ""}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {crowdFavorite && (
+                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
+                      <span style={{ color: "#fff", fontWeight: 800 }}>Fantasy market:</span> players most often backed {crowdFavorite.pick} in {crowdFavorite.category}, with {Math.round((crowdFavorite.share || 0) * 100)}% share and {Math.round((crowdFavorite.accuracy || 0) * 100)}% hit rate.
+                    </div>
+                  )}
+
+                  {(previousRaceWeather || previousRaceStrategy) && (
+                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
+                      <span style={{ color: "#fff", fontWeight: 800 }}>Last-race conditions:</span>{" "}
+                      {previousRaceWeather?.rainfall === true ? "wet running" : "mainly dry running"}
+                      {previousRaceStrategy?.most_common_opening_compound ? ` · most common opening tyre ${previousRaceStrategy.most_common_opening_compound}` : ""}
+                      {previousRaceStrategy?.average_pit_stops_per_driver != null ? ` · avg ${previousRaceStrategy.average_pit_stops_per_driver} pit stops/driver` : ""}
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 
-            <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
-              <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                  Suggested board
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
-                  Category calls at a glance
-                </div>
-              </div>
+            <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+              <SectionHeader
+                eyebrow="Suggested board"
+                title="Category calls at a glance"
+                action={<span style={{ borderRadius: 999, border: "1px solid rgba(59,130,246,0.24)", background: "rgba(59,130,246,0.12)", color: "#dbeafe", padding: "7px 10px", fontSize: 11, fontWeight: 800 }}>{aiPredictions.length || 0} AI picks</span>}
+              />
 
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
-                {aiPredictions.map((item, index) => (
-                  <div key={`${item.category}-${index}`} style={{ background: PANEL_BG, padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-                        {item.category}
-                      </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 1, background: HAIRLINE }}>
+                {(aiPredictions.length ? aiPredictions : [{ category: "Waiting", pick: "No AI picks yet", reason: "Generate the AI brief from Admin to fill the category board.", confidence: null }]).map((item, index) => (
+                  <div key={`${item.category}-${index}`} style={{ background: PANEL_BG, padding: "16px 17px", position: "relative", overflow: "hidden" }}>
+                    <div aria-hidden="true" style={{ position: "absolute", inset: "0 auto 0 0", width: 3, background: "linear-gradient(180deg,#67e8f9,#3b82f6)" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                      <div style={MUTED_LABEL_STYLE}>{item.category}</div>
                       <div style={{ fontSize: 10, fontWeight: 800, color: "#dbeafe", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 999, padding: "4px 8px" }}>
                         {typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}%` : "AI"}
                       </div>
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, marginBottom: 6 }}>{item.pick}</div>
-                    <div style={{ fontSize: 12, lineHeight: 1.68, color: MUTED_TEXT }}>{previewText(item.reason, 108)}</div>
+                    <div style={{ fontSize: 20, fontWeight: 950, letterSpacing: -0.5, marginBottom: 7, lineHeight: 1.12 }}>{item.pick}</div>
+                    <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(item.reason, 150)}</div>
                   </div>
                 ))}
               </div>
             </section>
 
             {(insight.watchlist || []).length > 0 && (
-              <section style={{ borderRadius: 22, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG, overflow: "hidden" }}>
-                <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 4 }}>
-                    Watch before lock
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
-                    Late movers
-                  </div>
-                </div>
+              <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+                <SectionHeader eyebrow="Watch before lock" title="Late movers" />
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
                   {(insight.watchlist || []).map((item, index) => (
                     <button key={`${item.label}-${index}`} onClick={() => setExpandedInsight(detailOverlayPayload("watch", item))} style={{ width: "100%", textAlign: "left", border: "none", background: PANEL_BG, padding: "16px 18px", cursor: "pointer" }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{item.label}</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.trigger || item.reason, 120)}</div>
-                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>React: {previewText(item.how_to_react, 84)}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{item.label}</div>
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.trigger || item.reason, 140)}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>React: {previewText(item.how_to_react, 96)}</div>
                     </button>
                   ))}
                 </div>

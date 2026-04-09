@@ -127,6 +127,44 @@ function SupportTeamCard({ option, active, onSelect }) {
   );
 }
 
+function PasswordInput({ id, value, onChange, onKeyDown, inputStyle, visible, onToggle, marginBottom = 10 }) {
+  return (
+    <div style={{ position: "relative", marginBottom }}>
+      <input
+        id={id}
+        style={{ ...inputStyle, paddingRight: 74 }}
+        type={visible ? "text" : "password"}
+        placeholder="••••••••"
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+      />
+      <button
+        type="button"
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        onClick={onToggle}
+        style={{
+          position: "absolute",
+          right: 7,
+          top: "50%",
+          transform: "translateY(-50%)",
+          border: "1px solid rgba(148,163,184,0.14)",
+          background: "rgba(6,16,27,0.72)",
+          color: "rgba(248,250,252,0.82)",
+          borderRadius: 999,
+          cursor: "pointer",
+          fontSize: 11,
+          fontWeight: 800,
+          padding: "6px 9px",
+        }}
+      >
+        {visible ? "Hide" : "Show"}
+      </button>
+    </div>
+  );
+}
+
 export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarget, demoMode = false }) {
   const { isMobile, isTablet } = useViewport();
   const [f, setF] = useState({
@@ -141,6 +179,10 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
   const [loading, setLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [shaking, setShaking] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    pass: false,
+    confirm: false,
+  });
 
   const selectedSupportTheme = AVATAR_THEMES[teamSupportKey(f.favoriteTeam)] || AVATAR_THEMES.ember;
   const isLoginMode = mode === "login";
@@ -157,6 +199,10 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
   const triggerShake = () => {
     setShaking(true);
     setTimeout(() => setShaking(false), 350);
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setVisiblePasswords((current) => ({ ...current, [field]: !current[field] }));
   };
 
   const closeModal = () => {
@@ -615,16 +661,40 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
               {(mode === "login" || mode === "register") && (
                 <>
                   <label htmlFor="auth-pass" style={labelStyle}>Password</label>
-                  <input id="auth-pass" style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
+                  <PasswordInput
+                    id="auth-pass"
+                    inputStyle={inputStyle}
+                    value={f.pass}
+                    visible={visiblePasswords.pass}
+                    onToggle={() => togglePasswordVisibility("pass")}
+                    onChange={(event) => upd("pass", event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && submit()}
+                  />
                 </>
               )}
 
               {mode === "reset" && (
                 <>
                   <label htmlFor="auth-newpass" style={labelStyle}>New password</label>
-                  <input id="auth-newpass" style={{ ...inputStyle, marginBottom: 14 }} type="password" placeholder="••••••••" value={f.pass} onChange={(event) => upd("pass", event.target.value)} />
+                  <PasswordInput
+                    id="auth-newpass"
+                    inputStyle={inputStyle}
+                    value={f.pass}
+                    visible={visiblePasswords.pass}
+                    onToggle={() => togglePasswordVisibility("pass")}
+                    marginBottom={14}
+                    onChange={(event) => upd("pass", event.target.value)}
+                  />
                   <label htmlFor="auth-confirm" style={labelStyle}>Confirm password</label>
-                  <input id="auth-confirm" style={{ ...inputStyle, marginBottom: 10 }} type="password" placeholder="••••••••" value={f.confirm} onChange={(event) => upd("confirm", event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} />
+                  <PasswordInput
+                    id="auth-confirm"
+                    inputStyle={inputStyle}
+                    value={f.confirm}
+                    visible={visiblePasswords.confirm}
+                    onToggle={() => togglePasswordVisibility("confirm")}
+                    onChange={(event) => upd("confirm", event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && submit()}
+                  />
                 </>
               )}
 

@@ -41,6 +41,16 @@ const FEEDS = [
   buildGoogleNewsFeed("Google News F1 Weekend", "\"Miami GP\" OR \"Formula 1 sprint\" OR \"F1 qualifying\"", 2),
 ];
 
+const BLOCKED_IMAGE_HOST_PARTS = [
+  "news.google.",
+  "googleusercontent.",
+  "gstatic.",
+  "encrypted-tbn",
+  "ggpht.",
+];
+
+const BLOCKED_IMAGE_PATH_RE = /(?:favicon|apple-touch|sprite|logo|icon|placeholder|default-image|blank|pixel|spacer|avatar|profile)(?:[._/-]|$)/i;
+
 function normalizeWhitespace(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -98,6 +108,30 @@ function extractImage(block) {
   }
 
   return null;
+}
+
+function cleanArticleImageUrl(value, baseUrl = null) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw.startsWith("//") ? `https:${raw}` : raw, baseUrl || undefined);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+
+    const host = url.hostname.toLowerCase();
+    if (BLOCKED_IMAGE_HOST_PARTS.some((part) => host.includes(part))) return null;
+
+    const path = decodeURIComponent(url.pathname || "").toLowerCase();
+    if (BLOCKED_IMAGE_PATH_RE.test(path) || /(?:^|[-_/])(?:1x1|pixel)(?:[-_.]|$)/i.test(path)) return null;
+
+    const width = Number(url.searchParams.get("w") || url.searchParams.get("width") || 0);
+    const height = Number(url.searchParams.get("h") || url.searchParams.get("height") || 0);
+    if (width > 0 && height > 0 && (width < 180 || height < 90)) return null;
+
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 function extractMetaContent(html, keys) {
@@ -160,7 +194,7 @@ function parseFeed(source, priority, xml) {
       const url = extractLink(block);
       const description = extractTag(block, ["description", "content:encoded", "summary", "content"]);
       const publishedAt = parsePublished(extractTag(block, ["pubDate", "published", "updated"], false));
-      const imageUrl = extractImage(block);
+      const imageUrl = cleanArticleImageUrl(extractImage(block));
 
       if (!title || !url) return null;
 
@@ -217,7 +251,10 @@ function dedupeArticles(articles) {
 
 async function enrichArticle(article) {
   const summaryLength = article?.summary?.length || 0;
-  if (article?.image_url && summaryLength >= 220) return article;
+  const currentImageUrl = cleanArticleImageUrl(article?.image_url, article?.url);
+  if (currentImageUrl && summaryLength >= 220) {
+    return { ...article, image_url: currentImageUrl };
+  }
 
   try {
     const response = await fetch(article.url, {
@@ -228,11 +265,14 @@ async function enrichArticle(article) {
       cache: "no-store",
     });
 
-    if (!response.ok) return article;
+    if (!response.ok) return { ...article, image_url: currentImageUrl || null };
 
     const html = await response.text();
-    const imageUrl = article.image_url
-      || extractMetaContent(html, ["og:image", "twitter:image", "twitter:image:src"]);
+    const metaImageUrl = cleanArticleImageUrl(
+      extractMetaContent(html, ["og:image", "twitter:image", "twitter:image:src"]),
+      article.url
+    );
+    const imageUrl = metaImageUrl || currentImageUrl;
     const metaDescription = extractMetaContent(html, ["og:description", "description", "twitter:description"]);
     const paragraphSummary = extractParagraphSummary(html);
 
@@ -251,7 +291,7 @@ async function enrichArticle(article) {
       updated_at: new Date().toISOString(),
     };
   } catch {
-    return article;
+    return { ...article, image_url: currentImageUrl || null };
   }
 }
 
