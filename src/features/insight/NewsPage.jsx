@@ -123,8 +123,8 @@ function pickFeaturedArticle(items) {
     const rightSummary = right.summary?.length || 0;
     const leftRecency = left.published_at ? new Date(left.published_at).getTime() / 1e11 : 0;
     const rightRecency = right.published_at ? new Date(right.published_at).getTime() / 1e11 : 0;
-    const leftScore = leftSummary + (left.image_url ? 420 : 0) + leftRecency;
-    const rightScore = rightSummary + (right.image_url ? 420 : 0) + rightRecency;
+    const leftScore = leftSummary + leftRecency;
+    const rightScore = rightSummary + rightRecency;
     return rightScore - leftScore;
   })[0] || items[0];
 }
@@ -140,22 +140,6 @@ function articleVisualStyle(source) {
 function NewsVisual({ article, height = 128, compact = false }) {
   const visual = articleVisualStyle(article.source);
 
-  if (article.image_url && !IS_SNAPSHOT) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height,
-          borderRadius: compact ? 16 : 18,
-          backgroundImage: `linear-gradient(180deg,rgba(2,6,23,0.02),rgba(2,6,23,0.34)),url(${article.image_url})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          boxShadow: `0 20px 42px ${visual.glow}`,
-        }}
-      />
-    );
-  }
-
   return (
     <div
       style={{
@@ -169,12 +153,26 @@ function NewsVisual({ article, height = 128, compact = false }) {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "auto -18% -34% auto",
+          width: compact ? 84 : 136,
+          height: compact ? 84 : 136,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.08)",
+          filter: "blur(2px)",
+        }}
+      />
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: visual.label }}>
         {article.source || "F1 feed"}
       </div>
-      <div style={{ fontSize: compact ? 13 : 16, fontWeight: 800, lineHeight: 1.24, color: "#f8fafc", letterSpacing: -0.3 }}>
+      <div style={{ position: "relative", zIndex: 1, fontSize: compact ? 13 : 16, fontWeight: 800, lineHeight: 1.24, color: "#f8fafc", letterSpacing: -0.3 }}>
         {previewText(article.title, compact ? 72 : 108)}
       </div>
     </div>
@@ -587,6 +585,19 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div style={{ padding: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12, background: "linear-gradient(180deg,rgba(2,6,23,0.06),rgba(255,255,255,0.02))" }}>
+                {[
+                  ["Race memory", previousRace?.winner ? `${previousRace.winner} won ${previousRace.race_name || "last time"}` : "Waiting for completed history", previousRace?.pole ? `Pole: ${previousRace.pole}` : "Official results drive this card"],
+                  ["Primary angle", briefHighlights[0]?.title || "No headline angle yet", briefHighlights[0]?.detail || "Regenerate the brief from Admin once more race-week data exists."],
+                  ["Board pressure", aiPredictions[0]?.pick ? `${aiPredictions[0].pick} leads ${aiPredictions[0].category}` : "No category call yet", aiPredictions[0]?.reason || "Category picks appear after AI generation."],
+                ].map(([label, value, detail]) => (
+                  <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.14)", background: "rgba(8,17,29,0.72)", padding: "14px 15px", boxShadow: EDGE_RING }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 8 }}>{label}</div>
+                    <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.22, marginBottom: 7 }}>{value}</div>
+                    <div style={{ fontSize: 12, lineHeight: 1.62, color: MUTED_TEXT }}>{previewText(detail, 118)}</div>
+                  </div>
+                ))}
               </div>
             </section>
 

@@ -806,10 +806,43 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
     );
   }
 
+  const communityHero = tab === "leaderboard"
+    ? {
+        eyebrow: "Global leaderboard",
+        titleLines: ["Every player.", "One table.", "Race by race."],
+        description: "The global board keeps the league energy visible: the same scoring system, the same weekend swings, and a cleaner read on who is setting the pace.",
+        stats: [
+          [String(leaderboard.length || 0), "players"],
+          [leaderboard[0]?.username || "none", "leader"],
+          [loadingLB ? "loading" : "live", "status"],
+        ],
+      }
+    : tab === "forum"
+      ? {
+          eyebrow: "Public forum",
+          titleLines: ["Talk the race.", "Challenge the read.", "Keep receipts."],
+          description: "The public forum stays inside the same league shell so global conversation feels connected to the table instead of like a separate old page.",
+          stats: [
+            [String(posts.length || 0), "threads"],
+            [user ? "can post" : demoPreview ? "preview" : "login", "access"],
+            [showGlobalForm ? "writing" : "live", "status"],
+          ],
+        }
+      : {
+          eyebrow: "Leagues",
+          titleLines: ["Build the room.", "Track the table.", "Own the weekend."],
+          description: "Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.",
+          stats: [
+            [String(leagues.length || 0), "leagues"],
+            [String(currentStandings.length || 0), "members"],
+            [user ? "active" : demoPreview ? "preview" : "login", "status"],
+          ],
+        };
+
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
       <section style={{ marginBottom: 24 }}>
-        {tab === "leagues" ? (
+        {["leagues", "leaderboard", "forum"].includes(tab) ? (
           <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
             <div
               style={{
@@ -851,26 +884,23 @@ export default function CommunityPage({ user, openAuth, demoMode = false }) {
               <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", alignContent: "space-between", gap: 14, flexWrap: "wrap", minHeight: isMobile ? "auto" : 260 }}>
                 <div style={{ maxWidth: 760 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-                    Leagues
+                    {communityHero.eyebrow}
                   </div>
                   <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
-                    Build the room.
-                    <br />
-                    Track the table.
-                    <br />
-                    Own the weekend.
+                    {communityHero.titleLines.map((line, index) => (
+                      <span key={line}>
+                        {line}
+                        {index < communityHero.titleLines.length - 1 && <br />}
+                      </span>
+                    ))}
                   </h1>
                   <div style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 640 }}>
-                    Private leagues now run like workspaces: a control rail on the left, a dedicated standings and chat area on the right, and a cleaner path into the global leaderboard and public discussion.
+                    {communityHero.description}
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,minmax(0,116px))", gap: 10, width: isMobile ? "100%" : "auto" }}>
-                  {[
-                    [String(leagues.length || 0), "leagues"],
-                    [String(currentStandings.length || 0), "members"],
-                    [user ? "active" : demoPreview ? "preview" : "login", "status"],
-                  ].map(([value, label]) => (
+                  {communityHero.stats.map(([value, label]) => (
                     <div key={label} style={{ borderRadius: 18, border: label === "status" ? `1px solid ${ACCENT}33` : "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.02)", boxShadow: EDGE_RING, padding: "14px 15px 13px" }}>
                       <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
                       <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>{label}</div>
