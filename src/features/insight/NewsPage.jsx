@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { nextRace } from "@/src/constants/calendar";
-import { ACCENT, CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE } from "@/src/constants/design";
+import { ACCENT, CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, SOFT_SHADOW } from "@/src/constants/design";
 import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
