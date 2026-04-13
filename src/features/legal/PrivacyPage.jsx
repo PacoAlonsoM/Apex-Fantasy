@@ -46,12 +46,12 @@ export default function PrivacyPage() {
       <div style={{ display: "grid", gap: 14 }}>
         <SectionBlock title="1. Data We Collect">
           <p style={{ margin: 0 }}>Account data: email, username, authentication identifiers, and profile preferences (such as avatar color and supported team).</p>
-          <p style={{ margin: 0 }}>Gameplay data: predictions, league memberships, points, standings interactions, and forum or chat posts.</p>
+          <p style={{ margin: 0 }}>Gameplay data: predictions, league memberships, points, standings interactions, and The Grid or league chat posts.</p>
           <p style={{ margin: 0 }}>Operational data: timestamps, basic logs, and service diagnostics needed for reliability and abuse prevention.</p>
         </SectionBlock>
 
         <SectionBlock title="2. How We Use Data">
-          <p style={{ margin: 0 }}>We use data to authenticate users, save picks, calculate standings, run leagues, moderate community spaces, and improve product quality.</p>
+          <p style={{ margin: 0 }}>We use data to authenticate users, save picks, calculate standings, run leagues, moderate The Grid and league spaces, and improve product quality.</p>
           <p style={{ margin: 0 }}>We may use aggregated, non-identifying usage patterns to improve features and race-week performance.</p>
         </SectionBlock>
 
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
         </SectionBlock>
 
         <SectionBlock title="4. Community Content">
-          <p style={{ margin: 0 }}>Posts, replies, and league chat messages are visible according to their forum scope (global or league-specific). Do not post private information you do not want other users to see.</p>
+          <p style={{ margin: 0 }}>Posts, replies, and league chat messages are visible according to their scope (The Grid is public; league chat is league-specific). Do not post private information you do not want other users to see.</p>
           <p style={{ margin: 0 }}>We reserve the right to remove content that violates platform rules or legal requirements.</p>
         </SectionBlock>
 

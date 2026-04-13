@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/src/lib/supabase";
+import { chooseInsightForRace } from "@/src/lib/aiInsight";
 import { nextRace } from "@/src/constants/calendar";
-import { ACCENT, CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, SOFT_SHADOW } from "@/src/constants/design";
+import { ACCENT, CONTENT_MAX, EDGE_RING, LIFTED_SHADOW, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, HAIRLINE, SUCCESS, WARM } from "@/src/constants/design";
 import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
+import { DRV, TEAMS } from "@/src/constants/teams";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
+import PageHeader from "@/src/ui/PageHeader";
 
 const BLOCKED_NEWS_SOURCES = new Set(["Formula1.com"]);
 
@@ -81,36 +85,6 @@ const SOURCE_VISUALS = {
     label: "#d8b4fe",
   },
 };
-
-const CARD_BORDER = "1px solid rgba(148,163,184,0.14)";
-const CARD_BORDER_SOFT = "1px solid rgba(148,163,184,0.12)";
-const SECTION_HEADER_BG = "linear-gradient(180deg,rgba(21,35,56,0.98),rgba(13,25,42,0.98))";
-const PANEL_GRADIENT = `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG} 34%)`;
-const ACCENT_LABEL_STYLE = {
-  fontSize: 10,
-  fontWeight: 800,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  color: "#67e8f9",
-};
-const MUTED_LABEL_STYLE = {
-  fontSize: 10,
-  fontWeight: 800,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: SUBTLE_TEXT,
-};
-
-const BLOCKED_IMAGE_HOST_PARTS = [
-  "news.google.",
-  "googleusercontent.",
-  "gstatic.",
-  "encrypted-tbn",
-  "ggpht.",
-];
-
-const BLOCKED_IMAGE_PATH_RE = /(?:favicon|apple-touch|sprite|logo|icon|placeholder|default-image|blank|pixel|spacer|avatar|profile)(?:[._/-]|$)/i;
-
 const AI_CATEGORY_ORDER = [
   "pole",
   "winner",
@@ -127,6 +101,29 @@ const AI_CATEGORY_ORDER = [
   "sp_p2",
   "sp_p3",
 ];
+
+const CATEGORY_LABELS = {
+  pole: "Pole Position",
+  winner: "Race Winner",
+  p2: "P2",
+  p3: "P3",
+  dnf: "DNF Pick",
+  fl: "Fastest Lap",
+  dotd: "Driver of the Day",
+  ctor: "Constructor",
+  sc: "Safety Car",
+  rf: "Red Flag",
+  sp_pole: "Sprint Pole",
+  sp_winner: "Sprint Winner",
+  sp_p2: "Sprint P2",
+  sp_p3: "Sprint P3",
+};
+
+const CATEGORY_TYPE_COLOR = {
+  driver: { bg: "rgba(255,106,26,0.12)", border: "rgba(255,106,26,0.28)", text: "#fed7aa" },
+  constructor: { bg: "rgba(45,212,191,0.1)", border: "rgba(45,212,191,0.26)", text: "#99f6e4" },
+  binary: { bg: "rgba(148,163,184,0.1)", border: "rgba(148,163,184,0.22)", text: "#94a3b8" },
+};
 
 function formatPublished(value) {
   return new Intl.DateTimeFormat(undefined, {
@@ -153,8 +150,8 @@ function pickFeaturedArticle(items) {
     const rightSummary = right.summary?.length || 0;
     const leftRecency = left.published_at ? new Date(left.published_at).getTime() / 1e11 : 0;
     const rightRecency = right.published_at ? new Date(right.published_at).getTime() / 1e11 : 0;
-    const leftScore = leftSummary + leftRecency;
-    const rightScore = rightSummary + rightRecency;
+    const leftScore = leftSummary + (left.image_url ? 420 : 0) + leftRecency;
+    const rightScore = rightSummary + (right.image_url ? 420 : 0) + rightRecency;
     return rightScore - leftScore;
   })[0] || items[0];
 }
@@ -167,89 +164,47 @@ function articleVisualStyle(source) {
   };
 }
 
-function safeArticleImageUrl(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-
-  try {
-    const url = new URL(raw.startsWith("//") ? `https:${raw}` : raw);
-    if (!["http:", "https:"].includes(url.protocol)) return null;
-
-    const host = url.hostname.toLowerCase();
-    if (BLOCKED_IMAGE_HOST_PARTS.some((part) => host.includes(part))) return null;
-
-    const path = decodeURIComponent(url.pathname || "").toLowerCase();
-    if (BLOCKED_IMAGE_PATH_RE.test(path) || /(?:^|[-_/])(?:1x1|pixel)(?:[-_.]|$)/i.test(path)) return null;
-
-    const width = Number(url.searchParams.get("w") || url.searchParams.get("width") || 0);
-    const height = Number(url.searchParams.get("h") || url.searchParams.get("height") || 0);
-    if (width > 0 && height > 0 && (width < 180 || height < 90)) return null;
-
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function SectionHeader({ eyebrow, title, action }) {
-  return (
-    <div style={{ padding: "16px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: SECTION_HEADER_BG, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-      <div>
-        <div style={{ ...ACCENT_LABEL_STYLE, marginBottom: 4 }}>{eyebrow}</div>
-        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>{title}</div>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function MetricCard({ label, value, detail }) {
-  return (
-    <div style={{ borderRadius: 16, border: CARD_BORDER, background: "rgba(8,17,29,0.74)", padding: "13px 14px", boxShadow: EDGE_RING }}>
-      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 5 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.4, lineHeight: 1.12 }}>{value}</div>
-      {detail && <div style={{ fontSize: 12, lineHeight: 1.58, color: MUTED_TEXT, marginTop: 6 }}>{detail}</div>}
-    </div>
-  );
-}
-
 function NewsVisual({ article, height = 128, compact = false }) {
   const visual = articleVisualStyle(article.source);
-  const imageUrl = safeArticleImageUrl(article.image_url);
-  const [blockedImageUrl, setBlockedImageUrl] = useState(null);
+  const [imgFailed, setImgFailed] = useState(false);
 
-  if (imageUrl && blockedImageUrl !== imageUrl && !IS_SNAPSHOT) {
+  if (article.image_url && !IS_SNAPSHOT && !imgFailed) {
     return (
       <div
         style={{
           width: "100%",
           height,
           borderRadius: compact ? 16 : 18,
-          border: CARD_BORDER_SOFT,
-          background: visual.gradient,
-          boxShadow: `0 20px 42px ${visual.glow}`,
           overflow: "hidden",
           position: "relative",
+          flexShrink: 0,
+          boxShadow: `0 20px 42px ${visual.glow}`,
         }}
       >
         <img
-          src={imageUrl}
+          src={article.image_url}
           alt=""
-          loading="lazy"
+          aria-hidden="true"
           referrerPolicy="no-referrer"
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          onError={() => setBlockedImageUrl(imageUrl)}
-          onLoad={(event) => {
-            const image = event.currentTarget;
-            if (image.naturalWidth < 180 || image.naturalHeight < 90) setBlockedImageUrl(imageUrl);
+          onError={() => setImgFailed(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
           }}
         />
-        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0),rgba(2,6,23,0.52))" }} />
-        <div style={{ position: "absolute", left: compact ? 10 : 14, bottom: compact ? 10 : 14, right: compact ? 10 : 14, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
-          <span style={{ ...ACCENT_LABEL_STYLE, color: "#ecfeff", textShadow: "0 2px 14px rgba(0,0,0,0.55)" }}>
-            {article.source || "F1 feed"}
-          </span>
-        </div>
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg,rgba(2,6,23,0.02),rgba(2,6,23,0.34))",
+            pointerEvents: "none",
+          }}
+        />
       </div>
     );
   }
@@ -260,33 +215,19 @@ function NewsVisual({ article, height = 128, compact = false }) {
         width: "100%",
         height,
         borderRadius: compact ? 16 : 18,
-        border: CARD_BORDER_SOFT,
+        border: "1px solid rgba(148,163,184,0.12)",
         background: visual.gradient,
         boxShadow: `0 20px 42px ${visual.glow}`,
         padding: compact ? "12px 12px 11px" : "16px 16px 14px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        overflow: "hidden",
-        position: "relative",
       }}
     >
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: "auto -18% -34% auto",
-          width: compact ? 84 : 136,
-          height: compact ? 84 : 136,
-          borderRadius: "50%",
-          background: "rgba(255,255,255,0.08)",
-          filter: "blur(2px)",
-        }}
-      />
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: visual.label }}>
         {article.source || "F1 feed"}
       </div>
-      <div style={{ position: "relative", zIndex: 1, fontSize: compact ? 13 : 16, fontWeight: 800, lineHeight: 1.24, color: "#f8fafc", letterSpacing: -0.3 }}>
+      <div style={{ fontSize: compact ? 13 : 16, fontWeight: 800, lineHeight: 1.24, color: "#f8fafc", letterSpacing: -0.3 }}>
         {previewText(article.title, compact ? 72 : 108)}
       </div>
     </div>
@@ -363,21 +304,21 @@ function buildBriefHighlights({ newsDigest, keyFactors, predictionEdges }) {
   ].slice(0, 6);
 }
 
-export default function NewsPage({ initialTab = "news", lockedTab = null }) {
+export default function NewsPage({ initialTab = "news", lockedTab = null, user = null }) {
   const { isMobile, isTablet } = useViewport();
   const { calendar } = useRaceCalendar(2026);
   const [articles, setArticles] = useState([]);
   const [insight, setInsight] = useState(null);
   const [insightStale, setInsightStale] = useState(false);
-  const [serverCurrentRace, setServerCurrentRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasTable, setHasTable] = useState(true);
   const [tab, setTab] = useState(lockedTab || initialTab);
   const [expandedInsight, setExpandedInsight] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hoveredFeedId, setHoveredFeedId] = useState(null);
-  const fallbackCurrentRace = useMemo(() => nextRace(calendar) || calendar[0] || null, [calendar]);
-  const currentRace = serverCurrentRace || fallbackCurrentRace;
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [raceSummaryExpanded, setRaceSummaryExpanded] = useState(false);
+  const currentRace = useMemo(() => nextRace(calendar) || calendar[0] || null, [calendar]);
 
   usePageMetadata({
     title: tab === "news" ? "F1 Wire" : "AI Race Brief",
@@ -396,30 +337,38 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
     async function loadNews() {
       setLoading(true);
-      try {
-        const response = await fetch(`/api/insight?season=2026`, {
-          cache: "no-store",
-        });
-        const payload = await response.json().catch(() => ({}));
+      const [{ data, error }, insightResponse] = await Promise.all([
+        supabase
+          .from("news_articles")
+          .select("id,title,summary,url,source,published_at,image_url")
+          .order("published_at", { ascending: false })
+          .limit(IS_SNAPSHOT ? 16 : 80),
+        supabase
+          .from("ai_insights")
+          .select("headline,summary,confidence,key_factors,prediction_edges,watchlist,race_name,generated_at,source_count,metadata")
+          .eq("scope", "upcoming_race")
+          .order("generated_at", { ascending: false })
+          .limit(6),
+      ]);
 
-        if (!response.ok) {
-          throw new Error(payload?.message || "Could not load the AI Insight page.");
-        }
+      if (ignore) return;
 
-        if (ignore) return;
-
-        setHasTable(Boolean(payload?.newsConfigured));
-        setArticles(Array.isArray(payload?.articles) ? payload.articles : []);
-        setInsight(payload?.insight || null);
-        setInsightStale(Boolean(payload?.insightStale));
-        setServerCurrentRace(payload?.currentRace || null);
-      } catch (_error) {
-        if (ignore) return;
+      if (error) {
         setHasTable(false);
         setArticles([]);
+      } else {
+        setHasTable(true);
+        setArticles(data || []);
+      }
+
+      if (insightResponse.error) {
         setInsight(null);
         setInsightStale(false);
-        setServerCurrentRace(null);
+      } else {
+        const rows = insightResponse.data || [];
+        const matched = chooseInsightForRace(rows, currentRace);
+        setInsight(matched);
+        setInsightStale(rows.length > 0 && !matched);
       }
 
       setLoading(false);
@@ -427,7 +376,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
 
     loadNews();
     return () => { ignore = true; };
-  }, [fallbackCurrentRace?.date, fallbackCurrentRace?.n]);
+  }, [currentRace]);
 
   const visibleArticles = useMemo(
     () => articles.filter((article) => !BLOCKED_NEWS_SOURCES.has(article.source)),
@@ -471,100 +420,52 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
     () => buildBriefHighlights({ newsDigest, keyFactors: insight?.key_factors || [], predictionEdges: insight?.prediction_edges || [] }),
     [newsDigest, insight]
   );
+  const headerTitle = tab === "news" ? (
+    <>
+      The stories that can
+      <br />
+      actually change your picks.
+    </>
+  ) : (
+    <>
+      One brief read on the weekend.
+      <br />
+      Plus category-level picks.
+    </>
+  );
+  const headerDescription = loading
+    ? "Loading race-week feed..."
+    : tab === "news"
+      ? hasTable ? `${visibleArticles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
+      : insight ? "AI Insight summary and category picks generated from Wire + OpenF1 context" : "Generate one AI Insight read from Admin to unlock this tab";
+  const headerAside = (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+      {[
+        [tab === "news" ? String(visibleArticles.length || 0) : String(aiPredictions.length || 0), tab === "news" ? "stories" : "picks"],
+        [tab === "news" ? String(sourceCount || 0) : (typeof insight?.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "n/a"), tab === "news" ? "sources" : "confidence"],
+        [loading ? "..." : tab === "news" ? (hasTable ? "live" : "setup") : (insight ? "ready" : "empty"), "status"],
+      ].map(([value, label]) => (
+        <div key={label} style={{ borderRadius: 18, border: label === "status" ? `1px solid ${ACCENT}33` : "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.02)", boxShadow: EDGE_RING, padding: "14px 15px 13px" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
+          <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
-        <div
-          style={{
-            padding: "28px 30px 24px",
-            height: isMobile ? "auto" : 312,
-            borderBottom: `1px solid ${HAIRLINE}`,
-            background: "linear-gradient(180deg,rgba(255,255,255,0.03),rgba(15,24,44,0.96))",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={tab === "news" ? "/images/header-wire.png" : "/images/header-insight.png"}
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              opacity: isMobile ? 0.23 : 0.34,
-              pointerEvents: "none",
-            }}
-            onError={(e) => { e.target.style.display = "none"; }}
-          />
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(to bottom, rgba(10,15,26,0.2) 0%, rgba(10,15,26,0.88) 100%)",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              alignContent: "space-between",
-              gap: 14,
-              flexWrap: "wrap",
-              height: isMobile ? "auto" : "100%",
-            }}
-          >
-            <div style={{ maxWidth: 760 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
-                {tab === "news" ? "Wire" : "AI Insight"}
-              </div>
-              <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
-                {tab === "news" ? (
-                  <>
-                    The stories that can
-                    <br />
-                    actually change your picks.
-                  </>
-                ) : (
-                  <>
-                    One brief read on the weekend.
-                    <br />
-                    Plus category-level picks.
-                  </>
-                )}
-              </h1>
-              <div style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 620 }}>
-                {loading
-                  ? "Loading race-week feed..."
-                  : tab === "news"
-                    ? hasTable ? `${visibleArticles.length} stories cleaned into one F1 feed` : "Waiting for ingest setup"
-                    : insight ? "AI Insight summary and category picks generated from Wire + OpenF1 context" : "Generate one AI Insight read from Admin to unlock this tab"}
-              </div>
-            </div>
+      <PageHeader
+        eyebrow={tab === "news" ? "Wire" : "AI Insight"}
+        title={headerTitle}
+        description={headerDescription}
+        aside={headerAside}
+        asideWidth={360}
+        marginBottom={18}
+        bgImage={tab === "news" ? "/images/header-wire.png" : "/images/header-insight.png"}
+      />
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,minmax(0,116px))", gap: 10, width: isMobile ? "100%" : "auto" }}>
-              {[
-                [tab === "news" ? String(visibleArticles.length || 0) : String(aiPredictions.length || 0), tab === "news" ? "stories" : "picks"],
-                [tab === "news" ? String(sourceCount || 0) : (typeof insight?.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "n/a"), tab === "news" ? "sources" : "confidence"],
-                [loading ? "..." : tab === "news" ? (hasTable ? "live" : "setup") : (insight ? "ready" : "empty"), "status"],
-              ].map(([value, label]) => (
-                <div key={label} style={{ borderRadius: 18, border: label === "status" ? `1px solid ${ACCENT}33` : "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.02)", boxShadow: EDGE_RING, padding: "14px 15px 13px" }}>
-                  <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8 }}>{value}</div>
-                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <section style={{ borderRadius: 28, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
 
         {!lockedTab && (
           <div style={{ padding: "12px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -574,13 +475,14 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 onClick={() => setTab(value)}
                 style={{
                   background: tab === value ? "linear-gradient(180deg,rgba(255,255,255,0.1),#111c30)" : PANEL_BG_ALT,
-                  border: tab === value ? "1px solid rgba(248,250,252,0.16)" : "1px solid rgba(148,163,184,0.12)",
-                  borderRadius: 12,
+                  border: tab === value ? `1px solid ${ACCENT}44` : "1px solid rgba(148,163,184,0.12)",
+                  borderRadius: 999,
                   color: tab === value ? "#fff" : MUTED_TEXT,
                   cursor: "pointer",
                   fontWeight: 800,
                   fontSize: 12,
-                  padding: "9px 12px",
+                  padding: "9px 18px",
+                  transition: "border-color 180ms ease, color 180ms ease",
                 }}
               >
                 {label}
@@ -594,7 +496,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
         ) : tab === "news" && visibleArticles.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.18fr) 350px", gap: 0, alignItems: "start" }}>
             <a href={featured.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", display: "block", alignSelf: "start", height: "fit-content" }}>
-              <article style={{ padding: featuredCompact ? 18 : 22, borderRight: `1px solid ${HAIRLINE}`, height: "fit-content" }}>
+              <article style={{ padding: featuredCompact ? 18 : 22, borderRight: `1px solid ${HAIRLINE}`, borderLeft: `3px solid ${ACCENT}`, height: "fit-content" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#67e8f9" }}>{featured.source || "Source"}</span>
                   {featured.published_at && <span style={{ fontSize: 10, color: SUBTLE_TEXT }}>{formatPublished(featured.published_at)}</span>}
@@ -655,189 +557,198 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
             </div>
           </div>
         ) : insight ? (
-          <div style={{ display: "grid", gap: 16, padding: 18 }}>
-            <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_GRADIENT, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-              <div
-                style={{
-                  padding: isMobile ? "22px 18px" : "26px 28px 24px",
-                  borderBottom: `1px solid ${HAIRLINE}`,
-                  background: "radial-gradient(circle at 12% 8%,rgba(255,106,26,0.18),transparent 28%), radial-gradient(circle at 86% 14%,rgba(45,212,191,0.14),transparent 30%), linear-gradient(180deg,rgba(21,35,56,0.96),rgba(10,18,32,0.98))",
-                }}
-              >
-                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.35fr) minmax(280px,0.65fr)", gap: 20, alignItems: "stretch" }}>
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
-                    <div>
-                      <div style={{ ...ACCENT_LABEL_STYLE, marginBottom: 8 }}>Race briefing</div>
-                      <div style={{ fontSize: isMobile ? 32 : 48, fontWeight: 950, letterSpacing: isMobile ? -1.5 : -2.2, lineHeight: 0.98, maxWidth: 820, marginBottom: 14 }}>
-                        {insight.headline}
-                      </div>
-                      <div style={{ fontSize: isMobile ? 15 : 17, lineHeight: 1.78, color: "rgba(226,232,240,0.82)", maxWidth: 820 }}>
-                        {insight.summary}
-                      </div>
-                    </div>
-
-                    {insight?.metadata?.freshness_status === "stale" && insight?.metadata?.stale_reason && (
-                      <div style={{ borderRadius: 16, border: "1px solid rgba(245,158,11,0.26)", background: "rgba(245,158,11,0.1)", padding: "12px 14px", fontSize: 12, lineHeight: 1.7, color: "#fcd34d", maxWidth: 820 }}>
-                        {insight.metadata.stale_reason}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ borderRadius: 22, border: CARD_BORDER, background: "rgba(3,8,18,0.44)", padding: 14, display: "grid", gap: 10, boxShadow: EDGE_RING }}>
-                    <MetricCard label="Target race" value={insight.race_name || currentRace?.n || "Upcoming GP"} detail={currentRace?.date ? formatPublished(currentRace.date) : "Live calendar target"} />
-                    <MetricCard label="Confidence" value={typeof insight.confidence === "number" ? `${Math.round(insight.confidence * 100)}%` : "N/A"} detail="Model confidence for the saved brief." />
-                    <MetricCard label="Inputs" value={String(insight.source_count || sourceCount || 0)} detail={`Generated ${insight.generated_at ? formatPublished(insight.generated_at) : "recently"}`} />
-                  </div>
+          <div>
+            {/* ── 1. Hero Brief ── */}
+            <div style={{ padding: isMobile ? "22px 20px 20px" : "28px 28px 24px", background: "linear-gradient(135deg,rgba(103,232,249,0.05) 0%,rgba(14,22,38,0.97) 60%)", borderBottom: `1px solid ${HAIRLINE}` }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "#67e8f9", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>AI Race Brief</span>
+                {(insight.race_name || currentRace?.n) && (
+                  <>
+                    <span style={{ color: SUBTLE_TEXT }}>·</span>
+                    <span style={{ fontWeight: 700 }}>{insight.race_name || currentRace?.n}</span>
+                  </>
+                )}
+              </div>
+              <h2 style={{ margin: "0 0 14px", fontSize: isMobile ? 26 : 40, fontWeight: 900, letterSpacing: -1.4, lineHeight: 1.03, maxWidth: 740 }}>
+                {insight.headline}
+              </h2>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.82, color: MUTED_TEXT, maxWidth: 680 }}>
+                {insight.summary}
+              </p>
+              {user?.subscription_status === "pro" && typeof insight.confidence === "number" && (
+                <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: insight.confidence >= 0.75 ? "#22c55e" : insight.confidence >= 0.55 ? "#fbbf24" : "#f87171" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: SUBTLE_TEXT }}>
+                    {Math.round(insight.confidence * 100)}% model confidence · {insight.source_count || 0} sources read
+                  </span>
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div style={{ padding: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
-                {[
-                  ["Race memory", previousRace?.winner ? `${previousRace.winner} won ${previousRace.race_name || "last time"}` : "Waiting for completed history", previousRace?.pole ? `Pole: ${previousRace.pole}` : "Official results drive this card"],
-                  ["Primary angle", briefHighlights[0]?.title || "No headline angle yet", briefHighlights[0]?.detail || "Regenerate the brief from Admin once more race-week data exists."],
-                  ["Board pressure", aiPredictions[0]?.pick ? `${aiPredictions[0].pick} leads ${aiPredictions[0].category}` : "No category call yet", aiPredictions[0]?.reason || "Category picks appear after AI generation."],
-                ].map(([label, value, detail]) => <MetricCard key={label} label={label} value={value} detail={previewText(detail, 126)} />)}
-              </div>
-            </section>
+            {/* ── 2. Category Picks ── */}
+            {aiPredictions.length > 0 && (() => {
+              const isPro = user?.subscription_status === "pro";
 
-            <section style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.05fr) minmax(320px,0.95fr)", gap: 16 }}>
-              <div style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                <SectionHeader eyebrow="The read" title="What matters before lock" />
-                <div style={{ padding: 16, display: "grid", gap: 14 }}>
-                  <div style={{ borderRadius: 18, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "16px 17px", fontSize: 14, lineHeight: 1.86, color: "rgba(226,232,240,0.82)", boxShadow: EDGE_RING }}>
-                    {raceSummary ? previewText(raceSummary.replace(/\s+/g, " "), 620) : insight.summary}
+              if (isPro) {
+                return (
+                  <div style={{ padding: isMobile ? "18px 18px 14px" : "22px 24px 18px", borderBottom: `1px solid ${HAIRLINE}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
+                      {aiPredictions.length} Category Calls
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(3,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 10 }}>
+                      {aiPredictions.map((item, idx) => {
+                        let accentColor = ACCENT;
+                        if (item.type === "driver") {
+                          const dr = DRV.find((d) => d.n === item.pick);
+                          const tm = dr ? TEAMS[dr.t] : null;
+                          if (tm?.c) accentColor = tm.c;
+                        } else if (item.type === "constructor") {
+                          const tm = TEAMS[item.pick];
+                          if (tm?.c) accentColor = tm.c;
+                        } else if (item.type === "binary") {
+                          accentColor = item.pick === "Yes" ? "#22c55e" : "#ef4444";
+                        }
+                        const confRaw = item.confidence;
+                        const confNum = typeof confRaw === "number" ? confRaw : (confRaw === "high" || confRaw === "confident") ? 0.85 : confRaw === "medium" ? 0.6 : 0.35;
+                        const confColor = confNum >= 0.75 ? "#86efac" : confNum >= 0.55 ? "#fde68a" : "#fca5a5";
+                        const confLabel = confNum >= 0.75 ? "High" : confNum >= 0.55 ? "Medium" : "Low";
+                        return (
+                          <div key={item.key || idx} style={{ borderRadius: 14, border: "1px solid rgba(148,163,184,0.10)", borderLeft: `3px solid ${accentColor}`, background: PANEL_BG_ALT, padding: "14px 14px 12px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>
+                              {CATEGORY_LABELS[item.key] || item.category || item.key}
+                            </div>
+                            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8, lineHeight: 1.1 }}>
+                              {item.pick}
+                            </div>
+                            <div style={{ fontSize: 11, lineHeight: 1.62, color: MUTED_TEXT, marginBottom: 8 }}>
+                              {previewText(item.reason, 96)}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: confColor, flexShrink: 0 }} />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: confColor }}>{confLabel}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
+                );
+              }
 
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {(briefHighlights.length ? briefHighlights : [{
-                      title: "No brief highlights yet",
-                      detail: "Regenerate the AI brief from Admin once more race-week data exists.",
-                      tone: "#93c5fd",
-                      label: "Setup",
-                    }]).map((item, index) => (
-                      <button
-                        key={`${item.title}-${index}`}
-                        onClick={() => setExpandedInsight({
-                          eyebrow: item.label,
-                          title: item.title,
-                          fields: [["Takeaway", item.detail]],
-                        })}
-                        style={{ width: "100%", textAlign: "left", borderRadius: 18, border: CARD_BORDER_SOFT, background: "rgba(21,35,56,0.82)", padding: "14px 15px", cursor: "pointer", boxShadow: EDGE_RING }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.tone, boxShadow: `0 0 0 5px ${item.tone}14` }} />
-                          <div style={MUTED_LABEL_STYLE}>{item.label}</div>
+              // Free user teaser
+              return (
+                <div style={{ padding: isMobile ? "18px 18px 14px" : "22px 24px 18px", borderBottom: `1px solid ${HAIRLINE}`, position: "relative", overflow: "hidden" }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
+                    Category Calls
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 10, filter: "blur(6px)", pointerEvents: "none", userSelect: "none" }}>
+                    {aiPredictions.slice(0, 4).map((item, idx) => (
+                      <div key={idx} style={{ borderRadius: 14, border: "1px solid rgba(148,163,184,0.10)", borderLeft: "3px solid rgba(255,106,26,0.5)", background: PANEL_BG_ALT, padding: "14px 14px 12px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>
+                          {CATEGORY_LABELS[item.key] || item.key}
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25, letterSpacing: -0.35, marginBottom: 7 }}>{item.title}</div>
-                        <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(item.detail, 180)}</div>
-                      </button>
+                        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8 }}>??? ???</div>
+                        <div style={{ fontSize: 11, lineHeight: 1.62, color: MUTED_TEXT, marginBottom: 8 }}>Pro insight available</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fde68a" }} />
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#fde68a" }}>Medium</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                <SectionHeader eyebrow="Evidence" title="History and wire signals" />
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
-                  {[
-                    ["Last winner", previousRace?.winner || "N/A", previousRace?.race_name ? `From ${previousRace.race_name}` : "No completed race stored yet"],
-                    ["Hot driver", recentDriverLeader?.driver || "N/A", recentDriverLeader ? `${recentDriverLeader.points} pts in recent rounds` : "Waiting for more completed rounds"],
-                    ["Hot constructor", recentConstructorLeader?.team || "N/A", recentConstructorLeader ? `${recentConstructorLeader.points} pts recently` : "No recent constructor trend yet"],
-                    ["Volatility", seasonVolatility?.average_dnfs_per_race != null ? `${seasonVolatility.average_dnfs_per_race} DNFs/race` : "N/A", seasonVolatility?.safety_car_rate != null ? `Safety car rate ${Math.round(seasonVolatility.safety_car_rate * 100)}%` : "No volatility sample yet"],
-                  ].map(([label, value, detail]) => (
-                    <div key={label} style={{ background: PANEL_BG, padding: "14px 16px" }}>
-                      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 6 }}>{label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>{value}</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>{detail}</div>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "linear-gradient(180deg,transparent 0%,rgba(10,16,27,0.92) 35%,rgba(10,16,27,0.97) 100%)", paddingBottom: 20 }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: "#fff", textAlign: "center", letterSpacing: -0.2 }}>
+                      {aiPredictions.length} category calls + race brief
                     </div>
-                  ))}
-                </div>
-
-                <div style={{ padding: 14, display: "grid", gap: 10, borderTop: `1px solid ${HAIRLINE}` }}>
-                  {historicalResults.length > 0 && (
-                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px" }}>
-                      <div style={{ ...MUTED_LABEL_STYLE, marginBottom: 6 }}>Recent completed rounds</div>
-                      <div style={{ display: "grid", gap: 8 }}>
-                        {historicalResults.slice(0, 3).map((item) => (
-                          <div key={`${item.race_round}-${item.race_name}`} style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                            <span style={{ color: "#fff", fontWeight: 800 }}>{item.race_name || `Round ${item.race_round}`}</span>
-                            {" · Winner "}
-                            <span style={{ color: "#fff" }}>{item.winner || "N/A"}</span>
-                            {" · Pole "}
-                            <span style={{ color: "#fff" }}>{item.pole || "N/A"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {newsDigest.slice(0, 3).map((item, index) => (
-                    <button
-                      key={`${item.headline}-${index}`}
-                      onClick={() => setExpandedInsight(detailOverlayPayload("digest", item))}
-                      style={{ width: "100%", textAlign: "left", borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", cursor: "pointer" }}
-                    >
-                      <div style={{ ...MUTED_LABEL_STYLE, color: "#67e8f9", marginBottom: 6 }}>Wire signal</div>
-                      <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 5 }}>{item.headline}</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>{previewText(item.why_it_matters || item.detail, 130)}</div>
-                    </button>
-                  ))}
-
-                  {crowdFavorite && (
-                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                      <span style={{ color: "#fff", fontWeight: 800 }}>Fantasy market:</span> players most often backed {crowdFavorite.pick} in {crowdFavorite.category}, with {Math.round((crowdFavorite.share || 0) * 100)}% share and {Math.round((crowdFavorite.accuracy || 0) * 100)}% hit rate.
-                    </div>
-                  )}
-
-                  {(previousRaceWeather || previousRaceStrategy) && (
-                    <div style={{ borderRadius: 16, border: CARD_BORDER_SOFT, background: PANEL_BG_ALT, padding: "12px 13px", fontSize: 12, lineHeight: 1.66, color: MUTED_TEXT }}>
-                      <span style={{ color: "#fff", fontWeight: 800 }}>Last-race conditions:</span>{" "}
-                      {previousRaceWeather?.rainfall === true ? "wet running" : "mainly dry running"}
-                      {previousRaceStrategy?.most_common_opening_compound ? ` · most common opening tyre ${previousRaceStrategy.most_common_opening_compound}` : ""}
-                      {previousRaceStrategy?.average_pit_stops_per_driver != null ? ` · avg ${previousRaceStrategy.average_pit_stops_per_driver} pit stops/driver` : ""}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-              <SectionHeader
-                eyebrow="Suggested board"
-                title="Category calls at a glance"
-                action={<span style={{ borderRadius: 999, border: "1px solid rgba(59,130,246,0.24)", background: "rgba(59,130,246,0.12)", color: "#dbeafe", padding: "7px 10px", fontSize: 11, fontWeight: 800 }}>{aiPredictions.length || 0} AI picks</span>}
-              />
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 1, background: HAIRLINE }}>
-                {(aiPredictions.length ? aiPredictions : [{ category: "Waiting", pick: "No AI picks yet", reason: "Generate the AI brief from Admin to fill the category board.", confidence: null }]).map((item, index) => (
-                  <div key={`${item.category}-${index}`} style={{ background: PANEL_BG, padding: "16px 17px", position: "relative", overflow: "hidden" }}>
-                    <div aria-hidden="true" style={{ position: "absolute", inset: "0 auto 0 0", width: 3, background: "linear-gradient(180deg,#67e8f9,#3b82f6)" }} />
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
-                      <div style={MUTED_LABEL_STYLE}>{item.category}</div>
-                      <div style={{ fontSize: 10, fontWeight: 800, color: "#dbeafe", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 999, padding: "4px 8px" }}>
-                        {typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}%` : "AI"}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 950, letterSpacing: -0.5, marginBottom: 7, lineHeight: 1.12 }}>{item.pick}</div>
-                    <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{previewText(item.reason, 150)}</div>
+                    <div style={{ fontSize: 12, color: MUTED_TEXT, textAlign: "center" }}>Full AI race analysis for Pro members</div>
+                    <a href="/?page=pro" style={{ background: "linear-gradient(135deg,#FF6A1A,#e05a12)", borderRadius: 999, color: "#fff", fontSize: 13, fontWeight: 800, padding: "10px 24px", textDecoration: "none", whiteSpace: "nowrap" }}>
+                      Upgrade to Pro
+                    </a>
                   </div>
-                ))}
-              </div>
-            </section>
+                </div>
+              );
+            })()}
 
-            {(insight.watchlist || []).length > 0 && (
-              <section style={{ borderRadius: 24, border: CARD_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-                <SectionHeader eyebrow="Watch before lock" title="Late movers" />
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 1, background: HAIRLINE }}>
-                  {(insight.watchlist || []).map((item, index) => (
-                    <button key={`${item.label}-${index}`} onClick={() => setExpandedInsight(detailOverlayPayload("watch", item))} style={{ width: "100%", textAlign: "left", border: "none", background: PANEL_BG, padding: "16px 18px", cursor: "pointer" }}>
-                      <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{item.label}</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.7, color: MUTED_TEXT, marginBottom: 8 }}>{previewText(item.trigger || item.reason, 140)}</div>
-                      <div style={{ fontSize: 11, lineHeight: 1.65, color: SUBTLE_TEXT }}>React: {previewText(item.how_to_react, 96)}</div>
-                    </button>
+            {/* ── 3. Race Context (Pro) ── */}
+            {user?.subscription_status === "pro" && raceSummary && (
+              <div style={{ padding: isMobile ? "16px 18px" : "20px 24px", borderBottom: `1px solid ${HAIRLINE}` }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
+                  Race Context
+                </div>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.82, color: "rgba(226,232,240,0.82)" }}>
+                  {raceSummaryExpanded ? raceSummary : previewText(raceSummary, 480)}
+                </p>
+                {raceSummary.length > 480 && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); setRaceSummaryExpanded((v) => !v); }}
+                    style={{ marginTop: 8, background: "none", border: "none", color: "#67e8f9", fontSize: 11, fontWeight: 800, cursor: "pointer", padding: 0, letterSpacing: "0.04em" }}
+                  >
+                    {raceSummaryExpanded ? "Less ↑" : "More ↓"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── 4. Weekend Angles (Pro) ── */}
+            {user?.subscription_status === "pro" && briefHighlights.length > 0 && (
+              <div style={{ padding: isMobile ? "16px 18px" : "20px 24px", borderBottom: `1px solid ${HAIRLINE}` }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
+                  Weekend Angles
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {briefHighlights.map((item, idx) => (
+                    <div key={`brief-${idx}`} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "11px 13px", borderRadius: 12, background: PANEL_BG_ALT, borderLeft: `3px solid ${item.tone}` }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>{item.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>{item.title}</div>
+                        <div style={{ fontSize: 11, lineHeight: 1.65, color: MUTED_TEXT }}>{previewText(item.detail, 130)}</div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </section>
+              </div>
+            )}
+
+            {/* ── 5. Recent Signals (Pro) ── */}
+            {user?.subscription_status === "pro" && (recentDriverLeader || previousRace?.winner || seasonVolatility) && (
+              <div style={{ padding: isMobile ? "16px 18px" : "20px 24px", borderBottom: `1px solid ${HAIRLINE}` }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
+                  Recent Signals
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 10 }}>
+                  {[
+                    ["Last Winner", previousRace?.winner || "N/A", "#e2e8f0"],
+                    ["Hot Driver", recentDriverLeader?.driver || "N/A", ACCENT],
+                    ["Hot Constructor", recentConstructorLeader?.team || "N/A", "#2dd4bf"],
+                    ["SC Rate", seasonVolatility?.safety_car_rate != null ? `${Math.round(seasonVolatility.safety_car_rate * 100)}%` : "N/A", "#fde68a"],
+                  ].map(([label, value, accent]) => (
+                    <div key={label} style={{ borderRadius: 12, border: "1px solid rgba(148,163,184,0.10)", background: PANEL_BG_ALT, padding: "12px 13px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 5 }}>{label}</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: accent, letterSpacing: -0.3 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── 6. Watch Before Lock (Pro) ── */}
+            {user?.subscription_status === "pro" && (insight.watchlist || []).length > 0 && (
+              <div style={{ padding: isMobile ? "16px 18px 22px" : "20px 24px 26px" }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
+                  Watch Before Lock
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 8 }}>
+                  {(insight.watchlist || []).map((item, idx) => (
+                    <div key={`watch-${idx}`} style={{ borderRadius: 12, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG_ALT, padding: "13px 15px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 5 }}>{item.label}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.65, color: MUTED_TEXT, marginBottom: item.how_to_react ? 7 : 0 }}>{previewText(item.trigger || item.reason, 110)}</div>
+                      {item.how_to_react && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#67e8f9", lineHeight: 1.5 }}>→ {previewText(item.how_to_react, 80)}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         ) : (
@@ -871,9 +782,11 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
               placeholder="Search stories…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               style={{
                 background: PANEL_BG,
-                border: "1px solid rgba(214,223,239,0.14)",
+                border: searchFocused ? `1px solid ${ACCENT}88` : "1px solid rgba(214,223,239,0.14)",
                 borderRadius: 999,
                 color: "#fff",
                 padding: "8px 16px",
@@ -881,6 +794,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                 outline: "none",
                 width: isMobile ? "100%" : 200,
                 fontFamily: "inherit",
+                transition: "border-color 180ms ease",
               }}
             />
           </div>
@@ -906,7 +820,11 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
                     gap: 16,
                     alignItems: "center",
                   }}>
-                    {!isMobile && <NewsVisual article={article} height={108} />}
+                    {!isMobile && (
+                      <div style={{ borderRadius: 18, overflow: "hidden", flexShrink: 0, transition: "transform 220ms ease", transform: hoveredFeedId === article.id ? "scale(1.04)" : "scale(1)" }}>
+                        <NewsVisual article={article} height={108} />
+                      </div>
+                    )}
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                         <div style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -933,7 +851,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null }) {
       {tab === "news" && <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
         {SOURCE_CARDS.map((source) => (
           <a key={source.name} href={source.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-            <div style={{ borderRadius: 20, border: PANEL_BORDER, background: PANEL_BG, padding: 18 }}>
+            <div style={{ borderRadius: 24, border: PANEL_BORDER, background: PANEL_BG, padding: 18, transition: "border-color 180ms ease" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8 }}>
                 <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: -0.4 }}>{source.name}</div>
                 <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2dd4bf" }}>{source.role}</span>

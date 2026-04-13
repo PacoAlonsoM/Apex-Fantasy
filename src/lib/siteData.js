@@ -9,6 +9,8 @@ export const PUBLIC_NAV = [
   { href: "/wire", key: "wire", label: "Wire" },
   { href: "/leaderboard", key: "leaderboard", label: "Leaderboard" },
   { href: "/leagues", key: "leagues", label: "Leagues" },
+  { href: "/grid", key: "grid", label: "The Grid" },
+  { href: "/pro", key: "pro", label: "Pro" },
 ];
 
 export const FOOTER_LINKS = [
@@ -19,6 +21,8 @@ export const FOOTER_LINKS = [
   { href: "/wire", label: "Wire" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/leagues", label: "Leagues" },
+  { href: "/grid", label: "The Grid" },
+  { href: "/pro", label: "Stint Pro" },
   { href: "/app?page=support", label: "Support" },
   { href: "/app?page=terms", label: "Terms" },
   { href: "/app?page=privacy", label: "Privacy" },
@@ -52,6 +56,18 @@ export const PAGE_META = {
   leagues: {
     title: "Leagues",
     description: "See how STINT leagues work, why they matter race to race, and how the product turns a season into a table everyone can track.",
+  },
+  grid: {
+    title: "The Grid — Community Forum",
+    description: "Race discussion, feature requests and general talk from the STINT community. Vote on ideas, join the conversation.",
+  },
+  pro: {
+    title: "Stint Pro — Unlock the Full Game",
+    description: "Pro game modes, AI race insights, unlimited leagues and full stats. Upgrade to Stint Pro for the complete race-week experience.",
+  },
+  pro_success: {
+    title: "Welcome to Stint Pro",
+    description: "Your Pro subscription is active. All Pro features are now unlocked.",
   },
 };
 

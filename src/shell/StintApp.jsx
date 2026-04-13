@@ -11,12 +11,15 @@ import PredictionsPage from "@/src/features/picks/PredictionsPage";
 import NewsPage from "@/src/features/insight/NewsPage";
 import StandingsPage from "@/src/features/standings/StandingsPage";
 import CommunityPage from "@/src/features/community/CommunityPage";
+import GridPage from "@/src/features/community/GridPage";
 import AdminPage from "@/src/features/admin/AdminPage";
 import ProfilePage from "@/src/features/profile/ProfilePage";
 import GameGuidePage from "@/src/features/game-guide/GameGuidePage";
 import SupportPage from "@/src/features/support/SupportPage";
 import TermsPage from "@/src/features/legal/TermsPage";
 import PrivacyPage from "@/src/features/legal/PrivacyPage";
+import ProPage from "@/src/features/pro/ProPage";
+import ProSuccessPage from "@/src/features/pro/ProSuccessPage";
 import LegalFooter from "@/src/ui/LegalFooter";
 import { consumePendingOAuthProfile, ensureProfileForUser, needsProfileOnboarding, profileFallbackFromAuthUser, requireActiveSession } from "@/src/shell/authProfile";
 import { getUserAccentTheme } from "@/src/constants/design";
@@ -226,16 +229,19 @@ export default function StintApp() {
             />
           )}
           {page === "predictions" && <PredictionsPage user={user} openAuth={openAuth} demoMode={demoMode} initialRaceRound={pendingPredictionRace} onInitialRaceConsumed={() => setPendingPredictionRace(null)} />}
-          {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" />}
-          {page === "news" && <NewsPage initialTab="news" lockedTab="news" />}
+          {page === "ai-brief" && <NewsPage initialTab="ai" lockedTab="ai" user={user} />}
+          {page === "news" && <NewsPage initialTab="news" lockedTab="news" user={user} />}
           {page === "standings" && <StandingsPage user={user} />}
-          {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} />}
+          {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} setPage={navigateToPage} />}
+          {page === "grid" && <GridPage user={user} openAuth={openAuth} demoMode={demoMode} />}
           {page === "admin" && <AdminPage user={user} />}
           {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
           {page === "game-guide" && <GameGuidePage setPage={navigateToPage} />}
           {page === "support" && <SupportPage />}
           {page === "terms" && <TermsPage />}
           {page === "privacy" && <PrivacyPage />}
+          {page === "pro" && <ProPage user={user} setPage={navigateToPage} />}
+          {page === "pro_success" && <ProSuccessPage user={user} />}
         </div>
         <LegalFooter setPage={navigateToPage} />
       </div>

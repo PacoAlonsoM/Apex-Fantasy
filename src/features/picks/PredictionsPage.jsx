@@ -188,6 +188,15 @@ function hasSavedPickContent(picks) {
 const BASE_PROMPT_KEYS = ["pole", "winner", "p2", "p3", "dnf", "fl", "dotd", "ctor", "sc", "rf"];
 const SPRINT_PROMPT_KEYS = ["sp_pole", "sp_winner", "sp_p2", "sp_p3"];
 
+const EXTRA_PROMPT_DEFS = {
+  p4:            { key: "p4",            label: "4th Place",           type: "driver",      pts: 10, hint: "Who finishes fourth?" },
+  p10:           { key: "p10",           label: "10th Place",          type: "driver",      pts: 12, hint: "Who scores the last championship point?" },
+  vsc:           { key: "vsc",           label: "Virtual Safety Car?", type: "binary",      pts: 6,  hint: "Will there be a VSC period?" },
+  lap1_incident: { key: "lap1_incident", label: "Lap 1 Incident?",     type: "binary",      pts: 8,  hint: "Contact or incident on the opening lap?" },
+  rain_race:     { key: "rain_race",     label: "Rain During Race?",   type: "binary",      pts: 8,  hint: "Wet conditions at any point during the race?" },
+  fastest_ctor:  { key: "fastest_ctor",  label: "Fastest Pit Stop",    type: "constructor", pts: 7,  hint: "Which team posts the fastest pit stop time?" },
+};
+
 function roundPromptKeys(race, board = "all") {
   if (board === "race") {
     return [...BASE_PROMPT_KEYS];
@@ -818,7 +827,7 @@ function ReviewMetric({ label, value, detail, accent = "#f8fafc" }) {
       <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, color: accent, marginBottom: 6 }}>
         {value}
       </div>
-      <div style={{ fontSize: 12, lineHeight: 1.6, color: MUTED_TEXT }}>{detail}</div>
+      {detail ? <div style={{ fontSize: 12, lineHeight: 1.6, color: MUTED_TEXT }}>{detail}</div> : null}
     </div>
   );
 }
@@ -847,6 +856,7 @@ export default function PredictionsPage({
   const [aiInsight, setAiInsight] = useState(null);
   const [aiInsightStale, setAiInsightStale] = useState(false);
   const [aiInsightError, setAiInsightError] = useState(false);
+  const [leagueExtraCategories, setLeagueExtraCategories] = useState([]);
   const [savePop, setSavePop] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [activePromptKey, setActivePromptKey] = useState("");
@@ -964,6 +974,34 @@ export default function PredictionsPage({
     return () => window.clearInterval(interval);
   }, []);
 
+  // Fetch extra pick categories enabled by any Pro league the user belongs to
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    async function fetchLeagueExtras() {
+      try {
+        const { data } = await supabase
+          .from("league_members")
+          .select("league_id, leagues!inner(settings)")
+          .eq("user_id", user.id);
+        if (cancelled || !data) return;
+
+        const merged = new Set();
+        data.forEach((row) => {
+          const extras = row.leagues?.settings?.extra_categories;
+          if (Array.isArray(extras)) extras.forEach((k) => merged.add(k));
+        });
+        setLeagueExtraCategories([...merged]);
+      } catch {
+        // Non-critical — extras just won't show
+      }
+    }
+
+    fetchLeagueExtras();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const loadPicks = async () => {
     if (!user) {
       setPredictionsByRound({});
@@ -1078,21 +1116,29 @@ export default function PredictionsPage({
   const groups = useMemo(() => promptGroups(isSprintTab), [isSprintTab]);
   const prompts = useMemo(() => flattenPromptGroups(groups), [groups]);
 
+  const allPrompts = useMemo(() => {
+    const bonusPrompts = leagueExtraCategories
+      .map((key) => EXTRA_PROMPT_DEFS[key])
+      .filter(Boolean)
+      .map((p) => ({ ...p, section: "League Bonus Picks" }));
+    return [...prompts, ...bonusPrompts];
+  }, [prompts, leagueExtraCategories]);
+
   useEffect(() => {
-    if (!prompts.length) return;
-    if (!prompts.find((prompt) => prompt.key === activePromptKey)) {
-      setActivePromptKey(prompts[0].key);
+    if (!allPrompts.length) return;
+    if (!allPrompts.find((prompt) => prompt.key === activePromptKey)) {
+      setActivePromptKey(allPrompts[0]?.key || "");
     }
-  }, [prompts, activePromptKey]);
+  }, [allPrompts, activePromptKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     activeRoundRef.current?.scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
   }, [race.r]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activePrompt = prompts.find((prompt) => prompt.key === activePromptKey) || prompts[0];
-  const activeIndex = prompts.findIndex((prompt) => prompt.key === activePrompt?.key);
-  const previousPrompt = activeIndex > 0 ? prompts[activeIndex - 1] : null;
-  const nextPromptItem = activeIndex < prompts.length - 1 ? prompts[activeIndex + 1] : null;
+  const activePrompt = allPrompts.find((prompt) => prompt.key === activePromptKey) || allPrompts[0];
+  const activeIndex = allPrompts.findIndex((prompt) => prompt.key === activePrompt?.key);
+  const previousPrompt = activeIndex > 0 ? allPrompts[activeIndex - 1] : null;
+  const nextPromptItem = activeIndex < allPrompts.length - 1 ? allPrompts[activeIndex + 1] : null;
   const color = rc(race);
   const selectedPrediction = predictionsByRound[race.r] || null;
   const selectedResult = resultsByRound[race.r] || null;
@@ -1109,8 +1155,8 @@ export default function PredictionsPage({
     },
     [localWeekendState.sessionsByRound, liveMeetings, race.r]
   );
-  const totalPrompts = prompts.length;
-  const done = prompts.filter((prompt) => !!picks[prompt.key]).length;
+  const totalPrompts = allPrompts.length;
+  const done = allPrompts.filter((prompt) => !!picks[prompt.key]).length;
   const completion = totalPrompts ? Math.round((done / totalPrompts) * 100) : 0;
 
   const aiTargetsRace = insightMatchesRace(aiInsight, race);
@@ -1272,12 +1318,9 @@ export default function PredictionsPage({
       <PageHeader
         eyebrow="Picks"
         title="Build the board before lock."
-        description={isMobile ? null : "Move race to race, save your calls early, and switch into review mode once the round is scored."}
+        description={null}
         aside={!isMobile && race ? (
           <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-              Selected weekend
-            </div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.08, color: TEXT_PRIMARY }}>
               {race.n}
             </div>
@@ -1287,11 +1330,9 @@ export default function PredictionsPage({
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: stateTone.accent }}>
               {stateTone.label}
             </div>
-            <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
-              {stateTone.detail}
-            </div>
           </div>
         ) : null}
+        asideWidth={360}
         marginBottom={isMobile ? 12 : 18}
         bgImage="/images/Hero-Main.png"
       />
@@ -1342,6 +1383,128 @@ export default function PredictionsPage({
         )}
 
         <main style={{ display: "grid", gap: 24 }}>
+
+          {/* ── Pro Intelligence Panel ── */}
+          {aiPredictions.length > 0 && (() => {
+            const isPro = user?.subscription_status === "pro";
+            const visiblePicks = isPro ? aiPredictions : aiPredictions.slice(0, 2);
+            const hiddenCount = aiPredictions.length - visiblePicks.length;
+            const CONF_LABEL = { high: "High", medium: "Medium", low: "Low", confident: "High", uncertain: "Low" };
+            const CONF_COLOR = { high: "#86efac", medium: "#fde68a", low: "#fca5a5", confident: "#86efac", uncertain: "#fca5a5" };
+
+            return (
+              <section
+                style={{
+                  borderRadius: SECTION_RADIUS,
+                  border: isPro ? "1px solid rgba(255,106,26,0.22)" : "1px solid rgba(148,163,184,0.12)",
+                  background: isPro
+                    ? "linear-gradient(160deg,rgba(255,106,26,0.06) 0%,rgba(14,22,38,0.98) 55%)"
+                    : PANEL_BG,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ padding: isMobile ? "14px 16px 12px" : "16px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${HAIRLINE}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: isPro ? ACCENT : MUTED_TEXT, letterSpacing: "-0.01em" }}>
+                        AI Pre-Race Intelligence
+                      </span>
+                      <span style={{ fontSize: 11, color: SUBTLE_TEXT, marginTop: 2 }}>
+                        {isPro ? `${aiPredictions.length} category calls for ${race.n}` : "Category calls — Pro feature"}
+                      </span>
+                    </div>
+                  </div>
+                  {!isPro && (
+                    <button
+                      onClick={() => openAuth ? openAuth("register") : null}
+                      style={{
+                        background: "linear-gradient(135deg,#FF6A1A,#e05a12)",
+                        border: "none",
+                        borderRadius: 8,
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        padding: "6px 12px",
+                        letterSpacing: "-0.01em",
+                        flexShrink: 0,
+                      }}
+                    >
+                      Unlock Pro
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ padding: isMobile ? "12px 14px" : "14px 18px" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)",
+                      gap: 8,
+                      position: "relative",
+                    }}
+                  >
+                    {visiblePicks.map((item) => {
+                      const conf = (typeof item.confidence === "string" ? item.confidence.toLowerCase() : String(item.confidence || "medium").toLowerCase()) || "medium";
+                      const confColor = CONF_COLOR[conf] || "#fde68a";
+                      const confLabel = CONF_LABEL[conf] || "Medium";
+                      const isSet = !!picks[item.key];
+                      const matchesPick = isSet && (picks[item.key] === item.pick);
+                      return (
+                        <div
+                          key={item.key}
+                          style={{
+                            borderRadius: 10,
+                            border: matchesPick
+                              ? "1px solid rgba(134,239,172,0.3)"
+                              : "1px solid rgba(148,163,184,0.12)",
+                            background: matchesPick
+                              ? "rgba(134,239,172,0.06)"
+                              : PANEL_BG_ALT,
+                            padding: "10px 12px",
+                          }}
+                        >
+                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 5 }}>
+                            {item.key === "p2" ? "P2" : item.key === "p3" ? "P3" : item.key === "fl" ? "Fastest Lap" : item.key === "dotd" ? "DOTD" : item.key === "dnf" ? "DNF" : item.key === "ctor" ? "Constructor" : item.key === "sc" ? "Safety Car" : item.key}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.pick}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: confColor, flexShrink: 0 }} />
+                            <span style={{ fontSize: 10, fontWeight: 700, color: confColor }}>{confLabel}</span>
+                            {matchesPick && <span style={{ fontSize: 10, fontWeight: 700, color: "#86efac", marginLeft: "auto" }}>Matched</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {!isPro && hiddenCount > 0 && (
+                      <div
+                        style={{
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,106,26,0.2)",
+                          background: "rgba(255,106,26,0.04)",
+                          padding: "10px 12px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          textAlign: "center",
+                          gap: 4,
+                          gridColumn: isMobile ? "span 2" : "span 2",
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 800, color: ACCENT }}>+{hiddenCount} more</div>
+                        <div style={{ fontSize: 11, color: SUBTLE_TEXT, lineHeight: 1.4 }}>All category calls with Pro</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
           <section style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: LIFTED_SHADOW, overflow: "hidden" }}>
             <div style={{ height: 3, background: `linear-gradient(90deg,${ACCENT},${color}, transparent)` }} />
             {race.sprint && (
@@ -1421,10 +1584,10 @@ export default function PredictionsPage({
                   color: resultsEntered ? SUCCESS_TEXT : raceHasPassed ? "#93c5fd" : WARN_TEXT,
                 }}>
                   {resultsEntered
-                    ? "Round scored — your picks have been evaluated"
+                    ? "Scored"
                     : raceHasPassed
-                      ? "Race weekend in progress — results pending"
-                      : "Qualifying is approaching — picks are locked"}
+                      ? "Results pending"
+                      : "Locked"}
                 </span>
               </div>
             )}
@@ -1468,6 +1631,40 @@ export default function PredictionsPage({
                     </div>
                   </div>
                 ))}
+
+                {/* League Bonus Picks — shown when user's Pro league has extra categories */}
+                {leagueExtraCategories.length > 0 && (() => {
+                  const bonusPrompts = leagueExtraCategories
+                    .map((key) => EXTRA_PROMPT_DEFS[key])
+                    .filter(Boolean);
+                  if (!bonusPrompts.length) return null;
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT, opacity: 0.9 }}>
+                          League Bonus Picks
+                        </div>
+                        <span style={{ fontSize: 8, fontWeight: 800, color: ACCENT, background: "rgba(255,106,26,0.12)", borderRadius: 999, padding: "1px 6px", letterSpacing: "0.06em", textTransform: "uppercase" }}>PRO</span>
+                      </div>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(3,minmax(0,1fr))" : `repeat(${Math.min(bonusPrompts.length, 4)},minmax(0,1fr))`,
+                        gap: 8,
+                      }}>
+                        {bonusPrompts.map((prompt) => (
+                          <PredictionCard
+                            key={prompt.key}
+                            prompt={prompt}
+                            value={picks[prompt.key]}
+                            active={activePrompt?.key === prompt.key}
+                            aiItem={aiByKey[prompt.key]}
+                            onClick={() => focusPrompt(prompt.key)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </section>
@@ -1475,19 +1672,16 @@ export default function PredictionsPage({
           {(reviewReady || editingLocked) && (
             <section style={{ borderRadius: SECTION_RADIUS, background: PANEL_BG, boxShadow: SOFT_SHADOW, overflow: "hidden" }}>
               <div style={{ padding: isMobile ? "20px" : "24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
-                  {reviewReady ? "Round review" : "Round status"}
-                </div>
                 <div style={{ fontSize: isMobile ? 28 : 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 8 }}>
-                  {reviewReady ? "Where your points came from" : "This board is now locked"}
+                  {reviewReady ? "Review" : "Locked"}
                 </div>
-                <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 760 }}>
-                  {reviewReady
-                    ? "Once a Grand Prix has finished and scoring is complete, your board switches into review mode so you can see every hit, miss, and bonus."
-                    : hasSavedPickContent(selectedPrediction?.picks)
-                      ? `You saved ${savedPickCount} picks for this round. Editing is closed now, and scoring will appear here once the Grand Prix is processed.`
-                      : "This round is closed, and you cannot submit or edit picks anymore."}
-                </div>
+                {!reviewReady && (
+                  <div style={{ fontSize: 15, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 760 }}>
+                    {hasSavedPickContent(selectedPrediction?.picks)
+                      ? `${savedPickCount} picks saved`
+                      : "No saved board"}
+                  </div>
+                )}
               </div>
 
               <div style={{ padding: isMobile ? 20 : 24, display: "grid", gap: 18 }}>
@@ -1497,25 +1691,24 @@ export default function PredictionsPage({
                       <ReviewMetric
                         label="Round score"
                         value={`${displayReviewScore} pts`}
-                        detail={`${race.n} total across the full round`}
+                        detail={race.n}
                         accent="#facc15"
                       />
                       <ReviewMetric
                         label="Correct calls"
                         value={String(hits)}
-                        detail={`Matched categories on the ${tab === "sprint" ? "sprint" : "race"} board`}
+                        detail={tab === "sprint" ? "Sprint" : "Race"}
                         accent={SUCCESS}
                       />
                       <ReviewMetric
                         label="Misses"
                         value={String(Math.max(misses, 0))}
-                        detail="Categories that did not land this time"
                         accent="#f87171"
                       />
                       <ReviewMetric
                         label="Podium bonus"
                         value={podiumBonus ? `+${podiumBonus.pts}` : "No"}
-                        detail={podiumBonus ? "Perfect podium bonus awarded" : "No perfect podium this round"}
+                        detail={podiumBonus ? "Perfect podium" : null}
                         accent={podiumBonus ? "#93c5fd" : "#cbd5e1"}
                       />
                     </div>
@@ -1543,7 +1736,7 @@ export default function PredictionsPage({
                           <div style={{ padding: "13px 14px" }}>
                             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{row.label}</div>
                             <div style={{ fontSize: 11, color: row.hit ? SUCCESS : SUBTLE_TEXT }}>
-                              {row.hit ? "Correct call" : "Missed"}
+                              {row.hit ? "Hit" : "Miss"}
                             </div>
                             {isMobile ? (
                               <div style={{ marginTop: 8, display: "grid", gap: 4, fontSize: 12, color: MUTED_TEXT }}>
@@ -1577,9 +1770,9 @@ export default function PredictionsPage({
                     <div style={{ borderRadius: CARD_RADIUS, border: "1px solid rgba(148,163,184,0.14)", background: PANEL_BG_ALT, padding: "16px 18px", fontSize: 14, lineHeight: 1.7, color: MUTED_TEXT }}>
                       {hasSavedPickContent(selectedPrediction?.picks)
                         ? (raceHasPassed
-                          ? "This Grand Prix is already in the books, so your board stays in summary mode until scoring is complete."
-                          : "Predictions are locked for this round. Your saved board is preserved below until scoring is ready.")
-                        : "There is no saved board to review for this round."}
+                          ? "Results pending."
+                          : "Board saved.")
+                        : "No saved board."}
                     </div>
 
                     {hasSavedPickContent(selectedPrediction?.picks) && (

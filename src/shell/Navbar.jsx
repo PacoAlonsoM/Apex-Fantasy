@@ -15,6 +15,7 @@ import {
 } from "@/src/constants/design";
 import { pageToHref } from "@/src/shell/routing";
 import BrandLockup from "@/src/ui/BrandLockup";
+import ProPip from "@/src/ui/ProPip";
 import useViewport from "@/src/lib/useViewport";
 
 export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMode = false, exitDemo }) {
@@ -29,15 +30,16 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
     ["predictions", "Picks"],
     ["ai-brief", "AI Insight"],
     ["news", "Wire"],
-    ["standings", "Standings"],
     ["community", "Leagues"],
+    ["grid", "The Grid"],
+    ...(user ? [["profile", "Profile"]] : []),
   ];
 
   const admin = isAdminUser(user);
   const picksTarget = user || demoMode ? "predictions" : "public-picks";
   const menuItems = admin
-    ? [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
-    : [["My Profile", "profile"], ["My Leagues", "community"], ["Game Guide", "game-guide"], ["Contact Support", "support"]];
+    ? [["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
+    : [["Game Guide", "game-guide"], ["Contact Support", "support"]];
 
   const handleMouseEnter = () => {
     clearTimeout(timeout.current);
@@ -127,8 +129,10 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                 <a
                   key={id}
                   href={pageToHref(actualId, { demoMode })}
+                  data-navbar-tab="true"
                   onClick={(event) => {
                     event.preventDefault();
+                    if (event.detail > 0) event.currentTarget.blur();
                     setPage(actualId);
                   }}
                   onMouseEnter={() => !active && setHoveredTab(id)}
@@ -245,22 +249,26 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                   boxShadow: EDGE_RING,
                 }}
               >
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "50%",
-                    background: userTheme.fill,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: userTheme.text,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    flexShrink: 0,
-                  }}
-                >
-                  {user.username?.slice(0, 2).toUpperCase()}
+                <div style={{ width: 38, height: 38, position: "relative", flexShrink: 0 }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      background: userTheme.fill,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: userTheme.text,
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {user.username?.slice(0, 2).toUpperCase()}
+                  </div>
+                  {user?.subscription_status === "pro" && (
+                    <ProPip size={15} style={{ position: "absolute", right: -1, bottom: -1 }} />
+                  )}
                 </div>
                 {!isMobile && (
                   <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
@@ -320,6 +328,35 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                       {label}
                     </button>
                   ))}
+                  <button
+                    data-hover="minimal"
+                    onClick={() => { setPage("pro"); setDropOpen(false); }}
+                    style={{
+                      width: "100%",
+                      border: "none",
+                      borderTop: "1px solid rgba(255,106,26,0.18)",
+                      borderBottom: "1px solid rgba(255,106,26,0.18)",
+                      background: "linear-gradient(135deg,rgba(255,106,26,0.12),rgba(224,90,18,0.06))",
+                      color: ACCENT,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      padding: "13px 16px",
+                      fontSize: 14,
+                      fontWeight: 800,
+                      letterSpacing: "-0.01em",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <span>Upgrade to Pro</span>
+                    {user?.subscription_status === "pro" && (
+                      <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fff7ed", background: "rgba(249,115,22,0.18)", border: "1px solid rgba(255,106,26,0.26)", borderRadius: 999, padding: "3px 7px" }}>
+                        Active
+                      </span>
+                    )}
+                  </button>
                   <div style={{ height: 1, background: "rgba(214,223,239,0.08)" }} />
                   <button
                     data-hover="minimal"

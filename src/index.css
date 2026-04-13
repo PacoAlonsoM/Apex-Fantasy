@@ -135,6 +135,10 @@ select:focus {
   outline: none;
 }
 
+[data-navbar-tab="true"]:focus-visible {
+  outline: none;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: rgba(214, 223, 239, 0.35);

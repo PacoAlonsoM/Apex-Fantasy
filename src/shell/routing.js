@@ -9,12 +9,15 @@ const APP_PAGE_KEYS = new Set([
   "news",
   "standings",
   "community",
+  "grid",
   "admin",
   "profile",
   "game-guide",
   "support",
   "terms",
   "privacy",
+  "pro",
+  "pro_success",
 ]);
 
 const ROOT_PATH_BY_PAGE = {
@@ -25,6 +28,9 @@ const ROOT_PATH_BY_PAGE = {
   news: "/wire",
   standings: "/leaderboard",
   community: "/leagues",
+  grid: "/grid",
+  pro: "/pro",
+  pro_success: "/pro/success",
 };
 
 const PAGE_BY_ROOT_PATH = new Map(
@@ -44,13 +50,16 @@ const LEGACY_SLUG_TO_PAGE = {
   leaderboard: "standings",
   standings: "standings",
   leagues: "community",
-  community: "community",
+  community: "grid",
+  grid: "grid",
   admin: "admin",
   profile: "profile",
   "game-guide": "game-guide",
   support: "support",
   terms: "terms",
   privacy: "privacy",
+  pro: "pro",
+  "pro-success": "pro_success",
 };
 
 function normalizePathname(value) {

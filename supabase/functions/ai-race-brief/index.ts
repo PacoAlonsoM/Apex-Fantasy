@@ -517,7 +517,31 @@ function normalizeCategoryPredictions(items: Array<Record<string, unknown>>, all
     .filter((item) => item.pick && item.reason && item.allowed.includes(item.pick))
     .sort((left, right) => CATEGORY_ORDER.indexOf(left.key) - CATEGORY_ORDER.indexOf(right.key));
 
-  return filtered.map(({ allowed, ...item }) => item);
+  const existingKeys = new Set(filtered.map((item) => item.key));
+  const hasSprint = allowedOptions.some((option) => String(option?.key || "").startsWith("sp_"));
+  const fallbackPickMap = buildFallbackPickMap(hasSprint);
+
+  for (const option of allowedOptions) {
+    if (existingKeys.has(String(option.key))) continue;
+
+    const allowed = Array.isArray(option.allowed) ? option.allowed : [];
+    const fallbackPick = String(fallbackPickMap[String(option.key)] || allowed[0] || "").trim();
+    if (!fallbackPick || !allowed.includes(fallbackPick)) continue;
+
+    filtered.push({
+      key: String(option.key),
+      category: String(option.label),
+      type: String(option.type || "driver"),
+      pick: fallbackPick,
+      reason: `Model completion fallback for ${String(option.label)}. This category was filled to keep the stored AI board complete for historical tracking.`,
+      confidence: 0.35,
+      allowed,
+    });
+  }
+
+  return filtered
+    .sort((left, right) => CATEGORY_ORDER.indexOf(left.key) - CATEGORY_ORDER.indexOf(right.key))
+    .map(({ allowed, ...item }) => item);
 }
 
 function trimText(value: unknown, maxLength: number) {
@@ -1699,6 +1723,49 @@ async function resolveUpcomingRound(supabase: ReturnType<typeof createClient>, y
   return index >= 0 ? index + 1 : null;
 }
 
+function buildAiRacePredictionRows({
+  upcomingRace,
+  raceName,
+  raceRound,
+  insight,
+  model,
+  generatedAt,
+}: {
+  upcomingRace: Record<string, unknown>;
+  raceName: string;
+  raceRound: number | null;
+  insight: Record<string, unknown>;
+  model: string;
+  generatedAt: string;
+}) {
+  if (!raceRound) return [];
+
+  const categoryPredictions = Array.isArray(insight?.category_predictions)
+    ? insight.category_predictions as Array<Record<string, unknown>>
+    : [];
+
+  return categoryPredictions
+    .filter((prediction) => prediction?.key && prediction?.category && prediction?.pick)
+    .map((prediction) => ({
+      race_round: raceRound,
+      race_name: raceName,
+      meeting_key: Number(upcomingRace?.meeting_key || 0) || null,
+      session_key: Number(upcomingRace?.session_key || 0) || null,
+      target_race_date: String(upcomingRace?.date_start || "") || null,
+      insight_key: "upcoming_race_brief",
+      scope: "upcoming_race",
+      category_key: String(prediction.key),
+      category_label: String(prediction.category),
+      category_type: String(prediction.type || "driver"),
+      predicted_value: String(prediction.pick),
+      reason: typeof prediction.reason === "string" ? prediction.reason : null,
+      confidence: typeof prediction.confidence === "number" ? prediction.confidence : null,
+      provider: insight.mode === "fallback" ? "fallback" : "openai",
+      model,
+      generated_at: generatedAt,
+    }));
+}
+
 async function loadHistoricalContext({
   supabase,
   year,
@@ -2030,6 +2097,7 @@ Deno.serve(async (req: Request) => {
         race_summary: insight.race_summary,
         news_digest: insight.news_digest,
         source_year: year,
+        race_round: historicalContext.targetRound,
         target_race_date: upcomingRace.date_start,
         circuit: upcomingRace.circuit_short_name,
         country: upcomingRace.country_name,
@@ -2050,6 +2118,27 @@ Deno.serve(async (req: Request) => {
 
     const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
     if (upsertError) throw new Error(upsertError.message);
+
+    const aiPredictionRows = buildAiRacePredictionRows({
+      upcomingRace,
+      raceName,
+      raceRound: historicalContext.targetRound,
+      insight,
+      model: insight.model || responseModel,
+      generatedAt: row.generated_at,
+    });
+
+    if (aiPredictionRows.length) {
+      try {
+        const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", historicalContext.targetRound);
+        if (deleteError) throw deleteError;
+
+        const { error: insertError } = await supabase.from("ai_race_predictions").insert(aiPredictionRows);
+        if (insertError) throw insertError;
+      } catch (predictionError) {
+        console.warn("AI race prediction history skipped", predictionError instanceof Error ? predictionError.message : predictionError);
+      }
+    }
 
     await supabase.from("ai_insight_runs").insert({
       scope: "upcoming_race",

@@ -24,8 +24,9 @@ function upsertLink(selector, rel, href) {
   element.setAttribute("href", href);
 }
 
-export default function usePageMetadata({ title, description, path }) {
+export default function usePageMetadata({ title, description, path, skip = false }) {
   useEffect(() => {
+    if (skip) return;
     const fullTitle = `${title} | ${BRAND_NAME}`;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     document.title = fullTitle;
@@ -64,5 +65,5 @@ export default function usePageMetadata({ title, description, path }) {
 
       upsertLink('link[rel="canonical"]', "canonical", `${baseUrl}${path}`);
     }
-  }, [description, path, title]);
+  }, [description, path, skip, title]);
 }

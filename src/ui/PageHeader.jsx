@@ -9,8 +9,9 @@ import {
 } from "@/src/constants/design";
 import useViewport from "@/src/lib/useViewport";
 
-export default function PageHeader({ eyebrow, title, description, aside = null, actions = null, marginBottom = 22, bgImage = null }) {
+export default function PageHeader({ eyebrow, title, description, aside = null, actions = null, marginBottom = 22, bgImage = null, asideWidth = 280 }) {
   const { isMobile, isTablet } = useViewport();
+  const resolvedAsideWidth = typeof asideWidth === "number" ? `${asideWidth}px` : asideWidth;
 
   return (
     <section
@@ -60,7 +61,7 @@ export default function PageHeader({ eyebrow, title, description, aside = null, 
           position: "relative",
           zIndex: 1,
           display: "grid",
-          gridTemplateColumns: aside && !isTablet ? "minmax(0,1fr) 280px" : "1fr",
+          gridTemplateColumns: aside && !isTablet ? `minmax(0,1fr) ${resolvedAsideWidth}` : "1fr",
           gap: 18,
           height: isMobile ? "auto" : "100%",
           alignItems: "start",

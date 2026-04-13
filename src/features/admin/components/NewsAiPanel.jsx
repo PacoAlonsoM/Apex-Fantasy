@@ -10,13 +10,13 @@ export default function NewsAiPanel({
   capabilities,
   newsResult,
   aiResult,
-  repairResult,
+  replayResult,
   newsBusy,
   aiBusy,
-  repairBusy,
+  replayBusy,
   onSyncNews,
-  onRepairAi,
   onGenerateAi,
+  onBackfillReplay,
 }) {
   const aiReady = !!latestRuns?.news || !!latestInsight;
   const aiBlockedReason = capabilities?.canGenerateBrief ? "" : capabilities?.generateBriefReason || "";
@@ -39,14 +39,6 @@ export default function NewsAiPanel({
   const researchSourceCount = Array.isArray(latestInsight?.metadata?.research_sources)
     ? latestInsight.metadata.research_sources.length
     : 0;
-  const freshnessStatus = String(latestInsight?.metadata?.freshness_status || "").trim().toLowerCase();
-  const freshnessReason = latestInsight?.metadata?.stale_reason || "";
-  const freshnessTone = freshnessStatus === "stale" ? "partial" : freshnessStatus === "fresh" ? "ok" : "idle";
-  const freshnessLabel = freshnessStatus === "stale"
-    ? "Brief needs refresh"
-    : freshnessStatus === "fresh"
-      ? "Brief synced to results"
-      : "";
 
   return (
     <AdminCard
@@ -80,7 +72,6 @@ export default function NewsAiPanel({
                 <AdminPill label={latestInsight?.headline ? "Existing brief found" : "No current brief"} tone={latestInsight?.headline ? "ok" : "partial"} />
                 <AdminPill label={aiReady ? "Sources ready" : "Can still generate"} tone={aiReady ? "ok" : "partial"} />
                 {latestInsight?.headline && <AdminPill label={latestBriefLabel} tone={latestBriefTone} />}
-                {freshnessLabel && <AdminPill label={freshnessLabel} tone={freshnessTone} />}
                 {aiExecutionLabel && <AdminPill label={aiExecutionLabel} tone={aiExecutionTone} />}
                 {researchSourceCount > 0 && <AdminPill label={`Live web x${researchSourceCount}`} tone="ok" />}
               </div>
@@ -97,19 +88,12 @@ export default function NewsAiPanel({
                   {fallbackNote}
                 </div>
               )}
-              {freshnessStatus === "stale" && freshnessReason && (
-                <div style={{ fontSize: 12, color: "#fcd34d", lineHeight: 1.6 }}>
-                  {freshnessReason}
-                </div>
-              )}
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {onRepairAi && (
-                <button type="button" onClick={onRepairAi} disabled={repairBusy || aiBusy || !!aiBlockedReason} style={buttonStyle({ emphasis: "secondary" })}>
-                  {repairBusy ? "Repairing..." : "Repair AI truth data"}
-                </button>
-              )}
-              <button type="button" onClick={onGenerateAi} disabled={aiBusy || repairBusy || !!aiBlockedReason} style={buttonStyle()}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={onBackfillReplay} disabled={replayBusy || !!aiBlockedReason} style={buttonStyle({ emphasis: "secondary" })}>
+                {replayBusy ? "Backfilling..." : "Backfill AI replay"}
+              </button>
+              <button type="button" onClick={onGenerateAi} disabled={aiBusy || !!aiBlockedReason} style={buttonStyle()}>
                 {aiBusy ? "Generating..." : "Generate AI brief"}
               </button>
             </div>
@@ -120,10 +104,10 @@ export default function NewsAiPanel({
             </div>
           )}
           <div style={{ fontSize: 12, color: "rgba(214,223,239,0.62)" }}>
-            This generates the saved brief for the next race from the latest news plus the AI history dataset.
+            Generate AI brief saves the next live race board. Backfill AI replay rebuilds completed rounds so profile comparisons use mathematically valid stored picks instead of placeholders.
           </div>
-          <AdminActionResult result={repairResult} />
           <AdminActionResult result={aiResult} />
+          <AdminActionResult result={replayResult} />
         </div>
       </div>
     </AdminCard>

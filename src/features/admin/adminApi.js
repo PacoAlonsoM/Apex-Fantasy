@@ -202,6 +202,21 @@ export function generateAiBrief(season = 2026) {
   return postJson("/api/admin/ai/generate-brief", { season });
 }
 
+export function backfillAiReplayHistory(season = 2026, rounds = null) {
+  return postJson("/api/admin/ai/backfill-history", {
+    season,
+    ...(rounds ? { rounds } : {}),
+  });
+}
+
 export function repairAiLiveData(season = 2026) {
   return postJson("/api/admin/ai/repair-live-data", { season });
+}
+
+export function setAdminProStatus(status) {
+  return postJson("/api/admin/dev/set-pro-status", { status });
+}
+
+export function seedProLeague() {
+  return postJson("/api/admin/leagues/seed-pro", {});
 }

@@ -27,9 +27,9 @@ const supportTopics = [
     detail: "Missing picks, lock timing questions, incorrect score calculations, or race-result disputes.",
   },
   {
-    title: "Leagues and community",
-    subject: "League or forum issue",
-    detail: "League creation issues, standings mismatches, forum posts, replies, or access problems.",
+    title: "Leagues and The Grid",
+    subject: "League or Grid issue",
+    detail: "League creation issues, standings mismatches, Grid posts, replies, or access problems.",
   },
   {
     title: "Bug report",

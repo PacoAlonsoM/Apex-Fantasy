@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   awardRoundPoints,
   backfillHistory,
+  backfillAiReplayHistory,
   fetchAdminDashboard,
   fetchRoundResults,
   generateAiBrief,
@@ -10,6 +11,8 @@ import {
   repairAiLiveData,
   saveRoundDraft,
   saveScheduleOverride,
+  seedProLeague,
+  setAdminProStatus,
   syncNewsFeed,
   syncSchedule,
 } from "@/src/features/admin/adminApi";
@@ -105,6 +108,11 @@ export default function AdminPage({ user }) {
   const [overrideForm, setOverrideForm] = useState(emptyOverride());
   const [actionResults, setActionResults] = useState({});
   const [loadingFlags, setLoadingFlags] = useState({});
+  const [proStatus, setProStatus] = useState(user?.subscription_status ?? "free");
+  const [proToggleLoading, setProToggleLoading] = useState(false);
+  const [proToggleNote, setProToggleNote] = useState("");
+  const [seedLeagueLoading, setSeedLeagueLoading] = useState(false);
+  const [seedLeagueNote, setSeedLeagueNote] = useState("");
   const workspaceRef = useRef(null);
 
   const setBusy = (key, value) => {
@@ -385,6 +393,140 @@ export default function AdminPage({ user }) {
           ))}
         </div>
 
+        {/* ── Pro subscription toggle ── */}
+        {(() => {
+          const isPro = proStatus === "pro";
+
+          async function handleProToggle() {
+            const next = isPro ? "free" : "pro";
+            setProToggleLoading(true);
+            setProToggleNote("");
+            try {
+              await setAdminProStatus(next);
+              setProStatus(next);
+              setProToggleNote(`Switched to ${next.toUpperCase()}.`);
+            } catch (err) {
+              setProToggleNote(`Error: ${err.message}`);
+            } finally {
+              setProToggleLoading(false);
+              setTimeout(() => setProToggleNote(""), 4000);
+            }
+          }
+
+          return (
+            <div
+              style={{
+                borderRadius: 16,
+                border:       isPro ? "1px solid rgba(255,106,26,0.28)" : PANEL_BORDER,
+                background:   isPro ? "rgba(255,106,26,0.06)" : PANEL_BG,
+                padding:      "14px 18px",
+                display:      "flex",
+                alignItems:   "center",
+                justifyContent: "space-between",
+                gap:          16,
+                flexWrap:     "wrap",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width:        8,
+                    height:       8,
+                    borderRadius: "50%",
+                    background:   isPro ? "#FF6A1A" : "rgba(214,223,239,0.28)",
+                    flexShrink:   0,
+                  }}
+                />
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: isPro ? "#FF6A1A" : SUBTLE_TEXT }}>
+                    My account: {isPro ? "Stint Pro" : "Free tier"}
+                  </span>
+                  {proToggleNote && (
+                    <span style={{ marginLeft: 10, fontSize: 11, color: "rgba(214,223,239,0.55)" }}>{proToggleNote}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleProToggle}
+                disabled={proToggleLoading}
+                style={{
+                  background:    isPro ? "rgba(239,68,68,0.12)" : BRAND_GRADIENT,
+                  border:        isPro ? "1px solid rgba(239,68,68,0.28)" : "none",
+                  borderRadius:  999,
+                  color:         isPro ? "#fca5a5" : "#fff",
+                  cursor:        proToggleLoading ? "wait" : "pointer",
+                  fontSize:      12,
+                  fontWeight:    800,
+                  padding:       "7px 16px",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {proToggleLoading ? "Saving…" : isPro ? "Switch to Free" : "Switch to Pro"}
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* ── Seed Pro Community League ── */}
+        {(() => {
+          async function handleSeedLeague() {
+            setSeedLeagueLoading(true);
+            setSeedLeagueNote("");
+            try {
+              const result = await seedProLeague();
+              setSeedLeagueNote(result?.message || "Done.");
+            } catch (err) {
+              setSeedLeagueNote(`Error: ${err.message}`);
+            } finally {
+              setSeedLeagueLoading(false);
+              setTimeout(() => setSeedLeagueNote(""), 8000);
+            }
+          }
+
+          return (
+            <div
+              style={{
+                borderRadius: 16,
+                border:       PANEL_BORDER,
+                background:   PANEL_BG,
+                padding:      "14px 18px",
+                display:      "flex",
+                alignItems:   "center",
+                justifyContent: "space-between",
+                gap:          16,
+                flexWrap:     "wrap",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(245,158,11,0.7)", flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: SUBTLE_TEXT }}>Pro Community League</span>
+                  {seedLeagueNote && (
+                    <span style={{ marginLeft: 10, fontSize: 11, color: "rgba(214,223,239,0.55)" }}>{seedLeagueNote}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleSeedLeague}
+                disabled={seedLeagueLoading}
+                style={{
+                  background:    BRAND_GRADIENT,
+                  border:        "none",
+                  borderRadius:  999,
+                  color:         "#fff",
+                  cursor:        seedLeagueLoading ? "wait" : "pointer",
+                  fontSize:      12,
+                  fontWeight:    800,
+                  padding:       "7px 16px",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {seedLeagueLoading ? "Seeding…" : "Seed / Sync Pro League"}
+              </button>
+            </div>
+          );
+        })()}
+
         {dashboard && <CurrentRoundHealth dashboard={dashboard} />}
 
         <div ref={workspaceRef} style={{ display: "grid", gap: 18 }}>
@@ -441,11 +583,14 @@ export default function AdminPage({ user }) {
               capabilities={capabilities}
               newsResult={actionResults.news}
               aiResult={actionResults.ai}
+              replayResult={actionResults.aiReplay}
               repairResult={actionResults.aiRepair}
               newsBusy={!!loadingFlags.news}
               aiBusy={!!loadingFlags.ai}
+              replayBusy={!!loadingFlags.aiReplay}
               repairBusy={!!loadingFlags.aiRepair}
               onSyncNews={() => runAction("news", () => syncNewsFeed(SEASON), { refreshDashboard: true })}
+              onBackfillReplay={() => runAction("aiReplay", () => backfillAiReplayHistory(SEASON), { refreshDashboard: true })}
               onRepairAi={() => runAction("aiRepair", () => repairAiLiveData(SEASON), { refreshDashboard: true })}
               onGenerateAi={() => runAction("ai", () => generateAiBrief(SEASON), { refreshDashboard: true })}
             />
