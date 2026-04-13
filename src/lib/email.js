@@ -1,9 +1,22 @@
 import "server-only";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient = null;
 
 const FROM = process.env.RESEND_FROM_EMAIL || "STINT <noreply@stint.app>";
+
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not set");
+  }
+
+  if (!resendClient) {
+    resendClient = new Resend(apiKey);
+  }
+
+  return resendClient;
+}
 
 // ─── Template helpers ──────────────────────────────────────────────────────────
 
@@ -73,6 +86,7 @@ function cta(text, href) {
  * @param {{ email: string, username?: string }} opts
  */
 export async function sendProWelcomeEmail({ email, username }) {
+  const resend = getResendClient();
   const name    = username ?? "there";
   const title   = "Welcome to Stint Pro 🏁";
   const preview = "Your Pro subscription is active — here's what you've unlocked.";
@@ -113,6 +127,7 @@ export async function sendProWelcomeEmail({ email, username }) {
  * @param {{ email: string, username?: string, insightType: string, raceName?: string }} opts
  */
 export async function sendInsightReadyEmail({ email, username, insightType, raceName }) {
+  const resend = getResendClient();
   const name       = username ?? "Manager";
   const isPostRace = insightType === "post_race";
   const isPreRace  = insightType === "pre_race";
@@ -158,6 +173,7 @@ export async function sendInsightReadyEmail({ email, username, insightType, race
  *   renewalDate: human-readable date string, e.g. "April 16, 2026"
  */
 export async function sendProRenewalReminderEmail({ email, username, renewalDate }) {
+  const resend = getResendClient();
   const name    = username ?? "Manager";
   const title   = "Your Stint Pro subscription renews soon";
   const preview = `Your Pro subscription renews on ${renewalDate} — no action needed.`;
@@ -184,6 +200,7 @@ export async function sendProRenewalReminderEmail({ email, username, renewalDate
  *   endsAt: human-readable end date, e.g. "April 30, 2026"
  */
 export async function sendProCancellationEmail({ email, username, endsAt }) {
+  const resend = getResendClient();
   const name  = username ?? "Manager";
   const title = "Your Stint Pro subscription has been cancelled";
   const endCopy = endsAt

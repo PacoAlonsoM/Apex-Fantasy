@@ -84,22 +84,22 @@ async function persistAiBrief({
   const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
   if (upsertError) throw upsertError;
 
-  const predictionRows = buildAiRacePredictionRows({
+  const generatedPredictionRows = buildAiRacePredictionRows({
     race,
     sessions,
     insight,
     generatedAt: row.generated_at,
   });
 
-  if (predictionRows.length) {
+  if (generatedPredictionRows.length) {
     try {
-      const raceRound = predictionRows[0]?.race_round || null;
+      const raceRound = generatedPredictionRows[0]?.race_round || null;
       if (raceRound) {
         const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", raceRound);
         if (deleteError) throw deleteError;
       }
 
-      const { error: insertError } = await supabase.from("ai_race_predictions").insert(predictionRows);
+      const { error: insertError } = await supabase.from("ai_race_predictions").insert(generatedPredictionRows);
       if (insertError) throw insertError;
     } catch (predictionError) {
       console.warn("AI race prediction history skipped", predictionError?.message || predictionError);
@@ -131,7 +131,7 @@ async function persistAiBrief({
       articles: articles.length,
       sources: row.source_count || 0,
       historyRows: historyRows.length,
-      predictions: predictionRows.length,
+      predictions: generatedPredictionRows.length,
     },
     warnings: insight.mode === "fallback" && insight.note ? [insight.note] : [],
   });

@@ -1487,6 +1487,40 @@ export function buildAiContext({ race, sessions, articles, historyRows, resultsR
   };
 }
 
+export function buildHistoricalContext({ historyRows = [], resultsRows = [], predictionRows = [] }) {
+  const orderedHistoryRows = [...(historyRows || [])].sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+  const orderedResultsRows = [...(resultsRows || [])].sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+  const orderedPredictionRows = [...(predictionRows || [])]
+    .filter((row) => row?.score !== null && row?.score !== undefined)
+    .sort((left, right) => Number(right?.race_round || 0) - Number(left?.race_round || 0));
+
+  return {
+    canonicalHistoryRows: orderedHistoryRows.map((row) => ({
+      race_round: row?.race_round || null,
+      race_name: row?.race_name || null,
+      race_date: row?.race_date || null,
+      race_outcome: row?.race_outcome || {},
+      qualifying_outcome: row?.qualifying_outcome || {},
+      sprint_outcome: row?.sprint_outcome || {},
+      weather_summary: row?.weather_summary || {},
+      strategy_summary: row?.strategy_summary || {},
+      driver_results: row?.driver_results || {},
+      constructor_results: row?.constructor_results || {},
+      volatility_summary: row?.volatility_summary || {},
+      source_payload: row?.source_payload || {},
+    })),
+    previousRace: buildPreviousRace(orderedHistoryRows[0] || null),
+    previousRaceWeather: buildPreviousRaceWeather(orderedHistoryRows[0] || null),
+    previousRaceStrategy: buildPreviousRaceStrategy(orderedHistoryRows[0] || null),
+    historicalForm: buildHistoricalForm(orderedHistoryRows),
+    seasonStats: buildSeasonStats(orderedHistoryRows),
+    seasonVolatility: buildSeasonVolatility(orderedHistoryRows),
+    weatherStrategyPatterns: buildWeatherStrategyPatterns(orderedHistoryRows),
+    fantasyMarket: buildFantasyMarket(orderedPredictionRows, orderedResultsRows),
+    recentResults: buildRecentResults(orderedHistoryRows, orderedResultsRows),
+  };
+}
+
 export async function generateInsightPayload({ race, sessions, articles, historyRows, resultsRows, predictionRows = [] }) {
   const { context, categoryOptions } = buildAiContext({ race, sessions, articles, historyRows, resultsRows, predictionRows });
 
