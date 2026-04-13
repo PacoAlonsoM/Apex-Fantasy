@@ -35,43 +35,48 @@ async function getRouteUserId(params) {
 }
 
 export async function GET(request, { params }) {
-  const userId = await getRouteUserId(params);
+  try {
+    const userId = await getRouteUserId(params);
 
-  if (!userId) {
-    return NextResponse.json({ error: "userId required" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const auth = await authorizeAndCheckPro(request, userId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+    const insights = await getUserInsights(userId);
+    return NextResponse.json({ insights });
+  } catch (err) {
+    console.error("[insights/userId][GET]", err?.message || err);
+    return NextResponse.json({ error: "Could not load insights." }, { status: 500 });
   }
-
-  const auth = await authorizeAndCheckPro(request, userId);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-  const insights = await getUserInsights(userId);
-  return NextResponse.json({ insights });
 }
 
 export async function POST(request, { params }) {
-  const userId = await getRouteUserId(params);
-
-  if (!userId) {
-    return NextResponse.json({ error: "userId required" }, { status: 400 });
-  }
-
-  const auth = await authorizeAndCheckPro(request, userId);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-  let body;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
+    const userId = await getRouteUserId(params);
 
-  const { type, raceId, userStats, month } = body;
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
 
-  if (!type || !["post_race", "pre_race", "monthly"].includes(type)) {
-    return NextResponse.json({ error: "type must be post_race, pre_race, or monthly" }, { status: 400 });
-  }
+    const auth = await authorizeAndCheckPro(request, userId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  try {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const { type, raceId, userStats, month } = body;
+
+    if (!type || !["post_race", "pre_race", "monthly"].includes(type)) {
+      return NextResponse.json({ error: "type must be post_race, pre_race, or monthly" }, { status: 400 });
+    }
+
     let result;
 
     if (type === "post_race") {

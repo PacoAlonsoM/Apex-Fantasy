@@ -17,19 +17,35 @@ function env(name) {
   return process.env[name] || "";
 }
 
+function isLocalRuntime() {
+  return !env("VERCEL") && !env("VERCEL_URL");
+}
+
+function environmentLabel() {
+  return isLocalRuntime() ? `local env (${LOCAL_ADMIN_ENV_PATH})` : "server environment";
+}
+
+function missingEnvMessage(variableName, reason, { plural = false } = {}) {
+  if (isLocalRuntime()) {
+    return `Missing ${variableName} in ${LOCAL_ADMIN_ENV_PATH}. Restart the local dev server after adding ${plural ? "them" : "it"} to enable ${reason}.`;
+  }
+
+  return `Missing ${variableName} in the server environment. Add ${plural ? "them" : "it"} to your deployment environment to enable ${reason}.`;
+}
+
 function isJwtLike(value) {
   return String(value || "").trim().split(".").length === 3;
 }
 
 function missingServiceRoleMessage(reason = "critical admin actions") {
-  return `Missing SUPABASE_SERVICE_ROLE_KEY in ${LOCAL_ADMIN_ENV_PATH}. Restart the local dev server after adding it to enable ${reason}.`;
+  return missingEnvMessage("SUPABASE_SERVICE_ROLE_KEY", reason);
 }
 
 function createSupabaseServerClient(key) {
   const supabaseUrl = env("NEXT_PUBLIC_SUPABASE_URL");
 
   if (!supabaseUrl || !key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or a Supabase key in local env.");
+    throw new Error(`Missing NEXT_PUBLIC_SUPABASE_URL or a Supabase key in the ${environmentLabel()}.`);
   }
 
   return createClient(supabaseUrl, key, {
@@ -65,13 +81,15 @@ export function buildLocalAdminCapabilities() {
       ? "remote-openai-proxy"
       : "unavailable";
   const aiExecutionWarning = !hasLocalOpenAiKey && hasRemoteAiProxy
-    ? `Localhost AI briefs are currently proxy-backed because OPENAI_API_KEY is missing in ${LOCAL_ADMIN_ENV_PATH}. Add it and restart the dev server if you want AI generation to remain fully local when Supabase functions are unavailable.`
+    ? isLocalRuntime()
+      ? `AI briefs are currently proxy-backed because OPENAI_API_KEY is missing in ${LOCAL_ADMIN_ENV_PATH}. Add it and restart the local dev server if you want AI generation to remain fully local when Supabase functions are unavailable.`
+      : "AI briefs are currently proxy-backed because OPENAI_API_KEY is missing in the server environment."
     : "";
   const generateBriefReason = !hasServiceRole
     ? serviceRoleReason
     : canGenerateBrief
       ? ""
-      : `Missing OPENAI_API_KEY in ${LOCAL_ADMIN_ENV_PATH} and missing RACE_RESULTS_SYNC_SECRET for the remote AI brief proxy.`;
+      : missingEnvMessage("OPENAI_API_KEY and RACE_RESULTS_SYNC_SECRET", "AI brief generation", { plural: true });
 
   const warnings = [];
   if (!hasServiceRole) warnings.push(serviceRoleReason);
@@ -94,7 +112,9 @@ export function buildLocalAdminCapabilities() {
     calendarSyncHealthy: hasCalendarSecret || hasServiceRole,
     calendarSyncReason: hasCalendarSecret || hasServiceRole
       ? ""
-      : "Schedule sync is missing a local secret. Add CALENDAR_SYNC_SECRET or RACE_RESULTS_SYNC_SECRET for manual localhost syncs.",
+      : isLocalRuntime()
+        ? "Schedule sync is missing a local secret. Add CALENDAR_SYNC_SECRET or RACE_RESULTS_SYNC_SECRET for manual localhost syncs."
+        : "Schedule sync is missing CALENDAR_SYNC_SECRET or RACE_RESULTS_SYNC_SECRET in the server environment.",
     warnings,
   };
 }
@@ -107,7 +127,7 @@ export function getSupabaseReadClient() {
   const key = serviceRoleKey || anonKey;
 
   if (!key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY in local env.");
+    throw new Error(`Missing NEXT_PUBLIC_SUPABASE_ANON_KEY in the ${environmentLabel()}.`);
   }
 
   cachedReadClient = createSupabaseServerClient(key);

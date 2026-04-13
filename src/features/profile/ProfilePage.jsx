@@ -40,6 +40,23 @@ function raceNameForRound(round) {
   return CAL.find((item) => item.r === round)?.n || `Round ${round}`;
 }
 
+async function parseJsonResponse(response, fallbackMessage) {
+  const raw = await response.text();
+
+  if (!raw) {
+    if (!response.ok) {
+      throw new Error(fallbackMessage);
+    }
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(response.ok ? "Unexpected response from the server." : fallbackMessage);
+  }
+}
+
 function average(values) {
   const valid = values.filter((value) => Number.isFinite(value));
   if (!valid.length) return null;
@@ -511,7 +528,7 @@ export default function ProfilePage({ user, setUser }) {
       setInsightError("");
       fetch(`/api/insights/${user.id}`, { headers: { "x-user-id": user.id } })
         .then(async (response) => {
-          const data = await response.json();
+          const data = await parseJsonResponse(response, "Could not load insights.");
           if (!response.ok) throw new Error(data.error || "Could not load insights.");
           return data;
         })
@@ -595,7 +612,7 @@ export default function ProfilePage({ user, setUser }) {
         headers: { "x-user-id": user.id, "Content-Type": "application/json" },
         body: JSON.stringify({ type: "monthly", month: "2026 Season so far", userStats }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "Could not generate insight.");
       if (!res.ok) {
         throw new Error(data.error || "Could not generate insight.");
       }
