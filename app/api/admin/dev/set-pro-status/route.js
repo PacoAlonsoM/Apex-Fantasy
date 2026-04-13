@@ -1,6 +1,6 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
 import { requireAdminRequest, adminAccessErrorResponse, getConfiguredAdminUserId } from "../../_lib/localAdminAccess";
+import { getSupabaseAdmin, requireServiceRole } from "../../_lib/supabaseAdmin";
 import { jsonOk, jsonError } from "../../_lib/response";
 
 export const runtime = "nodejs";
@@ -32,11 +32,13 @@ export async function POST(request) {
   }
 
   const adminUserId = getConfiguredAdminUserId();
+  try {
+    requireServiceRole("switching your account between Pro and Free");
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "Server-side admin writes are unavailable.", 503);
+  }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const supabase = getSupabaseAdmin();
 
   const patch = status === "pro"
     ? {
@@ -58,5 +60,5 @@ export async function POST(request) {
     return jsonError(`Failed to update subscription: ${error.message}`, 500);
   }
 
-  return jsonOk({ ok: true, status });
+  return jsonOk("Subscription updated.", { ok: true, status });
 }

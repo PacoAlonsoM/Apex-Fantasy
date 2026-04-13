@@ -396,8 +396,14 @@ export default function AdminPage({ user }) {
         {/* ── Pro subscription toggle ── */}
         {(() => {
           const isPro = proStatus === "pro";
+          const canToggleProStatus = Boolean(capabilities?.hasServiceRole);
+          const toggleDisabledReason = capabilities?.publishReason || "Server-side admin writes are unavailable.";
 
           async function handleProToggle() {
+            if (!canToggleProStatus) {
+              setProToggleNote(`Error: ${toggleDisabledReason}`);
+              return;
+            }
             const next = isPro ? "free" : "pro";
             setProToggleLoading(true);
             setProToggleNote("");
@@ -448,17 +454,19 @@ export default function AdminPage({ user }) {
               </div>
               <button
                 onClick={handleProToggle}
-                disabled={proToggleLoading}
+                disabled={proToggleLoading || !canToggleProStatus}
+                title={!canToggleProStatus ? toggleDisabledReason : undefined}
                 style={{
                   background:    isPro ? "rgba(239,68,68,0.12)" : BRAND_GRADIENT,
                   border:        isPro ? "1px solid rgba(239,68,68,0.28)" : "none",
                   borderRadius:  999,
                   color:         isPro ? "#fca5a5" : "#fff",
-                  cursor:        proToggleLoading ? "wait" : "pointer",
+                  cursor:        (proToggleLoading || !canToggleProStatus) ? "not-allowed" : "pointer",
                   fontSize:      12,
                   fontWeight:    800,
                   padding:       "7px 16px",
                   letterSpacing: "-0.01em",
+                  opacity:       canToggleProStatus ? 1 : 0.6,
                 }}
               >
                 {proToggleLoading ? "Saving…" : isPro ? "Switch to Free" : "Switch to Pro"}

@@ -5,7 +5,7 @@ import { PTS } from "@/src/constants/scoring";
 import { ACCENT, AVATAR_THEMES, BG_ELEVATED, CONTENT_MAX, DEFAULT_AVATAR_COLOR, PANEL_BG, PANEL_BG_ALT, PANEL_BORDER, MUTED_TEXT, SUBTLE_TEXT, TEAM_AVATAR_OPTIONS, avatarTheme, isAdminUser, teamSupportKey } from "@/src/constants/design";
 import { backfillAiReplayHistory } from "@/src/features/admin/adminApi";
 import { matchesDnfPick } from "@/src/lib/resultHelpers";
-import { isUsernameTaken, sanitizeUsername } from "@/src/shell/authProfile";
+import { isUsernameTaken, requireActiveSession, sanitizeUsername } from "@/src/shell/authProfile";
 import useViewport from "@/src/lib/useViewport";
 import PageHeader from "@/src/ui/PageHeader";
 import ProBadge from "@/src/ui/ProBadge";
@@ -55,6 +55,25 @@ async function parseJsonResponse(response, fallbackMessage) {
   } catch {
     throw new Error(response.ok ? "Unexpected response from the server." : fallbackMessage);
   }
+}
+
+async function buildInsightRequestHeaders(userId, includeJson = false) {
+  const headers = { "x-user-id": userId };
+
+  if (includeJson) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  try {
+    const session = await requireActiveSession();
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+  } catch (_error) {
+    // Fall back to the existing user-id header path.
+  }
+
+  return headers;
 }
 
 function average(values) {
@@ -526,15 +545,25 @@ export default function ProfilePage({ user, setUser }) {
     if (profileTab === "insights" && user?.subscription_status === "pro" && proInsights.length === 0) {
       setInsightsLoading(true);
       setInsightError("");
-      fetch(`/api/insights/${user.id}`, { headers: { "x-user-id": user.id } })
-        .then(async (response) => {
+      let active = true;
+
+      (async () => {
+        try {
+          const headers = await buildInsightRequestHeaders(user.id);
+          const response = await fetch(`/api/insights/${user.id}`, { headers });
           const data = await parseJsonResponse(response, "Could not load insights.");
           if (!response.ok) throw new Error(data.error || "Could not load insights.");
-          return data;
-        })
-        .then((data) => setProInsights(normalizeInsights(data.insights ?? [])))
-        .catch((loadError) => setInsightError(loadError?.message || "Could not load insights."))
-        .finally(() => setInsightsLoading(false));
+          if (active) setProInsights(normalizeInsights(data.insights ?? []));
+        } catch (loadError) {
+          if (active) setInsightError(loadError?.message || "Could not load insights.");
+        } finally {
+          if (active) setInsightsLoading(false);
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
     }
   }, [profileTab, user]); // eslint-disable-line
 
@@ -607,9 +636,10 @@ export default function ProfilePage({ user, setUser }) {
       },
     };
     try {
+      const headers = await buildInsightRequestHeaders(user.id, true);
       const res = await fetch(`/api/insights/${user.id}`, {
         method: "POST",
-        headers: { "x-user-id": user.id, "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ type: "monthly", month: "2026 Season so far", userStats }),
       });
       const data = await parseJsonResponse(res, "Could not generate insight.");

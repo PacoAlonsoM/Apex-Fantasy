@@ -1,11 +1,22 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
+function env(name) {
+  return String(process.env[name] || "").trim();
+}
+
 function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const url = env("NEXT_PUBLIC_SUPABASE_URL");
+  const key = env("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!url || !key) return null;
+
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 function buildTransientInsight({ insightType, content, raceName = null }) {
@@ -201,8 +212,9 @@ async function generateInsight({ prompt, insightType, fallbackContent }) {
  * @param {{ userId: string, raceId: string }} opts
  * @returns {Promise<{ id: string, content: string }|null>}
  */
-export async function generatePostRaceInsight({ userId, raceId }) {
-  const supabase = getAdminClient();
+export async function generatePostRaceInsight({ userId, raceId, client = null }) {
+  const supabase = client || getAdminClient();
+  if (!supabase) return null;
 
   // Fetch race + results
   const { data: race } = await supabase
@@ -276,8 +288,9 @@ export async function generatePostRaceInsight({ userId, raceId }) {
  *
  * @param {{ userId: string, raceId: string, userStats: object }} opts
  */
-export async function generatePreRaceInsight({ userId, raceId, userStats }) {
-  const supabase = getAdminClient();
+export async function generatePreRaceInsight({ userId, raceId, userStats, client = null }) {
+  const supabase = client || getAdminClient();
+  if (!supabase) return null;
 
   const { data: race } = await supabase
     .from("races")
@@ -332,17 +345,24 @@ export async function generatePreRaceInsight({ userId, raceId, userStats }) {
  * @param {{ userId: string, month: string, userStats: object }} opts
  *   month: e.g. "April 2026"
  */
-export async function generateMonthlyInsight({ userId, month, userStats }) {
-  const supabase = getAdminClient();
+export async function generateMonthlyInsight({ userId, month, userStats, username = null, client = null }) {
+  const supabase = client || getAdminClient();
+  let resolvedUsername = username || "Manager";
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", userId)
-    .single();
+  if (supabase && !username) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profile?.username) {
+      resolvedUsername = profile.username;
+    }
+  }
 
   const prompt  = buildMonthlyPrompt({
-    username:  profile?.username ?? "Manager",
+    username:  resolvedUsername,
     month,
     userStats,
   });
@@ -356,6 +376,10 @@ export async function generateMonthlyInsight({ userId, month, userStats }) {
     content,
     raceName: null,
   });
+
+  if (!supabase) {
+    return fallbackRow;
+  }
 
   const { data: row, error } = await supabase
     .from("user_ai_insights")
@@ -384,7 +408,9 @@ export async function generateMonthlyInsight({ userId, month, userStats }) {
  * @returns {Promise<Array>}
  */
 export async function getUserInsights(userId) {
-  const supabase = getAdminClient();
+  const client = arguments[1] || null;
+  const supabase = client || getAdminClient();
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from("user_ai_insights")
     .select("id, insight_type, content, race_name, generated_at")
