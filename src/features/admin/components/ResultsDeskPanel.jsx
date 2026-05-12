@@ -119,7 +119,7 @@ function SelectField({ label, value, options, placeholder, onChange }) {
       <select value={value || ""} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
         <option value="">{placeholder || "Select an option"}</option>
         {options.map((option) => (
-          <option key={option.value} value={option.value} style={{ background: "#08111d" }}>
+          <option key={option.value} value={option.value} style={{ background: "var(--bg-surface)", color: "var(--text)" }}>
             {option.label}
           </option>
         ))}
@@ -165,7 +165,7 @@ function SummaryGrid({ payload, tone = "default" }) {
           style={{
             borderRadius: 12,
             border: isPublished ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(255,255,255,0.08)",
-            background: isPublished ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)",
+            background: isPublished ? "rgba(34,197,94,0.06)" : "var(--btn-secondary-bg)",
             padding: "12px 14px",
             display: "grid",
             gap: 5,
@@ -312,7 +312,7 @@ export default function ResultsDeskPanel({
             padding: 12,
             borderRadius: 14,
             border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(255,255,255,0.03)",
+            background: "var(--btn-secondary-bg)",
             maxHeight: 220,
             overflowY: "auto",
           }}
@@ -328,7 +328,7 @@ export default function ResultsDeskPanel({
                   alignItems: "center",
                   borderRadius: 10,
                   padding: "8px 10px",
-                  background: selected ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.02)",
+                  background: selected ? "rgba(239,68,68,0.12)" : "var(--btn-secondary-bg)",
                   border: selected ? "1px solid rgba(239,68,68,0.26)" : "1px solid rgba(255,255,255,0.06)",
                   cursor: "pointer",
                   fontSize: 12,

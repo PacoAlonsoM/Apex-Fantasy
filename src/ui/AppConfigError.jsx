@@ -48,7 +48,7 @@ export default function AppConfigError({ status }) {
             gap: 10,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--brand)" }}>
             Missing variables
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -58,8 +58,8 @@ export default function AppConfigError({ status }) {
                 style={{
                   padding: "6px 10px",
                   borderRadius: 999,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-soft)",
                   color: TEXT_PRIMARY,
                   fontSize: 12,
                 }}

@@ -1,44 +1,42 @@
 import {
   BRAND_DESCRIPTOR,
-  BRAND_WORDMARK,
+  BRAND_LOGO_SRC,
+  BRAND_NAME,
   SUBTLE_TEXT,
-  TEXT_PRIMARY,
 } from "@/src/constants/design";
-import BrandMark from "@/src/ui/BrandMark";
 
 export default function BrandLockup({ mobile = false, compact = false, markSize, descriptor = !mobile, ghost = false }) {
-  const size = markSize || (mobile ? 40 : compact ? 42 : 46);
+  const logoHeight = markSize || (mobile ? 40 : compact ? 44 : 48);
+  const logoWidth = Math.round(logoHeight * 4.1);
 
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: mobile ? 12 : 14 }}>
-      <BrandMark size={size} ghost={ghost} />
-      <div style={{ display: "grid", gap: descriptor ? 4 : 0, textAlign: "left" }}>
+    <div style={{ display: "inline-grid", gap: descriptor ? 6 : 0, justifyItems: "start", textAlign: "left" }}>
+      <img
+        src={BRAND_LOGO_SRC}
+        alt={`${BRAND_NAME} logo`}
+        style={{
+          width: logoWidth,
+          height: logoHeight,
+          objectFit: "contain",
+          objectPosition: "left center",
+          display: "block",
+          flexShrink: 0,
+          filter: ghost ? "none" : "var(--logo-shadow)",
+        }}
+      />
+      {descriptor && (
         <span
           style={{
-            fontSize: mobile ? 24 : compact ? 26 : 30,
-            fontWeight: 800,
-            letterSpacing: "-0.06em",
-            lineHeight: 0.9,
-            color: TEXT_PRIMARY,
-            fontFamily: "var(--font-display)",
+            fontSize: mobile ? 10 : 11,
+            fontWeight: 700,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: SUBTLE_TEXT,
           }}
         >
-          {BRAND_WORDMARK}
+          {BRAND_DESCRIPTOR}
         </span>
-        {descriptor && (
-          <span
-            style={{
-              fontSize: mobile ? 10 : 11,
-              fontWeight: 700,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: SUBTLE_TEXT,
-            }}
-          >
-            {BRAND_DESCRIPTOR}
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }

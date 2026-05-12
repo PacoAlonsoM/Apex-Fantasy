@@ -49,6 +49,8 @@ ALTER TABLE public.profiles
     CHECK (subscription_status IN ('free', 'pro')),
   ADD COLUMN IF NOT EXISTS subscription_start     TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS subscription_end       TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT,
   ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
 

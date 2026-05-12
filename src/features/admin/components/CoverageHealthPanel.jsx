@@ -8,7 +8,7 @@ function Metric({ label, value }) {
       style={{
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        background: "var(--btn-secondary-bg)",
         padding: "14px 15px",
         display: "grid",
         gap: 6,
@@ -89,7 +89,7 @@ export default function CoverageHealthPanel({ coverage, latestRuns, capabilities
                   style={{
                     borderRadius: 14,
                     border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.03)",
+                    background: "var(--btn-secondary-bg)",
                     padding: "14px 15px",
                     display: "grid",
                     gap: 7,

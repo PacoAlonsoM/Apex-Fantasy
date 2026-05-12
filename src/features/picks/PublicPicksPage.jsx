@@ -17,7 +17,7 @@ import { pageToHref } from "@/src/shell/routing";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
-import PageHeader from "@/src/ui/PageHeader";
+import PageMasthead from "@/src/ui/PageMasthead";
 
 const PICK_CATEGORIES = [
   ["Pole Position", "10 pts", "Who is quickest over one lap."],
@@ -100,10 +100,12 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
         zIndex: 1,
       }}
     >
-      <PageHeader
+      <PageMasthead
         eyebrow="Picks"
         title="See the board before lock."
         description="The real board closes right before qualifying. These are the categories players submit each weekend."
+        image={{ src: "/images/header-calendar.png", position: "right-mask" }}
+        tone="ambient"
         actions={(
           <>
             <a
@@ -160,7 +162,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
               background: PANEL_BG,
               boxShadow: LIFTED_SHADOW,
               padding: isMobile ? 20 : 24,
-              border: "1px solid rgba(214,223,239,0.08)",
+              border: "1px solid var(--border)",
             }}
           >
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 16 }}>
@@ -180,12 +182,12 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
                     borderRadius: 16,
                     background: PANEL_BG_ALT,
                     padding: "16px 16px 14px",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--border-soft)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
                     <strong style={{ fontSize: 16, lineHeight: 1.15 }}>{label}</strong>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: ACCENT }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--brand)" }}>
                       {pts}
                     </span>
                   </div>
@@ -203,7 +205,7 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
               padding: isMobile ? 20 : 24,
               display: "grid",
               gap: 18,
-              border: "1px solid rgba(214,223,239,0.08)",
+              border: "1px solid var(--border)",
             }}
           >
             <div>
@@ -227,11 +229,11 @@ export default function PublicPicksPage({ user, demoMode = false, openAuth, open
                     padding: "12px 14px",
                     borderRadius: 14,
                     background: PANEL_BG_ALT,
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--border-soft)",
                   }}
                 >
                   <strong style={{ fontSize: 14 }}>{label}</strong>
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: ACCENT }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--brand)" }}>
                     {pts}
                   </span>
                 </div>

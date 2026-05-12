@@ -5,9 +5,9 @@ import { formatStamp, statusTone } from "../formatters";
 function cellStyle() {
   return {
     padding: "12px 10px",
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    borderBottom: "1px solid var(--border)",
     fontSize: 12,
-    color: "rgba(214,223,239,0.72)",
+    color: "var(--text-muted)",
     verticalAlign: "top",
   };
 }
@@ -32,7 +32,7 @@ export default function RoundStatusTable({ rounds = [], selectedRound = null, on
                     fontSize: 10,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "rgba(214,223,239,0.44)",
+                    color: "var(--text-subtle)",
                   }}
                 >
                   {label}
@@ -80,10 +80,10 @@ export default function RoundStatusTable({ rounds = [], selectedRound = null, on
                       onClick={() => onSelectRound?.(row.round)}
                       aria-pressed={isSelected}
                       style={{
-                        background: isSelected ? "linear-gradient(135deg, #ff8a3d 0%, #ffb347 100%)" : "rgba(255,255,255,0.06)",
-                        border: isSelected ? "1px solid rgba(255,194,71,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                        background: isSelected ? "linear-gradient(135deg, #ff8a3d 0%, #ffb347 100%)" : "var(--btn-secondary-bg)",
+                        border: isSelected ? "1px solid rgba(255,194,71,0.4)" : "1px solid var(--border-soft)",
                         borderRadius: 999,
-                        color: isSelected ? "#0f172a" : "#fff",
+                        color: isSelected ? "#0f172a" : "var(--text)",
                         cursor: "pointer",
                         fontWeight: 800,
                         fontSize: 11,

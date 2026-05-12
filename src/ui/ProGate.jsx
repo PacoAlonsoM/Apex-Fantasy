@@ -1,6 +1,6 @@
 "use client";
 
-import { ACCENT, BG_ELEVATED, PANEL_BORDER, MUTED_TEXT, BRAND_GRADIENT } from "@/src/constants/design";
+import { BRAND_GRADIENT } from "@/src/constants/design";
 
 /**
  * ProGate — wraps Pro-only UI sections.
@@ -62,7 +62,7 @@ export default function ProGate({ children, subscriptionStatus, label, feature }
           gap:            16,
           padding:        24,
           textAlign:      "center",
-          background:     "linear-gradient(180deg, rgba(6,16,27,0.12) 0%, rgba(6,16,27,0.82) 40%, rgba(6,16,27,0.96) 100%)",
+          background:     "var(--pro-gate-overlay)",
           borderRadius:   "inherit",
         }}
       >
@@ -71,7 +71,7 @@ export default function ProGate({ children, subscriptionStatus, label, feature }
           <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.3, marginBottom: 6 }}>
             {displayLabel} is a Pro feature
           </div>
-          <div style={{ fontSize: 13, color: MUTED_TEXT, maxWidth: 320, lineHeight: 1.65 }}>
+          <div style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 320, lineHeight: 1.65 }}>
             Upgrade to Stint Pro to unlock this and all Pro features.
           </div>
         </div>

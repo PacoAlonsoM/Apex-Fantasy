@@ -20,10 +20,43 @@ export async function POST(request) {
     }
 
     const stripe = getStripeClient();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
-      return_url: `${getSiteUrl()}/pro`,
-    });
+    const siteUrl = getSiteUrl();
+    const mode = String(body?.mode || "manage").trim().toLowerCase();
+
+    if (mode === "cancel" && profile?.stripe_subscription_id) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+        if (subscription?.cancel_at_period_end) {
+          return NextResponse.json({ url: `${siteUrl}/pro?billing=cancelled` });
+        }
+      } catch (stripeError) {
+        console.warn("[stripe/portal] could not preflight subscription cancellation state:", stripeError.message);
+      }
+    }
+
+    const session = await stripe.billingPortal.sessions.create(
+      mode === "cancel" && profile?.stripe_subscription_id
+        ? {
+            customer: profile.stripe_customer_id,
+            return_url: `${siteUrl}/pro?billing=1`,
+            flow_data: {
+              type: "subscription_cancel",
+              subscription_cancel: {
+                subscription: profile.stripe_subscription_id,
+              },
+              after_completion: {
+                type: "redirect",
+                redirect: {
+                  return_url: `${siteUrl}/pro?billing=cancelled`,
+                },
+              },
+            },
+          }
+        : {
+            customer: profile.stripe_customer_id,
+            return_url: `${siteUrl}/pro?billing=1`,
+          }
+    );
 
     return NextResponse.json({ url: session.url });
   } catch (err) {

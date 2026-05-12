@@ -9,6 +9,7 @@ import {
   getProfileByStripeCustomer,
   markStripeWebhookEventStatus,
   reserveStripeWebhookEvent,
+  syncSubscriptionState,
 } from "@/src/lib/subscription";
 import { sendProWelcomeEmail, sendProCancellationEmail } from "@/src/lib/email";
 
@@ -71,14 +72,22 @@ async function handleEvent(event) {
       if (obj.subscription) {
         const sub = await stripe.subscriptions.retrieve(obj.subscription);
         subscriptionEnd = new Date(sub.current_period_end * 1000);
+        await activateProSubscription({
+          userId,
+          stripeCustomerId:     obj.customer,
+          stripeSubscriptionId: obj.subscription,
+          subscriptionEnd,
+          cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+          canceledAt: sub.cancel_at ? new Date(sub.cancel_at * 1000) : null,
+        });
+      } else {
+        await activateProSubscription({
+          userId,
+          stripeCustomerId:     obj.customer,
+          stripeSubscriptionId: obj.subscription,
+          subscriptionEnd,
+        });
       }
-
-      await activateProSubscription({
-        userId,
-        stripeCustomerId:     obj.customer,
-        stripeSubscriptionId: obj.subscription,
-        subscriptionEnd,
-      });
 
       // Fetch user email for welcome email
       const supabase = getAdminClient();
@@ -106,22 +115,30 @@ async function handleEvent(event) {
     case "customer.subscription.updated": {
       const customerId = obj.customer;
       const status     = obj.status; // 'active', 'past_due', 'canceled', etc.
+      const periodEnd = obj.current_period_end
+        ? new Date(obj.current_period_end * 1000)
+        : null;
+      const cancelAtPeriodEnd = Boolean(obj.cancel_at_period_end);
+      const canceledAt = obj.cancel_at
+        ? new Date(obj.cancel_at * 1000)
+        : obj.canceled_at
+          ? new Date(obj.canceled_at * 1000)
+          : null;
 
-      if (status === "active") {
-        // Re-activate if previously lapsed
+      if (["active", "trialing", "past_due"].includes(status)) {
+        // Keep Pro active while Stripe still considers the subscription live,
+        // even if it is scheduled to cancel at the end of the period.
         const profile = await getProfileByStripeCustomer(customerId);
         if (profile) {
-          const periodEnd = obj.current_period_end
-            ? new Date(obj.current_period_end * 1000)
-            : null;
-          await activateProSubscription({
-            userId:               profile.id,
-            stripeCustomerId:     customerId,
+          await syncSubscriptionState({
+            stripeCustomerId: customerId,
             stripeSubscriptionId: obj.id,
-            subscriptionEnd:      periodEnd,
+            subscriptionEnd: periodEnd,
+            cancelAtPeriodEnd,
+            canceledAt,
           });
         }
-      } else if (["canceled", "unpaid", "past_due"].includes(status)) {
+      } else if (["canceled", "unpaid", "incomplete_expired"].includes(status)) {
         const profile = await getProfileByStripeCustomer(customerId);
         if (profile) await deactivateProSubscription(profile.id);
       }

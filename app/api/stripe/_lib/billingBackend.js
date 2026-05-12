@@ -15,7 +15,7 @@ function env(name) {
 }
 
 export function getSiteUrl() {
-  return env("NEXT_PUBLIC_SITE_URL") || "http://localhost:3000";
+  return env("NEXT_PUBLIC_SITE_URL") || "https://www.stint-web.com";
 }
 
 export function getBillingConfig() {
@@ -94,7 +94,7 @@ export async function requireBillingContext(request, body = null) {
   const authUser = authData.user;
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id,username,subscription_status,stripe_customer_id,stripe_subscription_id,subscription_end")
+    .select("id,username,subscription_status,subscription_end,subscription_cancel_at_period_end,subscription_canceled_at,stripe_customer_id,stripe_subscription_id")
     .eq("id", authUser.id)
     .maybeSingle();
 
@@ -109,6 +109,8 @@ export async function requireBillingContext(request, body = null) {
       id: authUser.id,
       username: authUser.user_metadata?.username || "",
       subscription_status: "free",
+      subscription_cancel_at_period_end: false,
+      subscription_canceled_at: null,
       stripe_customer_id: null,
       stripe_subscription_id: null,
       subscription_end: null,

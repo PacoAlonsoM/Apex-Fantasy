@@ -20,6 +20,7 @@ import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
+import PageMasthead from "@/src/ui/PageMasthead";
 
 const homeSessionMeta = {
   "Practice 1": { label: "FP1", type: "practice" },
@@ -106,7 +107,7 @@ function CountdownCard({ race, cd, accent, schedule, openNextRacePicks, user, de
       <div style={{ height: 4, background: `linear-gradient(90deg,${ACCENT},${accent}, ${WARM})` }} />
       <div style={{ padding: isMobile ? 16 : 24, position: "relative" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT, animation: "pulseDot 2s infinite" }} />
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--live)", animation: "pulseDot 2s infinite" }} />
           <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
             Next lock
           </span>
@@ -240,135 +241,98 @@ export default function HomePage({ user, setPage, demoMode = false, openPredicti
         paddingBottom: isMobile ? 24 : isTablet ? 28 : 34,
       }}
     >
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: isTablet ? "1fr" : "minmax(0,1.06fr) 430px",
-          gap: 24,
-          alignItems: "start",
-          position: "relative",
-          overflow: "hidden",
-          borderRadius: 24,
-          padding: isMobile ? "28px 20px 20px" : isTablet ? "32px 28px 36px" : "36px 32px 44px",
-        }}
-      >
-        {/* Hero background photo */}
-        <img
-          src="/images/Hero-Main.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "right center",
-            opacity: isMobile ? 0.38 : 0.58,
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-          onLoad={() => setHeroBgLoaded(true)}
-          onError={(e) => { e.target.style.display = "none"; }}
-        />
-        {/* Gradient overlay — only shown when background photo loads */}
-        {heroBgLoaded && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: isTablet
-                ? "linear-gradient(to bottom, rgba(10,15,26,0.4) 0%, rgba(10,15,26,0.88) 100%)"
-                : "linear-gradient(to right, rgba(10,15,26,0.8) 40%, rgba(10,15,26,0.16) 100%)",
-              zIndex: 0,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-
-        <div style={{ display: "grid", gap: 22, paddingTop: 6, position: "relative", zIndex: 1 }}>
-          <div className="stint-kicker">STINT</div>
-
-          <div>
-            <h1 className="stint-title" style={{ maxWidth: 760, marginBottom: 18 }}>
-              Compete hard.
-              <br />
-              <span style={{ color: TEXT_PRIMARY }}>Predict sharp.</span>
-              <br />
-              <span style={{ background: HERO_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-                Win your league.
-              </span>
-            </h1>
-
-            <div className="stint-subtitle">
-              Compete with sharper picks, cleaner reads, and race-week timing that stays in sync.
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <a
-              href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
-              onClick={(event) => {
-                event.preventDefault();
-                openNextRacePicks();
-              }}
-              className="stint-button"
-            >
-              {user || demoMode ? "Open picks" : "Create account to make picks"}
-            </a>
-            <a
-              href={pageToHref("calendar", { demoMode })}
-              onClick={(event) => {
-                event.preventDefault();
-                setPage("calendar");
-              }}
-              className="stint-button-secondary"
-            >
-              Open race planner
-            </a>
-          </div>
-        </div>
-
-        {/* Right column: hero art + CountdownCard */}
-        <div style={{ display: "grid", gap: 16, position: "relative", zIndex: 1 }}>
-          {!isMobile && (
+      {/* Hero — PageMasthead `full` variant scaled up to marketing presence
+           via minHeight + asideWidth overrides. Aside carries the hero art +
+           CountdownCard on desktop; collapses below the title on mobile. */}
+      <PageMasthead
+        variant="full"
+        marginBottom={0}
+        image={{ src: "/images/Hero-Main.png", position: "cover" }}
+        tone="live"
+        minHeight={isMobile ? 0 : isTablet ? 360 : 420}
+        asideWidth={430}
+        style={{ padding: isMobile ? "28px 20px 20px" : isTablet ? "32px 28px 36px" : "36px 32px 44px" }}
+        identityRow={(
+          <div style={{ display: "grid", gap: 22, paddingTop: 6 }}>
+            <div className="stint-kicker">STINT</div>
             <div>
-              <img
-                src="/images/hero-art.svg"
-                alt=""
-                aria-hidden="true"
-                style={{
-                  width: "100%",
-                  maxHeight: isTablet ? 180 : 240,
-                  objectFit: "contain",
-                  objectPosition: isTablet ? "center" : "right center",
-                  display: "block",
-                  mixBlendMode: "screen",
-                }}
-                onError={(e) => {
-                  if (!e.target.src.includes("hero-art.png")) {
-                    e.target.src = "/images/hero-art.png";
-                  } else {
-                    e.target.parentElement.style.display = "none";
-                  }
-                }}
-              />
+              <h1 className="stint-title" style={{ maxWidth: 760, marginBottom: 18 }}>
+                Compete hard.
+                <br />
+                <span style={{ color: TEXT_PRIMARY }}>Predict sharp.</span>
+                <br />
+                <span style={{ background: HERO_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+                  Win your league.
+                </span>
+              </h1>
+              <div className="stint-subtitle">
+                Compete with sharper picks, cleaner reads, and race-week timing that stays in sync.
+              </div>
             </div>
-          )}
-          {next && cd && (
-            <CountdownCard
-              race={next}
-              cd={cd}
-              accent={accent}
-              schedule={schedule}
-              openNextRacePicks={openNextRacePicks}
-              user={user}
-              demoMode={demoMode}
-            />
-          )}
-        </div>
-      </section>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <a
+                href={pageToHref(user || demoMode ? "predictions" : "public-picks", { demoMode, raceRound: next?.r })}
+                onClick={(event) => {
+                  event.preventDefault();
+                  openNextRacePicks();
+                }}
+                className="stint-button"
+              >
+                {user || demoMode ? "Open picks" : "Create account to make picks"}
+              </a>
+              <a
+                href={pageToHref("calendar", { demoMode })}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage("calendar");
+                }}
+                className="stint-button-secondary"
+              >
+                Open race planner
+              </a>
+            </div>
+          </div>
+        )}
+        aside={(
+          <div style={{ display: "grid", gap: 16 }}>
+            {!isMobile && (
+              <div>
+                <img
+                  src="/images/hero-art.svg"
+                  alt=""
+                  aria-hidden="true"
+                  style={{
+                    width: "100%",
+                    maxHeight: isTablet ? 180 : 240,
+                    objectFit: "contain",
+                    objectPosition: isTablet ? "center" : "right center",
+                    display: "block",
+                    mixBlendMode: "screen",
+                  }}
+                  onError={(e) => {
+                    if (!e.target.src.includes("hero-art.png")) {
+                      e.target.src = "/images/hero-art.png";
+                    } else {
+                      e.target.parentElement.style.display = "none";
+                    }
+                  }}
+                />
+              </div>
+            )}
+            {next && cd && (
+              <CountdownCard
+                race={next}
+                cd={cd}
+                accent={accent}
+                schedule={schedule}
+                openNextRacePicks={openNextRacePicks}
+                user={user}
+                demoMode={demoMode}
+              />
+            )}
+          </div>
+        )}
+      />
 
       {/* Atmospheric glow — fills the space below the hero */}
       <div

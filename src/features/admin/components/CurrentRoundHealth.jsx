@@ -8,7 +8,7 @@ function HealthMetric({ label, value, tone }) {
       style={{
         borderRadius: 14,
         border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        background: "var(--btn-secondary-bg)",
         padding: "14px 15px",
         display: "grid",
         gap: 8,

@@ -1,13 +1,10 @@
 import { BRAND_GRADIENT, PANEL_BG_ALT, PANEL_BORDER, RADIUS_MD } from "@/src/constants/design";
+import { formatStamp as baseFormatStamp } from "@/src/lib/format";
 
+// Admin-specific wrapper: shared lib returns "" for missing values; admin
+// surfaces prefer "Not yet" so empty cells in the admin grid read.
 export function formatStamp(value) {
-  if (!value) return "Not yet";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return value ? baseFormatStamp(value) : "Not yet";
 }
 
 export function formatDateTimeLocalInput(value) {

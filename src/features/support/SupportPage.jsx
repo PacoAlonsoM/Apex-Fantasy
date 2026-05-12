@@ -50,15 +50,15 @@ export default function SupportPage() {
   const { isMobile, isTablet } = useViewport();
   return (
     <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
-      <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG} 24%)`, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
+      <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: `linear-gradient(180deg,var(--bg),${PANEL_BG} 24%)`, overflow: "hidden", marginBottom: 18, boxShadow: LIFTED_SHADOW }}>
         <div style={{ padding: "28px 30px 24px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 999, background: "var(--btn-secondary-bg)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: EDGE_RING, marginBottom: 18 }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f97316" }} />
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
               Contact Support
             </span>
           </div>
-          <h1 style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, letterSpacing: isMobile ? -1.6 : -2.8, margin: "0 0 12px" }}>
+          <h1 className="stint-page-title" style={{ fontSize: isMobile ? 40 : 58, lineHeight: 0.96, letterSpacing: isMobile ? -1.6 : -2.8, margin: "0 0 12px" }}>
             Get help fast.
             <br />
             Send the right context.

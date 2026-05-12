@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
 
 :root {
   --bg: #06101b;
@@ -17,6 +17,16 @@
   --accent-dark: #e65310;
   --accent-warm: #ffc247;
   --accent-glow: rgba(255, 106, 26, 0.18);
+
+  /* Semantic role tokens (audit Rec #04). Today they all alias `--accent`,
+     but call sites should reference these by role so we can later tune each
+     channel independently:
+       --brand   marketing surfaces, Pro upsell, BrandLockup glow
+       --action  buttons, active tabs, interactive accents
+       --live    "happening right now" signals — paired with `--text-live` */
+  --brand:   var(--accent);
+  --action:  var(--accent);
+  --live:    var(--text-live);
   --success: #22c55e;
   --sprint: #a855f7;
   --danger: #ef4444;
@@ -28,10 +38,173 @@
   --interactive-edge: rgba(255, 106, 26, 0.24);
   --font-body: "Manrope", sans-serif;
   --font-display: "Sora", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --content-width: 1280px;
   --shell-width: 1280px;
   --section-gap: 104px;
+
+  /* Theme-aware composites — flip in html[data-theme="light"] */
+  --body-gradient: linear-gradient(180deg, #050b14 0%, #07111b 46%, #08131e 100%);
+  --panel-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(14, 25, 41, 0.96));
+  --panel-alt-gradient: linear-gradient(180deg, rgba(21, 35, 56, 0.98), rgba(14, 25, 41, 0.98));
+  --panel-shadow: 0 30px 80px rgba(2, 6, 23, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --panel-alt-shadow: 0 22px 50px rgba(2, 6, 23, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --chip-bg: rgba(255, 255, 255, 0.03);
+  --chip-border: rgba(214, 223, 239, 0.12);
+  --btn-secondary-bg: rgba(255, 255, 255, 0.02);
+  --btn-secondary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --placeholder: rgba(214, 223, 239, 0.35);
+  --skeleton-gradient: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+  --loading-track-bg: rgba(255, 255, 255, 0.05);
+  --loading-track-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --scrollbar-thumb: rgba(255, 194, 71, 0.18);
+  --selection-bg: rgba(255, 106, 26, 0.2);
+  --selection-text: #fff8ef;
+  --kicker-color: #ccd7ea;
+  --chip-text: #eaf0fb;
+  --chip-text-strong: #fff;
+
+  /* Atmospherics + component-level theme tokens.
+     Per audit Rec #01 ("earn the orange"): ambient glows + scrollbars use
+     `--accent-warm` (#FFC247) so the true `--accent` (#FF6A1A) reads as
+     "lock / live / act" rather than decoration. */
+  --bg-glow-orange: rgba(255, 194, 71, 0.10);
+  --bg-glow-orange-soft: rgba(255, 194, 71, 0.05);
+  --bg-glow-amber: rgba(255, 194, 71, 0.08);
+  --bg-glow-teal: rgba(45, 212, 191, 0.08);
+  --bg-overlay-tl: rgba(255, 255, 255, 0.018);
+  --bg-overlay-br: rgba(255, 255, 255, 0.012);
+  --bg-spotlight: rgba(255, 255, 255, 0.028);
+  --bg-grid-stroke: white;
+  --bg-grid-opacity: 0.014;
+  --pip-halo: rgba(6, 16, 27, 0.92);
+  --pro-badge-text: #ffb088;
+  --pro-gate-overlay: linear-gradient(180deg, rgba(6, 16, 27, 0.12) 0%, rgba(6, 16, 27, 0.82) 40%, rgba(6, 16, 27, 0.96) 100%);
+  --onboarding-hero-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(10, 18, 32, 0.98));
+  --text-error: #fca5a5;
+  --text-success: #86efac;
+  --text-warn: #fcd34d;
+  --text-note: #bae6fd;
+  --text-ai: #93c5fd;
+  --text-pro: #fde68a;
+  --text-live: #4ade80;
+
+  /* Navbar surface tokens */
+  --nav-bg: rgba(6, 16, 27, 0.58);
+  --nav-hairline: rgba(214, 223, 239, 0.06);
+  --nav-pill-bg: rgba(6, 16, 27, 0.40);
+  --nav-pill-hover-bg: rgba(255, 255, 255, 0.04);
+  --nav-pill-hover-border: rgba(214, 223, 239, 0.10);
+  --nav-dropdown-bg: rgba(10, 18, 32, 0.98);
+  --nav-tab-hover-bg: rgba(255, 255, 255, 0.04);
+  --nav-menu-hover-bg: rgba(255, 255, 255, 0.06);
+  --nav-menu-item-hover-bg: rgba(255, 255, 255, 0.04);
+
+  --logo-shadow: drop-shadow(0 10px 24px rgba(246, 247, 251, 0.06));
+  --header-vignette: linear-gradient(to bottom, rgba(10, 15, 26, 0.06) 0%, rgba(10, 15, 26, 0.62) 100%);
+  --hero-image-opacity: 0.85;
+  --hero-image-opacity-mobile: 0.65;
+  --hero-image-filter: none;
+  --hero-image-blend: normal;
+
+  /* Masthead tone washes — radial accent behind the title. Per audit Rec #04:
+     `--accent` reserved for action; ambient uses `--accent-warm`; live signals
+     use the green `--text-live`; editorial AI surfaces use the blue `--text-ai`.
+     `flat` = none. */
+  --tone-ambient:   radial-gradient(ellipse 55% 60% at 100% 50%, rgba(255, 194, 71, 0.10) 0%, transparent 62%);
+  --tone-live:      radial-gradient(ellipse 55% 60% at 100% 50%, rgba(74, 222, 128, 0.10) 0%, transparent 62%);
+  --tone-editorial: radial-gradient(ellipse 55% 60% at 100% 50%, rgba(147, 197, 253, 0.10) 0%, transparent 62%);
+  --tone-flat:      none;
+
+  /* Masthead image fade (mask) — defaults match the tuned Calendar/Profile values. */
+  --mast-image-fade: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.6) 18%, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 1) 100%);
+}
+
+html[data-theme="light"] {
+  --bg: #f6f7fb;
+  --bg-surface: #ffffff;
+  --bg-elevated: #eef1f8;
+  --bg-hover: #e3e7f0;
+  --panel: #ffffff;
+  --panel-alt: #f7f8fc;
+  --panel-strong: #ffffff;
+  --border: rgba(15, 23, 42, 0.10);
+  --border-soft: rgba(15, 23, 42, 0.18);
+  --text: #0e1929;
+  --text-muted: rgba(14, 25, 41, 0.84);
+  --text-subtle: rgba(14, 25, 41, 0.74);
+  --accent-glow: rgba(255, 106, 26, 0.14);
+  --team-accent-soft: rgba(255, 106, 26, 0.10);
+  --team-accent-ghost: rgba(255, 106, 26, 0.06);
+  --team-accent-border: rgba(255, 106, 26, 0.30);
+  --interactive-edge: rgba(255, 106, 26, 0.30);
+
+  --body-gradient: linear-gradient(180deg, #ffffff 0%, #f7f8fc 46%, #eef0f6 100%);
+  --panel-gradient: linear-gradient(180deg, #ffffff, #f7f8fc);
+  --panel-alt-gradient: linear-gradient(180deg, #f7f8fc, #ffffff);
+  --panel-shadow: 0 18px 50px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --panel-alt-shadow: 0 14px 36px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --chip-bg: rgba(15, 23, 42, 0.04);
+  --chip-border: rgba(15, 23, 42, 0.10);
+  --btn-secondary-bg: rgba(15, 23, 42, 0.04);
+  --btn-secondary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --placeholder: rgba(14, 25, 41, 0.55);
+  --skeleton-gradient: linear-gradient(90deg, rgba(15, 23, 42, 0.05) 25%, rgba(15, 23, 42, 0.10) 50%, rgba(15, 23, 42, 0.05) 75%);
+  --loading-track-bg: rgba(15, 23, 42, 0.06);
+  --loading-track-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --scrollbar-thumb: rgba(255, 194, 71, 0.32);
+  --selection-bg: rgba(255, 106, 26, 0.18);
+  --selection-text: #1a0a00;
+  --kicker-color: rgba(14, 25, 41, 0.78);
+  --chip-text: #0e1929;
+  --chip-text-strong: #06101b;
+
+  --bg-glow-orange: rgba(255, 194, 71, 0.06);
+  --bg-glow-orange-soft: rgba(255, 194, 71, 0.03);
+  --bg-glow-amber: rgba(255, 194, 71, 0.06);
+  --bg-glow-teal: rgba(45, 212, 191, 0.05);
+  --bg-overlay-tl: rgba(15, 23, 42, 0.020);
+  --bg-overlay-br: rgba(15, 23, 42, 0.014);
+  --bg-spotlight: rgba(255, 194, 71, 0.04);
+  --bg-grid-stroke: #0e1929;
+  --bg-grid-opacity: 0.020;
+  --pip-halo: rgba(246, 247, 251, 0.92);
+  --pro-badge-text: #c2410c;
+  --pro-gate-overlay: linear-gradient(180deg, rgba(246, 247, 251, 0.12) 0%, rgba(246, 247, 251, 0.84) 40%, rgba(246, 247, 251, 0.96) 100%);
+  --onboarding-hero-gradient: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(247, 248, 252, 0.98));
+  --text-error: #b91c1c;
+  --text-success: #15803d;
+  --text-warn: #854d0e;
+  --text-note: #075985;
+  --text-ai: #1d4ed8;
+  --text-pro: #92400e;
+  --text-live: #16a34a;
+
+  --nav-bg: rgba(255, 255, 255, 0.72);
+  --nav-hairline: rgba(15, 23, 42, 0.08);
+  --nav-pill-bg: rgba(15, 23, 42, 0.04);
+  --nav-pill-hover-bg: rgba(15, 23, 42, 0.06);
+  --nav-pill-hover-border: rgba(15, 23, 42, 0.14);
+  --nav-dropdown-bg: rgba(255, 255, 255, 0.98);
+  --nav-tab-hover-bg: rgba(15, 23, 42, 0.04);
+  --nav-menu-hover-bg: rgba(15, 23, 42, 0.06);
+  --nav-menu-item-hover-bg: rgba(15, 23, 42, 0.04);
+
+  --logo-shadow: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.10));
+  --header-vignette: linear-gradient(to bottom, rgba(247, 248, 252, 0.04) 0%, rgba(247, 248, 252, 0.62) 100%);
+  /* Light-mode hero PNGs were authored on dark studio backgrounds. Use
+     `multiply` blend mode: dark forms (the track structure) paint through
+     onto the light page, light backdrops drop out. Combined with high
+     opacity this lets the imagery actually read. */
+  --hero-image-opacity: 0.75;
+  --hero-image-opacity-mobile: 0.55;
+  --hero-image-filter: contrast(1.05);
+  --hero-image-blend: multiply;
+
+  /* Light-mode tone washes — slightly stronger so they read on the light bg. */
+  --tone-ambient:   radial-gradient(ellipse 55% 60% at 100% 50%, rgba(255, 194, 71, 0.18) 0%, transparent 62%);
+  --tone-live:      radial-gradient(ellipse 55% 60% at 100% 50%, rgba(22, 163, 74, 0.14) 0%, transparent 62%);
+  --tone-editorial: radial-gradient(ellipse 55% 60% at 100% 50%, rgba(29, 78, 216, 0.10) 0%, transparent 62%);
 }
 
 * {
@@ -44,10 +217,14 @@ html {
   scroll-behavior: smooth;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(180deg, #050b14 0%, #07111b 46%, #08131e 100%);
+  background: var(--body-gradient);
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -76,6 +253,8 @@ input,
 textarea,
 select {
   font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1,
@@ -141,12 +320,12 @@ select:focus {
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(214, 223, 239, 0.35);
+  color: var(--placeholder);
 }
 
 ::selection {
-  background: rgba(255, 106, 26, 0.2);
-  color: #fff8ef;
+  background: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 ::-webkit-scrollbar {
@@ -155,7 +334,7 @@ textarea::placeholder {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 106, 26, 0.28);
+  background: var(--scrollbar-thumb);
   border-radius: 999px;
 }
 
@@ -175,6 +354,64 @@ code {
   z-index: 1;
 }
 
+/* ── Type ladder (audit Section "Proposed type ladder") ──────────────────────
+   Seven roles, sized for race-week density. Use on any element; Sora for
+   display roles, Manrope for body/label/kicker. Tabular-nums on numeric
+   contexts is opt-in via `font-variant-numeric: tabular-nums` per call site.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.stint-hero {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(64px, 8vw, 120px);
+  letter-spacing: -0.07em;
+  line-height: 0.94;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.stint-page-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(40px, 5.6vw, 54px);
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+  color: var(--text);
+}
+
+.stint-section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.stint-card-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.stint-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.stint-label {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
 .stint-kicker {
   display: inline-flex;
   align-items: center;
@@ -183,7 +420,7 @@ code {
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ccd7ea;
+  color: var(--kicker-color);
 }
 
 .stint-kicker::before {
@@ -210,19 +447,15 @@ code {
 .stint-panel {
   border-radius: 24px;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(14, 25, 41, 0.96));
-  box-shadow:
-    0 30px 80px rgba(2, 6, 23, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--panel-gradient);
+  box-shadow: var(--panel-shadow);
 }
 
 .stint-panel-alt {
   border-radius: 20px;
-  border: 1px solid rgba(214, 223, 239, 0.08);
-  background: linear-gradient(180deg, rgba(21, 35, 56, 0.98), rgba(14, 25, 41, 0.98));
-  box-shadow:
-    0 22px 50px rgba(2, 6, 23, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  background: var(--panel-alt-gradient);
+  box-shadow: var(--panel-alt-shadow);
 }
 
 .stint-button,
@@ -248,10 +481,10 @@ code {
 }
 
 .stint-button-secondary {
-  border: 1px solid rgba(214, 223, 239, 0.16);
+  border: 1px solid var(--border-soft);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: var(--btn-secondary-bg);
+  box-shadow: var(--btn-secondary-shadow);
 }
 
 .stint-info-chip {
@@ -261,15 +494,15 @@ code {
   min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(214, 223, 239, 0.12);
-  background: rgba(255, 255, 255, 0.03);
-  color: #eaf0fb;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
   font-size: 12px;
   font-weight: 700;
 }
 
 .stint-info-chip strong {
-  color: #fff;
+  color: var(--chip-text-strong);
 }
 
 @media (max-width: 1119px) {
@@ -363,12 +596,7 @@ code {
 }
 
 .stint-skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.03) 25%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.03) 75%
-  );
+  background: var(--skeleton-gradient);
   background-size: 200% 100%;
   animation: shimmer 1.6s ease infinite;
   border-radius: 8px;
@@ -389,10 +617,8 @@ code {
   height: 5px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: var(--loading-track-bg);
+  box-shadow: var(--loading-track-shadow);
 }
 
 .stint-loading-bar {
@@ -414,7 +640,7 @@ code {
 }
 
 .stint-page-enter {
-  animation: pageEnter 120ms ease forwards;
+  animation: pageEnter 120ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 /* Form error shake (#57) */
@@ -428,15 +654,145 @@ code {
   animation: shake 320ms ease;
 }
 
-/* Success pop (#58) */
+/* Success pop (#58) — asymmetric: quick rise, ease-in settle */
 @keyframes successPop {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.03); }
+  0%   { transform: scale(1);    animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+  38%  { transform: scale(1.04); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
   100% { transform: scale(1); }
 }
 
 .stint-success-pop {
-  animation: successPop 260ms ease;
+  animation: successPop 200ms forwards;
+}
+
+/* Button press feedback — use on any pressable element */
+.stint-pressable {
+  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stint-pressable:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@media (pointer: coarse) {
+  .stint-pressable:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+/* Subtler press for full-width card options (driver, constructor, binary) */
+.stint-option-press {
+  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stint-option-press:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+}
+
+@media (pointer: coarse) {
+  .stint-option-press:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+}
+
+/* HelpTip popover entry animation */
+@keyframes helptipIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-3px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.stint-helptip {
+  animation: helptipIn 120ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Cross-browser scrollbar hide — use on any overflow:auto container */
+.stint-noscroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.stint-noscroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Per-page dense mode — for data-dense surfaces (Standings list, Calendar
+   list) per audit Rec #01: "Replace 24px section-gap with 16/20 on
+   data-dense pages." Apply via `data-page-density="dense"` on the page's
+   outer wrapper. Independent of the user-toggle compact density mode. */
+[data-page-density="dense"] {
+  --section-gap: 64px;
+}
+@media (max-width: 819px) {
+  [data-page-density="dense"] {
+    --section-gap: 40px;
+  }
+}
+
+/* Density mode — opt-in compact rows for power users (audit Rec #09).
+   Drops vertical padding by ~30% on stacked rows / lists / table cells.
+   Activated by setting `data-density="compact"` on `<html>`. */
+html[data-density="compact"] {
+  --row-padding-y: 9px;
+  --section-gap: 72px;
+}
+
+html[data-density="compact"] .stnt-driver-row,
+html[data-density="compact"] .nv-tab,
+html[data-density="compact"] [data-density-row] {
+  padding-top: var(--row-padding-y) !important;
+  padding-bottom: var(--row-padding-y) !important;
+}
+
+@media (max-width: 819px) {
+  html[data-density="compact"] {
+    --section-gap: 48px;
+  }
+}
+
+/* Theme toggle (Navbar) — soft hover, accent focus ring, smooth color flip */
+.stint-theme-toggle {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .stint-theme-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+.stint-theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 106, 26, 0.35);
+}
+
+/* Smooth surface flip when the theme switches — wrapped in
+   prefers-reduced-motion so motion-sensitive users see an instant change. */
+@media (prefers-reduced-motion: no-preference) {
+  html, body {
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+}
+
+/* Pick focus area — plays when active prompt changes */
+@keyframes pickFocusEnter {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stint-focus-enter {
+  animation: pickFocusEnter 180ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Scored / review panel reveal */
+@keyframes scoreMountIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.stint-score-mount {
+  animation: scoreMountIn 260ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 /* Reduced motion — respect user preference */
@@ -445,7 +801,15 @@ code {
   .stint-loading-bar,
   .stint-page-enter,
   .stint-shake,
-  .stint-success-pop {
+  .stint-success-pop,
+  .stint-helptip,
+  .stint-focus-enter,
+  .stint-score-mount {
     animation: none;
+  }
+
+  .stint-pressable:active,
+  .stint-option-press:active {
+    transform: none;
   }
 }

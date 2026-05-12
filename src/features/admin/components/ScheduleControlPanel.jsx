@@ -48,7 +48,7 @@ export default function ScheduleControlPanel({
               style={{
                 borderRadius: 12,
                 border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.03)",
+                background: "var(--btn-secondary-bg)",
                 padding: "12px 14px",
                 display: "grid",
                 gap: 8,

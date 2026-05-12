@@ -9,8 +9,8 @@ export default function LegalFooter({ setPage }) {
     <footer
       style={{
         marginTop: 34,
-        borderTop: "1px solid rgba(148,163,184,0.12)",
-        background: "linear-gradient(180deg,rgba(7,11,18,0.35),rgba(9,9,11,0.72))",
+        borderTop: "1px solid var(--border)",
+        background: "var(--bg-surface)",
       }}
     >
       <div
@@ -25,7 +25,7 @@ export default function LegalFooter({ setPage }) {
         <div className="stint-footer-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "grid", gap: 10 }}>
             <BrandLockup compact descriptor />
-            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.82)", maxWidth: 580 }}>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 580 }}>
               {BRAND_NAME} · {BRAND_TAGLINE}
             </div>
           </div>
@@ -46,10 +46,10 @@ export default function LegalFooter({ setPage }) {
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(148,163,184,0.16)",
+                  background: "var(--btn-secondary-bg)",
+                  border: "1px solid var(--border-soft)",
                   borderRadius: 999,
-                  color: "#e2e8f0",
+                  color: "var(--text)",
                   fontSize: 11,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -62,8 +62,8 @@ export default function LegalFooter({ setPage }) {
             ))}
           </div>
         </div>
-        <div style={{ fontSize: 11, lineHeight: 1.7, color: "rgba(148,163,184,0.92)" }}>{LEGAL_DISCLAIMER}</div>
-        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.8)" }}>© {year} {BRAND_NAME}. Contact: {SUPPORT_EMAIL}</div>
+        <div style={{ fontSize: 11, lineHeight: 1.7, color: "var(--text-muted)" }}>{LEGAL_DISCLAIMER}</div>
+        <div style={{ fontSize: 11, color: "var(--text-subtle)" }}>© {year} {BRAND_NAME}. Contact: {SUPPORT_EMAIL}</div>
       </div>
     </footer>
   );

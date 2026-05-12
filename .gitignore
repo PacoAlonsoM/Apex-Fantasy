@@ -14,6 +14,13 @@
 /.stint-local
 /.vercel
 /.temp
+/supabase/.temp
+
+# local agent/tool state
+/.agents
+/.claude
+/.impeccable.md
+/skills-lock.json
 
 # misc
 .DS_Store
@@ -32,3 +39,4 @@ yarn-error.log*
 * 2.jsx
 * 2.ts
 * 2.tsx
+* 2.sql

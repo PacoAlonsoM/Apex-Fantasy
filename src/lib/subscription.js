@@ -199,13 +199,22 @@ export async function removeFromProLeague(userId) {
  *
  * @param {{ userId: string, stripeCustomerId: string, stripeSubscriptionId: string, subscriptionEnd: Date|null }} opts
  */
-export async function activateProSubscription({ userId, stripeCustomerId, stripeSubscriptionId, subscriptionEnd }) {
+export async function activateProSubscription({
+  userId,
+  stripeCustomerId,
+  stripeSubscriptionId,
+  subscriptionEnd,
+  cancelAtPeriodEnd = false,
+  canceledAt = null,
+}) {
   const supabase = getAdminClient();
 
   await supabase.from("profiles").update({
     subscription_status:    "pro",
     subscription_start:     new Date().toISOString(),
     subscription_end:       subscriptionEnd ? subscriptionEnd.toISOString() : null,
+    subscription_cancel_at_period_end: Boolean(cancelAtPeriodEnd),
+    subscription_canceled_at: canceledAt ? new Date(canceledAt).toISOString() : null,
     stripe_customer_id:     stripeCustomerId,
     stripe_subscription_id: stripeSubscriptionId,
   }).eq("id", userId);
@@ -225,6 +234,8 @@ export async function deactivateProSubscription(userId) {
   await supabase.from("profiles").update({
     subscription_status: "free",
     subscription_end:    new Date().toISOString(),
+    subscription_cancel_at_period_end: false,
+    subscription_canceled_at: new Date().toISOString(),
   }).eq("id", userId);
 
   await removeFromProLeague(userId);
@@ -239,7 +250,44 @@ export async function extendSubscription({ stripeCustomerId, newEnd }) {
   const supabase = getAdminClient();
   await supabase
     .from("profiles")
-    .update({ subscription_end: newEnd.toISOString(), subscription_status: "pro" })
+    .update({
+      subscription_end: newEnd.toISOString(),
+      subscription_status: "pro",
+      subscription_cancel_at_period_end: false,
+      subscription_canceled_at: null,
+    })
+    .eq("stripe_customer_id", stripeCustomerId);
+}
+
+/**
+ * Persist the current Stripe subscription lifecycle state while keeping
+ * scheduled cancellations active until the billing period actually ends.
+ *
+ * @param {{
+ *   stripeCustomerId: string,
+ *   stripeSubscriptionId?: string|null,
+ *   subscriptionEnd?: Date|null,
+ *   cancelAtPeriodEnd?: boolean,
+ *   canceledAt?: Date|string|null,
+ * }} opts
+ */
+export async function syncSubscriptionState({
+  stripeCustomerId,
+  stripeSubscriptionId = null,
+  subscriptionEnd = null,
+  cancelAtPeriodEnd = false,
+  canceledAt = null,
+}) {
+  const supabase = getAdminClient();
+  await supabase
+    .from("profiles")
+    .update({
+      subscription_status: "pro",
+      subscription_end: subscriptionEnd ? new Date(subscriptionEnd).toISOString() : null,
+      subscription_cancel_at_period_end: Boolean(cancelAtPeriodEnd),
+      subscription_canceled_at: canceledAt ? new Date(canceledAt).toISOString() : null,
+      ...(stripeSubscriptionId ? { stripe_subscription_id: stripeSubscriptionId } : {}),
+    })
     .eq("stripe_customer_id", stripeCustomerId);
 }
 

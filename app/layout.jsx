@@ -30,9 +30,27 @@ export const metadata = {
   },
 };
 
+// Restore the user's saved theme + density preferences before hydration so
+// `data-theme` and `data-density` are set on <html> before any paint.
+const themeBootstrap = `
+  try {
+    var saved = localStorage.getItem('stint-theme') || 'auto';
+    var resolved = saved === 'auto'
+      ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : saved;
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.dataset.themePreference = saved;
+    var density = localStorage.getItem('stint-density');
+    document.documentElement.dataset.density = (density === 'compact' || density === 'comfortable') ? density : 'comfortable';
+  } catch (e) {}
+`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" data-theme-preference="auto" data-density="comfortable">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>{children}</body>
     </html>
   );

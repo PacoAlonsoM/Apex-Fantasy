@@ -2,42 +2,50 @@ import { useRef, useState } from "react";
 import {
   ACCENT,
   ACCENT_GLOW,
-  BG_SURFACE,
-  EDGE_RING,
-  PANEL_BORDER,
+  EASE_OUT_EXPO,
+  ERROR_TEXT,
   SHELL_MAX,
-  SOFT_SHADOW,
   SUBTLE_TEXT,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
-  avatarTheme,
   isAdminUser,
+  rgbaFromHex,
 } from "@/src/constants/design";
 import { pageToHref } from "@/src/shell/routing";
 import BrandLockup from "@/src/ui/BrandLockup";
-import ProPip from "@/src/ui/ProPip";
+import IdentityAvatar from "@/src/ui/IdentityAvatar";
+import ThemeToggle from "@/src/ui/ThemeToggle";
 import useViewport from "@/src/lib/useViewport";
+import { withViewTransition } from "@/src/lib/viewTransition";
+
+const TAB_ACTIVE_BG     = rgbaFromHex(ACCENT, 0.12);
+const TAB_ACTIVE_BORDER = rgbaFromHex(ACCENT, 0.30);
+const TAB_HOVER_BG      = "var(--nav-tab-hover-bg)";
+const NAV_BG            = "var(--nav-bg)";
+const NAV_HAIRLINE      = "var(--nav-hairline)";
+const USER_PILL_BG      = "var(--nav-pill-bg)";
+const DROPDOWN_BG       = "var(--nav-dropdown-bg)";
 
 export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMode = false, exitDemo }) {
-  const [dropOpen, setDropOpen] = useState(false);
-  const [hoveredTab, setHoveredTab] = useState(null);
-  const timeout = useRef(null);
-  const { isMobile, isTablet } = useViewport();
-  const userTheme = avatarTheme(user?.avatar_color);
+  const [dropOpen, setDropOpen]       = useState(false);
+  const [hoveredTab, setHoveredTab]   = useState(null);
+  const timeout                       = useRef(null);
+  const { isMobile, isTablet }        = useViewport();
 
+  // Picks first — the product's primary verb. Everything else is supporting.
   const tabs = [
-    ["calendar", "Calendar"],
     ["predictions", "Picks"],
-    ["ai-brief", "AI Insight"],
-    ["news", "Wire"],
-    ["community", "Leagues"],
-    ["grid", "The Grid"],
+    ["calendar",    "Calendar"],
+    ["ai-brief",    "AI Insight"],
+    ["news",        "Wire"],
+    ["community",   "Leagues"],
+    ["grid",        "Grid"],
     ...(user ? [["profile", "Profile"]] : []),
   ];
 
-  const admin = isAdminUser(user);
-  const picksTarget = user || demoMode ? "predictions" : "public-picks";
-  const menuItems = admin
+  const admin        = isAdminUser(user);
+  const picksTarget  = user || demoMode ? "predictions" : "public-picks";
+  const menuItems    = admin
     ? [["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
     : [["Game Guide", "game-guide"], ["Contact Support", "support"]];
 
@@ -50,7 +58,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
     timeout.current = setTimeout(() => setDropOpen(false), 140);
   };
 
-  const ctaLabel = user ? "Open picks" : "Create account";
+  const ctaLabel  = user ? "Open picks" : "Create account";
   const ctaAction = () => {
     if (user) {
       setPage("predictions");
@@ -62,23 +70,106 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
   return (
     <nav
       style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        background: "rgba(6,16,27,0.78)",
-        backdropFilter: "blur(24px)",
-        borderBottom: "1px solid rgba(214,223,239,0.08)",
+        position:             "sticky",
+        top:                  0,
+        zIndex:               100,
+        background:           NAV_BG,
+        backdropFilter:       "saturate(1.2) blur(18px)",
+        WebkitBackdropFilter: "saturate(1.2) blur(18px)",
+        borderBottom:         `1px solid ${NAV_HAIRLINE}`,
       }}
     >
+      <style>{`
+        /* Navbar tab motion — ease-out-expo curve, transform-only press.
+           The active pill carries a shared viewTransitionName so it morphs
+           between tabs when the browser supports the View Transitions API. */
+        .nv-tab {
+          transition: background 240ms ${EASE_OUT_EXPO},
+                      color      240ms ${EASE_OUT_EXPO},
+                      border-color 240ms ${EASE_OUT_EXPO},
+                      transform  140ms ${EASE_OUT_EXPO},
+                      box-shadow 180ms ${EASE_OUT_EXPO};
+          will-change: transform;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
+        .nv-tab:active { transform: scale(0.965); }
+        /* Keyboard focus — a soft inset ring that respects the active state
+           without overriding the canonical pill. */
+        .nv-tab:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(255,106,26,0.35);
+        }
+
+        /* Hide the horizontal-scroll track on the tabs row for tablet widths —
+           content overflows visually without a chrome scrollbar. */
+        .nv-tab-scroller::-webkit-scrollbar { display: none; }
+        .nv-tab-scroller { scrollbar-width: none; -ms-overflow-style: none; }
+
+        .nv-user-pill {
+          transition: background 200ms ${EASE_OUT_EXPO},
+                      border-color 200ms ${EASE_OUT_EXPO},
+                      transform  140ms ${EASE_OUT_EXPO};
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
+        .nv-user-pill:active { transform: scale(0.97); }
+        .nv-user-pill:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(255,106,26,0.35);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .nv-user-pill:hover {
+            background: var(--nav-pill-hover-bg);
+            border-color: var(--nav-pill-hover-border);
+          }
+        }
+        .nv-menu-item:focus-visible {
+          outline: none;
+          background: var(--nav-menu-hover-bg);
+        }
+
+        .nv-menu-item {
+          transition: background 160ms ${EASE_OUT_EXPO},
+                      color      160ms ${EASE_OUT_EXPO};
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
+
+        /* Shared view-transition for the active pill — the browser snapshots the
+           old pill and animates it to the new pill's position on tab change. */
+        ::view-transition-old(navbar-pill),
+        ::view-transition-new(navbar-pill) {
+          animation-duration: 280ms;
+          animation-timing-function: ${EASE_OUT_EXPO};
+        }
+
+        /* Scope the pill morph so it doesn't trigger a whole-page cross-fade —
+           the page content swap is handled by React's keyed .stint-page-enter. */
+        [data-vt-name="navbar-pill"]::view-transition-old(root),
+        [data-vt-name="navbar-pill"]::view-transition-new(root) {
+          animation: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .nv-tab, .nv-user-pill, .nv-menu-item { transition: none !important; }
+          ::view-transition-old(navbar-pill),
+          ::view-transition-new(navbar-pill) { animation: none !important; }
+        }
+      `}</style>
       <div
         style={{
-          maxWidth: SHELL_MAX,
-          margin: "0 auto",
-          padding: isMobile ? "12px 18px 14px" : "14px 28px 16px",
-          display: "grid",
-          gridTemplateColumns: isTablet ? "1fr auto" : "auto minmax(0,1fr) auto",
-          gap: 16,
-          alignItems: "center",
+          maxWidth:            SHELL_MAX,
+          margin:              "0 auto",
+          padding:             isMobile ? "8px 16px 10px" : "10px 24px 12px",
+          display:             "grid",
+          // Desktop: three equal side columns with an auto middle.
+          // The tabs sit in the auto-width centre column so they align to the
+          // viewport's optical centre — not to the midpoint between a narrow
+          // logo and a wider user pill, which was shifting the bar right.
+          gridTemplateColumns: isTablet ? "1fr auto" : "minmax(0,1fr) auto minmax(0,1fr)",
+          gap:                 isMobile ? 12 : 20,
+          alignItems:          "center",
         }}
       >
         <a
@@ -89,107 +180,96 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
           }}
           data-hover="minimal"
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifySelf: "start",
-            color: TEXT_PRIMARY,
+            display:        "inline-flex",
+            alignItems:     "center",
+            justifySelf:    "start",
+            color:          TEXT_PRIMARY,
             textDecoration: "none",
           }}
         >
-          <BrandLockup mobile={isMobile} descriptor={!isMobile} />
+          <BrandLockup mobile={isMobile} descriptor={false} />
         </a>
 
         <div
+          className="nv-tab-scroller"
           style={{
-            justifySelf: isTablet ? "stretch" : "center",
-            gridColumn: isTablet ? "1 / -1" : "auto",
-            order: isTablet ? 3 : undefined,
-            overflowX: "auto",
+            // Tablet: the scroller spans the full row below the logo/user row.
+            // Desktop: the tabs hug the centre column and the 1fr rails on
+            // either side push the logo to the far left and the user to the
+            // far right, leaving the tab row centred on the viewport.
+            justifySelf:    isTablet ? "stretch" : "center",
+            gridColumn:     isTablet ? "1 / -1" : "auto",
+            order:          isTablet ? 3 : undefined,
+            overflowX:      "auto",
             scrollbarWidth: "none",
+            WebkitOverflowScrolling: "touch",
+            maxWidth:       "100%",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              minHeight: 64,
-              minWidth: isTablet ? "max-content" : "auto",
-              padding: 6,
-              borderRadius: 999,
-              background: "rgba(14,25,41,0.9)",
-              border: "1px solid rgba(214,223,239,0.08)",
-              boxShadow: EDGE_RING,
+              display:      "inline-flex",
+              alignItems:   "center",
+              gap:          2,
+              minHeight:    44,
+              minWidth:     isTablet ? "max-content" : "auto",
+              padding:      "2px 4px",
             }}
           >
             {tabs.map(([id, label]) => {
               const actualId = id === "predictions" ? picksTarget : id;
-              const active = id === "predictions" ? page === "predictions" || page === "public-picks" : page === id;
+              const active   = id === "predictions"
+                ? page === "predictions" || page === "public-picks"
+                : page === id;
+              const hovered  = hoveredTab === id;
               return (
                 <a
                   key={id}
                   href={pageToHref(actualId, { demoMode })}
                   data-navbar-tab="true"
+                  className="nv-tab"
                   onClick={(event) => {
                     event.preventDefault();
                     if (event.detail > 0) event.currentTarget.blur();
-                    setPage(actualId);
+                    if (active) return;
+                    withViewTransition(() => setPage(actualId), { name: "navbar-pill" });
                   }}
                   onMouseEnter={() => !active && setHoveredTab(id)}
                   onMouseLeave={() => setHoveredTab(null)}
                   data-hover="minimal"
                   style={{
-                    position: "relative",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: 50,
-                    padding: isMobile ? "0 14px" : "0 18px",
-                    borderRadius: 999,
-                    background: active
-                      ? "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
-                      : hoveredTab === id
-                        ? "rgba(255,255,255,0.06)"
-                        : "transparent",
-                    color: active ? TEXT_PRIMARY : hoveredTab === id ? TEXT_PRIMARY : TEXT_SECONDARY,
-                    fontSize: 13,
-                    fontWeight: active ? 800 : 700,
-                    letterSpacing: active ? "-0.02em" : "0",
-                    whiteSpace: "nowrap",
-                    textDecoration: "none",
-                    border: active ? `1px solid ${ACCENT}` : "1px solid transparent",
-                    boxShadow: active
-                      ? `0 14px 30px rgba(255,106,26,0.18), inset 0 1px 0 rgba(255,255,255,0.05)`
-                      : "none",
-                    transition: "background 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
+                    display:            "inline-flex",
+                    alignItems:         "center",
+                    justifyContent:     "center",
+                    minHeight:          36,
+                    padding:            isMobile ? "0 12px" : "0 14px",
+                    borderRadius:       999,
+                    background:         active ? TAB_ACTIVE_BG : hovered ? TAB_HOVER_BG : "transparent",
+                    color:              active ? ACCENT : hovered ? TEXT_PRIMARY : TEXT_SECONDARY,
+                    fontSize:           13,
+                    fontWeight:         700,
+                    letterSpacing:      "-0.005em",
+                    whiteSpace:         "nowrap",
+                    textDecoration:     "none",
+                    border:             `1px solid ${active ? TAB_ACTIVE_BORDER : "transparent"}`,
+                    viewTransitionName: active ? "navbar-pill" : undefined,
                   }}
                 >
                   {label}
-                  {active && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: 16,
-                        right: 16,
-                        bottom: 6,
-                        height: 2,
-                        borderRadius: 999,
-                        background: `linear-gradient(90deg, ${ACCENT}, rgba(255,194,71,0.92))`,
-                      }}
-                    />
-                  )}
                 </a>
               );
             })}
           </div>
         </div>
 
-        <div style={{ justifySelf: "end", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ justifySelf: "end", display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
+          <ThemeToggle size={isMobile ? 34 : 36} />
+
           {!user && !demoMode && !isMobile && (
             <button
               onClick={() => openAuth("login", { page: "predictions" })}
               className="stint-button-secondary"
-              style={{ minHeight: 48, padding: "0 18px", fontSize: 13 }}
+              style={{ minHeight: 40, padding: "0 16px", fontSize: 13 }}
             >
               Log in
             </button>
@@ -199,7 +279,12 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             <button
               onClick={ctaAction}
               className="stint-button"
-              style={{ minHeight: isMobile ? 46 : 48, padding: isMobile ? "0 16px" : "0 20px", fontSize: 13, boxShadow: `0 18px 32px ${ACCENT_GLOW}` }}
+              style={{
+                minHeight: 40,
+                padding:   isMobile ? "0 14px" : "0 18px",
+                fontSize:  13,
+                boxShadow: `0 10px 22px ${ACCENT_GLOW}`,
+              }}
             >
               {ctaLabel}
             </button>
@@ -209,24 +294,28 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             <>
               <div
                 style={{
-                  minHeight: 46,
-                  padding: "0 14px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(214,223,239,0.12)",
-                  background: BG_SURFACE,
-                  color: SUBTLE_TEXT,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
+                  minHeight:       40,
+                  padding:         "0 12px",
+                  borderRadius:    999,
+                  border:          "1px solid rgba(214,223,239,0.10)",
+                  background:      "transparent",
+                  color:           SUBTLE_TEXT,
+                  display:         "inline-flex",
+                  alignItems:      "center",
+                  fontSize:        10,
+                  fontWeight:      800,
+                  letterSpacing:   "0.14em",
+                  textTransform:   "uppercase",
                 }}
               >
-                Demo Preview
+                Demo
               </div>
-              <button onClick={exitDemo} className="stint-button-secondary" style={{ minHeight: 46, padding: "0 18px", fontSize: 13 }}>
-                Exit Demo
+              <button
+                onClick={exitDemo}
+                className="stint-button-secondary"
+                style={{ minHeight: 40, padding: "0 14px", fontSize: 13 }}
+              >
+                Exit
               </button>
             </>
           )}
@@ -235,48 +324,39 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             <div style={{ position: "relative" }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
               <button
                 data-hover="minimal"
+                className="nv-user-pill"
+                onClick={() => setDropOpen((v) => !v)}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 12,
-                  minHeight: 58,
-                  padding: isMobile ? "10px 12px" : "10px 14px 10px 12px",
-                  borderRadius: 18,
-                  border: PANEL_BORDER,
-                  background: "linear-gradient(180deg,rgba(255,255,255,0.04),rgba(14,25,41,0.98))",
-                  color: TEXT_PRIMARY,
-                  cursor: "pointer",
-                  boxShadow: EDGE_RING,
+                  display:        "inline-flex",
+                  alignItems:     "center",
+                  gap:            8,
+                  minHeight:      40,
+                  padding:        "3px 10px 3px 3px",
+                  borderRadius:   999,
+                  border:         `1px solid ${NAV_HAIRLINE}`,
+                  background:     USER_PILL_BG,
+                  color:          TEXT_PRIMARY,
+                  cursor:         "pointer",
+                  willChange:     "transform",
                 }}
               >
-                <div style={{ width: 38, height: 38, position: "relative", flexShrink: 0 }}>
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "50%",
-                      background: userTheme.fill,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: userTheme.text,
-                      fontSize: 12,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {user.username?.slice(0, 2).toUpperCase()}
-                  </div>
-                  {user?.subscription_status === "pro" && (
-                    <ProPip size={15} style={{ position: "absolute", right: -1, bottom: -1 }} />
-                  )}
-                </div>
-                {!isMobile && (
-                  <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, lineHeight: 1 }}>{user.username}</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, lineHeight: 1, color: ACCENT }}>{user.points || 0} pts</span>
-                  </div>
-                )}
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ transform: dropOpen ? "rotate(180deg)" : "none", transition: "transform 180ms ease" }}>
+                <IdentityAvatar
+                  username={user.username}
+                  colorKey={user.avatar_color}
+                  size={32}
+                  pro={user?.subscription_status === "pro"}
+                />
+                <svg
+                  width="9"
+                  height="6"
+                  viewBox="0 0 10 6"
+                  fill="none"
+                  style={{
+                    transform:  dropOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 180ms ease",
+                    opacity:    0.7,
+                  }}
+                >
                   <path d="M1 1l4 4 4-4" stroke={TEXT_SECONDARY} strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
@@ -284,44 +364,59 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
               {dropOpen && (
                 <div
                   style={{
-                    position: "absolute",
-                    top: "calc(100% + 10px)",
-                    right: 0,
-                    width: 246,
-                    borderRadius: 18,
-                    background: "linear-gradient(180deg,rgba(22,35,56,0.98),rgba(14,25,41,0.98))",
-                    boxShadow: SOFT_SHADOW,
-                    overflow: "hidden",
-                    border: "1px solid rgba(214,223,239,0.08)",
+                    position:             "absolute",
+                    top:                  "calc(100% + 10px)",
+                    right:                0,
+                    width:                248,
+                    borderRadius:         14,
+                    background:           DROPDOWN_BG,
+                    backdropFilter:       "saturate(1.2) blur(16px)",
+                    WebkitBackdropFilter: "saturate(1.2) blur(16px)",
+                    boxShadow:            "0 14px 34px rgba(0,0,0,0.32)",
+                    overflow:             "hidden",
+                    border:               `1px solid ${NAV_HAIRLINE}`,
                   }}
                 >
-                  <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(214,223,239,0.08)", background: "rgba(255,255,255,0.03)" }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY }}>{user.username}</div>
-                    <div style={{ fontSize: 12, color: ACCENT, fontWeight: 800, marginTop: 4 }}>{user.points || 0} pts</div>
+                  <div style={{ padding: "14px 16px", borderBottom: `1px solid ${NAV_HAIRLINE}` }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: "-0.01em" }}>
+                      {user.username}
+                    </div>
+                    <div style={{
+                      fontSize:      11,
+                      fontWeight:    700,
+                      color:         SUBTLE_TEXT,
+                      marginTop:     3,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      fontVariantNumeric: "tabular-nums",
+                    }}>
+                      {user.points || 0} pts
+                    </div>
                   </div>
                   {menuItems.map(([label, target]) => (
                     <button
                       key={target}
                       data-hover="minimal"
+                      className="nv-menu-item"
                       onClick={() => {
                         setPage(target);
                         setDropOpen(false);
                       }}
                       onMouseEnter={(event) => {
-                        event.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                        event.currentTarget.style.background = "var(--nav-menu-item-hover-bg)";
                       }}
                       onMouseLeave={(event) => {
                         event.currentTarget.style.background = "transparent";
                       }}
                       style={{
-                        width: "100%",
-                        border: "none",
+                        width:      "100%",
+                        border:     "none",
                         background: "transparent",
-                        color: TEXT_PRIMARY,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        padding: "13px 16px",
-                        fontSize: 14,
+                        color:      TEXT_PRIMARY,
+                        cursor:     "pointer",
+                        textAlign:  "left",
+                        padding:    "12px 16px",
+                        fontSize:   13,
                         fontWeight: 600,
                       }}
                     >
@@ -331,33 +426,45 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                   <button
                     data-hover="minimal"
                     onClick={() => { setPage("pro"); setDropOpen(false); }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.background = rgbaFromHex(ACCENT, 0.08);
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.background = "transparent";
+                    }}
                     style={{
-                      width: "100%",
-                      border: "none",
-                      borderTop: "1px solid rgba(255,106,26,0.18)",
-                      borderBottom: "1px solid rgba(255,106,26,0.18)",
-                      background: "linear-gradient(135deg,rgba(255,106,26,0.12),rgba(224,90,18,0.06))",
-                      color: ACCENT,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "13px 16px",
-                      fontSize: 14,
-                      fontWeight: 800,
-                      letterSpacing: "-0.01em",
-                      display: "flex",
-                      alignItems: "center",
+                      width:        "100%",
+                      border:       "none",
+                      borderTop:    `1px solid ${NAV_HAIRLINE}`,
+                      borderBottom: `1px solid ${NAV_HAIRLINE}`,
+                      background:   "transparent",
+                      color: "var(--brand)",
+                      cursor:       "pointer",
+                      textAlign:    "left",
+                      padding:      "12px 16px",
+                      fontSize:     13,
+                      fontWeight:   800,
+                      letterSpacing: "-0.005em",
+                      display:      "flex",
+                      alignItems:   "center",
                       justifyContent: "space-between",
-                      gap: 12,
+                      gap:          12,
                     }}
                   >
-                    <span>Upgrade to Pro</span>
+                    <span>{user?.subscription_status === "pro" ? "Manage Pro" : "Upgrade to Pro"}</span>
                     {user?.subscription_status === "pro" && (
-                      <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fff7ed", background: "rgba(249,115,22,0.18)", border: "1px solid rgba(255,106,26,0.26)", borderRadius: 999, padding: "3px 7px" }}>
+                      <span style={{
+                        fontSize:      10,
+                        fontWeight:    900,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--brand)",
+                        opacity:       0.85,
+                      }}>
                         Active
                       </span>
                     )}
                   </button>
-                  <div style={{ height: 1, background: "rgba(214,223,239,0.08)" }} />
                   <button
                     data-hover="minimal"
                     onClick={() => {
@@ -365,20 +472,20 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                       setDropOpen(false);
                     }}
                     onMouseEnter={(event) => {
-                      event.currentTarget.style.background = "rgba(239,68,68,0.08)";
+                      event.currentTarget.style.background = "rgba(239,68,68,0.06)";
                     }}
                     onMouseLeave={(event) => {
                       event.currentTarget.style.background = "transparent";
                     }}
                     style={{
-                      width: "100%",
-                      border: "none",
+                      width:      "100%",
+                      border:     "none",
                       background: "transparent",
-                      color: "#fca5a5",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "13px 16px",
-                      fontSize: 14,
+                      color:      ERROR_TEXT,
+                      cursor:     "pointer",
+                      textAlign:  "left",
+                      padding:    "12px 16px",
+                      fontSize:   13,
                       fontWeight: 600,
                     }}
                   >

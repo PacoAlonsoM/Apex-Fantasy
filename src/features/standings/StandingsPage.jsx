@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CAL } from "@/src/constants/calendar";
 import { TEAMS } from "@/src/constants/teams";
 import {
+  ACCENT,
   CARD_RADIUS,
   CONTENT_MAX,
   HAIRLINE,
@@ -9,16 +10,18 @@ import {
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
-  PANEL_BG_STRONG,
   PANEL_BORDER,
   SECTION_RADIUS,
   SOFT_SHADOW,
   SUBTLE_TEXT,
+  TEXT_PRIMARY,
 } from "@/src/constants/design";
 import { fetchSeasonStandings } from "@/src/lib/openf1";
 import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
+import { hexToRgba } from "@/src/lib/colors";
+import PageMasthead from "@/src/ui/PageMasthead";
 
 function teamAccent(teamName) {
   return TEAMS[teamName]?.c || "#94a3b8";
@@ -37,36 +40,6 @@ function formatRoundDate(value) {
   });
 }
 
-function StatCard({ label, value, detail, accent = "#f8fafc" }) {
-  return (
-    <div
-      style={{
-        borderRadius: CARD_RADIUS,
-        border: PANEL_BORDER,
-        background: PANEL_BG_ALT,
-        padding: "18px 18px 16px",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 800,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: SUBTLE_TEXT,
-          marginBottom: 10,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, color: accent, marginBottom: 8 }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT }}>{detail}</div>
-    </div>
-  );
-}
-
 function DriversTable({ rows, isMobile }) {
   if (!rows.length) {
     return (
@@ -77,7 +50,7 @@ function DriversTable({ rows, isMobile }) {
   }
 
   return (
-    <div>
+    <div className="stnt-stagger">
       {rows.map((row, index) => {
         const accent = teamAccent(row.team);
         const soft = teamSoft(row.team);
@@ -85,37 +58,43 @@ function DriversTable({ rows, isMobile }) {
         return (
           <div
             key={`${row.driverNumber || row.name}-${row.rank}`}
+            className="stnt-driver-row"
             style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "56px 1fr 90px" : "64px minmax(220px,1.2fr) minmax(180px,1fr) 120px 110px",
-              gap: 14,
+              gridTemplateColumns: isMobile
+                ? "56px minmax(0,1fr) 72px"
+                : "60px minmax(0,1.4fr) minmax(130px,0.6fr) 100px 88px",
+              gap: 0,
               alignItems: "center",
-              padding: isMobile ? "14px 16px" : "16px 20px",
               borderBottom: index < rows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
             }}
           >
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 14,
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 900,
-                fontSize: 20,
-                background: soft,
-                color: accent,
-                border: `1px solid ${accent}33`,
-              }}
-            >
-              {row.rank}
+            {/* Rank badge */}
+            <div style={{ padding: isMobile ? "14px 8px" : "16px 12px", display: "flex", justifyContent: "center" }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 11,
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 900,
+                  fontSize: 17,
+                  background: soft,
+                  color: accent,
+                  border: `1px solid ${accent}33`,
+                }}
+              >
+                {row.rank}
+              </div>
             </div>
 
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, letterSpacing: -0.5, marginBottom: 4 }}>
+            {/* Name + team */}
+            <div style={{ padding: isMobile ? "14px 0 14px 4px" : "16px 0 16px 4px", minWidth: 0 }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, letterSpacing: -0.5, marginBottom: 3 }}>
                 {row.name}
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", color: MUTED_TEXT, fontSize: 13 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", color: MUTED_TEXT, fontSize: 12 }}>
                 <span>{row.team}</span>
                 {row.driverNumber ? (
                   <span
@@ -123,55 +102,75 @@ function DriversTable({ rows, isMobile }) {
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      minWidth: 34,
-                      height: 24,
-                      padding: "0 8px",
+                      minWidth: 30,
+                      height: 20,
+                      padding: "0 6px",
                       borderRadius: 999,
-                      background: "rgba(148,163,184,0.12)",
-                      border: "1px solid rgba(148,163,184,0.14)",
+                      background: "rgba(148,163,184,0.1)",
+                      border: "1px solid rgba(148,163,184,0.12)",
                       fontWeight: 800,
-                      color: "#dbe4f0",
+                      color: "var(--text)",
+                      fontSize: 11,
                     }}
                   >
                     #{row.driverNumber}
                   </span>
                 ) : null}
               </div>
+              {isMobile && (
+                <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: 11, color: MUTED_TEXT }}>
+                  <span>
+                    <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.wins}</span>W ·{" "}
+                    <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.podiums}</span>P
+                  </span>
+                  {row.rank > 1 && (
+                    <span>+{row.gapToLeader}</span>
+                  )}
+                </div>
+              )}
             </div>
 
+            {/* Stats — desktop */}
             {!isMobile ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, fontSize: 13, color: MUTED_TEXT }}>
-                <div>Wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.wins}</span></div>
-                <div>Podiums: <span style={{ color: "#fff", fontWeight: 800 }}>{row.podiums}</span></div>
-                <div>Sprint wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.sprintWins}</span></div>
-                <div>Best finish: <span style={{ color: "#fff", fontWeight: 800 }}>{row.bestFinish ? `P${row.bestFinish}` : "—"}</span></div>
+              <div style={{ display: "flex", gap: 14, fontSize: 13, color: MUTED_TEXT, padding: "0 12px" }}>
+                <span>
+                  <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.wins}</span>W
+                </span>
+                <span>
+                  <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.podiums}</span>P
+                </span>
+                {row.sprintWins > 0 && (
+                  <span>
+                    <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.sprintWins}</span>S
+                  </span>
+                )}
               </div>
             ) : null}
 
-            <div style={{ textAlign: isMobile ? "right" : "center" }}>
-              <div style={{ fontSize: 13, color: SUBTLE_TEXT, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
-                Gap
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>
-                {row.rank === 1 ? "Leader" : `+${row.gapToLeader}`}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1.2 }}>{row.points}</div>
-              <div style={{ fontSize: 12, color: SUBTLE_TEXT, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Points
-              </div>
-            </div>
-
-            {isMobile ? (
-              <div style={{ gridColumn: "2 / -1", display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, fontSize: 12, color: MUTED_TEXT }}>
-                <div>Wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.wins}</span></div>
-                <div>Podiums: <span style={{ color: "#fff", fontWeight: 800 }}>{row.podiums}</span></div>
-                <div>Sprint wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.sprintWins}</span></div>
-                <div>Best finish: <span style={{ color: "#fff", fontWeight: 800 }}>{row.bestFinish ? `P${row.bestFinish}` : "—"}</span></div>
+            {/* Gap — desktop */}
+            {!isMobile ? (
+              <div style={{ textAlign: "right", padding: "0 16px 0 0" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: row.rank === 1 ? "var(--text-subtle)" : MUTED_TEXT }}>
+                  {row.rank === 1 ? "—" : `+${row.gapToLeader}`}
+                </div>
               </div>
             ) : null}
+
+            {/* Points */}
+            <div style={{ textAlign: "right", padding: isMobile ? "0 16px 0 0" : "0 20px 0 0" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: isMobile ? 22 : 28,
+                  fontWeight: 700,
+                  letterSpacing: -0.5,
+                  fontVariantNumeric: "tabular-nums",
+                  color: TEXT_PRIMARY,
+                }}
+              >
+                {row.points}
+              </div>
+            </div>
           </div>
         );
       })}
@@ -189,7 +188,7 @@ function ConstructorsTable({ rows, isMobile }) {
   }
 
   return (
-    <div>
+    <div className="stnt-stagger">
       {rows.map((row, index) => {
         const accent = teamAccent(row.team);
         const soft = teamSoft(row.team);
@@ -197,74 +196,84 @@ function ConstructorsTable({ rows, isMobile }) {
         return (
           <div
             key={`${row.team}-${row.rank}`}
+            className="stnt-driver-row"
             style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "56px minmax(0,1fr) 90px" : "64px minmax(220px,1.2fr) minmax(200px,1fr) 120px 110px",
-              gap: 14,
+              gridTemplateColumns: isMobile
+                ? "56px minmax(0,1fr) 72px"
+                : "60px minmax(0,1.4fr) minmax(130px,0.6fr) 100px 88px",
+              gap: 0,
               alignItems: "center",
-              padding: isMobile ? "14px 16px" : "16px 20px",
               borderBottom: index < rows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
             }}
           >
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 14,
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 900,
-                fontSize: 20,
-                background: soft,
-                color: accent,
-                border: `1px solid ${accent}33`,
-              }}
-            >
-              {row.rank}
+            {/* Rank badge */}
+            <div style={{ padding: isMobile ? "14px 8px" : "16px 12px", display: "flex", justifyContent: "center" }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 11,
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 900,
+                  fontSize: 17,
+                  background: soft,
+                  color: accent,
+                  border: `1px solid ${accent}33`,
+                }}
+              >
+                {row.rank}
+              </div>
             </div>
 
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, letterSpacing: -0.5, marginBottom: 4 }}>
+            {/* Team name */}
+            <div style={{ padding: isMobile ? "14px 0 14px 4px" : "16px 0 16px 4px", minWidth: 0 }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, letterSpacing: -0.5, marginBottom: 3 }}>
                 {row.team}
               </div>
-              <div style={{ color: MUTED_TEXT, fontSize: 13 }}>
-                {row.wins} wins · {row.podiums} podiums · {row.sprintWins} sprint wins
+              <div style={{ color: MUTED_TEXT, fontSize: 12 }}>
+                <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.wins}</span>W ·{" "}
+                <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.podiums}</span>P ·{" "}
+                <span style={{ color: "var(--text)", fontWeight: 800 }}>{row.sprintWins}</span>S
               </div>
             </div>
 
+            {/* Stats — desktop */}
             {!isMobile ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, fontSize: 13, color: MUTED_TEXT }}>
-                <div>Wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.wins}</span></div>
-                <div>Podiums: <span style={{ color: "#fff", fontWeight: 800 }}>{row.podiums}</span></div>
-                <div>Sprint wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.sprintWins}</span></div>
-                <div>Gap: <span style={{ color: "#fff", fontWeight: 800 }}>{row.rank === 1 ? "Leader" : `+${row.gapToLeader}`}</span></div>
+              <div style={{ display: "flex", gap: 14, fontSize: 13, color: MUTED_TEXT, padding: "0 12px" }}>
+                <span><span style={{ color: "var(--text)", fontWeight: 800 }}>{row.wins}</span>W</span>
+                <span><span style={{ color: "var(--text)", fontWeight: 800 }}>{row.podiums}</span>P</span>
+                {row.sprintWins > 0 && (
+                  <span><span style={{ color: "var(--text)", fontWeight: 800 }}>{row.sprintWins}</span>S</span>
+                )}
               </div>
             ) : null}
 
-            <div style={{ textAlign: isMobile ? "right" : "center" }}>
-              <div style={{ fontSize: 13, color: SUBTLE_TEXT, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
-                Gap
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>
-                {row.rank === 1 ? "Leader" : `+${row.gapToLeader}`}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1.2 }}>{row.points}</div>
-              <div style={{ fontSize: 12, color: SUBTLE_TEXT, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Points
-              </div>
-            </div>
-
-            {isMobile ? (
-              <div style={{ gridColumn: "2 / -1", display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, fontSize: 12, color: MUTED_TEXT }}>
-                <div>Wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.wins}</span></div>
-                <div>Podiums: <span style={{ color: "#fff", fontWeight: 800 }}>{row.podiums}</span></div>
-                <div>Sprint wins: <span style={{ color: "#fff", fontWeight: 800 }}>{row.sprintWins}</span></div>
-                <div>Gap: <span style={{ color: "#fff", fontWeight: 800 }}>{row.rank === 1 ? "Leader" : `+${row.gapToLeader}`}</span></div>
+            {/* Gap — desktop */}
+            {!isMobile ? (
+              <div style={{ textAlign: "right", padding: "0 16px 0 0" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: row.rank === 1 ? "var(--text-subtle)" : MUTED_TEXT }}>
+                  {row.rank === 1 ? "—" : `+${row.gapToLeader}`}
+                </div>
               </div>
             ) : null}
+
+            {/* Points */}
+            <div style={{ textAlign: "right", padding: isMobile ? "0 16px 0 0" : "0 20px 0 0" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: isMobile ? 22 : 28,
+                  fontWeight: 700,
+                  letterSpacing: -0.5,
+                  fontVariantNumeric: "tabular-nums",
+                  color: TEXT_PRIMARY,
+                }}
+              >
+                {row.points}
+              </div>
+            </div>
           </div>
         );
       })}
@@ -325,6 +334,7 @@ export default function StandingsPage({ compact = false }) {
 
   return (
     <div
+      data-page-density="dense"
       style={{
         maxWidth: CONTENT_MAX,
         margin: "0 auto",
@@ -333,98 +343,79 @@ export default function StandingsPage({ compact = false }) {
         zIndex: 1,
       }}
     >
+      <style>{`
+        .stnt-tab,.stnt-vtab{white-space:nowrap;transition:background 110ms ease,border-color 110ms ease,color 100ms ease,transform 90ms cubic-bezier(0.23,1,0.32,1)!important}
+        .stnt-tab:active,.stnt-vtab:active{transform:scale(0.97)!important}
+        .stnt-tab:focus-visible,.stnt-vtab:focus-visible{outline:2px solid rgba(255,106,26,0.5);outline-offset:2px}
+        .stnt-driver-row{transition:background 70ms ease,transform 70ms cubic-bezier(0.23,1,0.32,1)}
+        .stnt-driver-row:active{transform:scale(0.995)!important}
+        @media(hover:hover)and(pointer:fine){.stnt-driver-row:hover{background:var(--btn-secondary-bg)}}
+        @keyframes stntUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+        .stnt-in{animation:stntUp 180ms cubic-bezier(0.23,1,0.32,1) both}
+        .stnt-stagger>*{animation:stntUp 200ms cubic-bezier(0.23,1,0.32,1) both}
+        .stnt-stagger>*:nth-child(1){animation-delay:0ms}
+        .stnt-stagger>*:nth-child(2){animation-delay:22ms}
+        .stnt-stagger>*:nth-child(3){animation-delay:44ms}
+        .stnt-stagger>*:nth-child(4){animation-delay:66ms}
+        .stnt-stagger>*:nth-child(5){animation-delay:88ms}
+        .stnt-stagger>*:nth-child(6){animation-delay:110ms}
+        .stnt-stagger>*:nth-child(7){animation-delay:132ms}
+        .stnt-stagger>*:nth-child(8){animation-delay:150ms}
+        .stnt-stagger>*:nth-child(n+9){animation-delay:150ms}
+        @media(prefers-reduced-motion:reduce){
+          .stnt-tab,.stnt-vtab,.stnt-driver-row{transition:none!important}
+          .stnt-in,.stnt-stagger>*{animation:none!important}
+        }
+      `}</style>
+
+      {/* ── Hero section ── */}
       <section
         style={{
           borderRadius: SECTION_RADIUS,
           border: PANEL_BORDER,
-          background: `linear-gradient(180deg,rgba(10,18,32,0.98),${PANEL_BG_STRONG})`,
+          background: PANEL_BG,
           boxShadow: LIFTED_SHADOW,
           overflow: "hidden",
           marginBottom: 18,
         }}
       >
-        <div style={{ padding: isMobile ? "24px 20px" : "28px 30px 24px", minHeight: compact ? 0 : isMobile ? 0 : 312, borderBottom: `1px solid ${HAIRLINE}`, position: "relative", overflow: "hidden" }}>
-          {!compact && (
-            <img
-              src="/images/hero-glow.png"
-              alt=""
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center 78%",
-                opacity: isMobile ? 0.23 : 0.34,
-                filter: "brightness(1.18) saturate(1.14)",
-                transform: "scale(1.04)",
-                pointerEvents: "none",
-              }}
-              onError={(e) => { e.target.style.display = "none"; }}
-            />
-          )}
-          {!compact && (
-            <div
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(to bottom, rgba(10,15,26,0.06) 0%, rgba(10,15,26,0.62) 100%)",
-                pointerEvents: "none",
-              }}
-            />
-          )}
-          <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", alignContent: "space-between", flexWrap: "wrap", minHeight: compact ? "auto" : isMobile ? "auto" : 260 }}>
-            <div style={{ maxWidth: 760 }}>
+        <PageMasthead
+          variant="flush"
+          marginBottom={0}
+          eyebrow={loading ? "Loading standings" : `${seasonYear} championship standings`}
+          title={<>Real championship standings.<br />Drivers and constructors.</>}
+          description="Live F1 season standings from completed OpenF1 race and sprint sessions. Fantasy scoring lives in your picks history and leagues."
+          image={compact ? null : { src: "/images/hero-glow.png" }}
+          tone={compact ? "flat" : "ambient"}
+          minHeight={compact ? 0 : (isMobile ? 0 : isTablet ? 240 : 280)}
+          style={{ padding: isMobile ? "24px 20px" : "28px 30px 24px" }}
+          aside={(
+            <div style={{ display: "grid", gap: 6 }}>
               <div
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 12px",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(148,163,184,0.12)",
-                  marginBottom: 18,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: SUBTLE_TEXT,
                 }}
               >
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: loading ? "#facc15" : "#34d399" }} />
-                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dbe4f0" }}>
-                  {loading ? "Loading standings" : `${seasonYear} championship standings`}
-                </span>
-              </div>
-
-              <h1 style={{ fontSize: isMobile ? 28 : 54, fontWeight: 800, lineHeight: 0.94, margin: "0 0 12px", letterSpacing: isMobile ? "-0.04em" : "-0.07em" }}>
-                Real championship standings.
-                <br />
-                Drivers and constructors.
-              </h1>
-              <div style={{ maxWidth: 720, fontSize: isMobile ? 14 : 15, lineHeight: 1.82, color: MUTED_TEXT }}>
-                This page now pulls the actual F1 season standings from completed OpenF1 race and sprint sessions. Fantasy user scoring still lives in your picks history, profile, and leagues.
-              </div>
-            </div>
-
-            <div
-              style={{
-                minWidth: isMobile ? "100%" : 280,
-                borderRadius: CARD_RADIUS,
-                border: "1px solid rgba(249,115,22,0.18)",
-                background: "linear-gradient(180deg,rgba(249,115,22,0.08),rgba(26,39,64,0.9))",
-                padding: "16px 18px",
-              }}
-            >
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>
                 Last completed round
               </div>
-              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1.1, marginBottom: 4 }}>{lastRaceName}</div>
-              <div style={{ fontSize: 13, color: MUTED_TEXT, marginBottom: 10 }}>{lastRaceDate}</div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#7dd3fc" }}>
-                Live OpenF1 standings
+              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8, lineHeight: 1.1 }}>
+                {lastRaceName}
               </div>
+              <div style={{ fontSize: 12, color: MUTED_TEXT }}>{lastRaceDate}</div>
+              {driverLeader && (
+                <div style={{ marginTop: 6, paddingTop: 8, borderTop: `1px solid ${HAIRLINE}`, fontSize: 12, color: MUTED_TEXT }}>
+                  <span style={{ color: teamAccent(driverLeader.team), fontWeight: 800 }}>{driverLeader.name}</span>
+                  {" "}leads ·{" "}
+                  <span style={{ color: "var(--text)", fontWeight: 700 }}>{driverLeader.points} pts</span>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
+          )}
+        />
 
         {error ? (
           <div
@@ -434,7 +425,7 @@ export default function StandingsPage({ compact = false }) {
               border: "1px solid rgba(245,158,11,0.22)",
               background: "rgba(245,158,11,0.08)",
               padding: "12px 14px",
-              color: "#fde68a",
+              color: "var(--text-pro)",
               fontSize: 13,
               lineHeight: 1.6,
             }}
@@ -443,35 +434,77 @@ export default function StandingsPage({ compact = false }) {
           </div>
         ) : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 12, padding: 18 }}>
-          <StatCard
-            label="Drivers leader"
-            value={driverLeader?.name || "—"}
-            detail={driverLeader ? `${driverLeader.points} pts · ${driverLeader.team}` : "No completed rounds yet"}
-            accent={teamAccent(driverLeader?.team)}
-          />
-          <StatCard
-            label="Constructors leader"
-            value={constructorLeader?.team || "—"}
-            detail={constructorLeader ? `${constructorLeader.points} pts` : "No completed rounds yet"}
-            accent={teamAccent(constructorLeader?.team)}
-          />
-          <StatCard
-            label="Completed rounds"
-            value={String(standings?.completedRounds || 0)}
-            detail="Grand Prix races already finished"
-            accent="#fde68a"
-          />
-          <StatCard
-            label="Sprint rounds"
-            value={String(standings?.completedSprints || 0)}
-            detail="Sprint sessions already counted"
-            accent="#93c5fd"
-          />
+        {/* Season summary stats */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,minmax(0,1fr))",
+            gap: 1,
+            background: HAIRLINE,
+            borderTop: `1px solid ${HAIRLINE}`,
+          }}
+        >
+          {[
+            {
+              label: "Drivers leader",
+              value: driverLeader?.name || "—",
+              sub: driverLeader ? `${driverLeader.points} pts` : "No results yet",
+              accent: teamAccent(driverLeader?.team),
+            },
+            {
+              label: "Constructors leader",
+              value: constructorLeader?.team || "—",
+              sub: constructorLeader ? `${constructorLeader.points} pts` : "No results yet",
+              accent: teamAccent(constructorLeader?.team),
+            },
+            {
+              label: "Completed rounds",
+              value: String(standings?.completedRounds || 0),
+              sub: "Grand Prix races",
+              accent: "var(--text-pro)",
+            },
+            {
+              label: "Sprint sessions",
+              value: String(standings?.completedSprints || 0),
+              sub: "Already counted",
+              accent: "var(--text-ai)",
+            },
+          ].map((stat) => (
+            <div key={stat.label} style={{ padding: "14px 16px", background: PANEL_BG }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: SUBTLE_TEXT,
+                  marginBottom: 6,
+                }}
+              >
+                {stat.label}
+              </div>
+              <div
+                style={{
+                  fontSize: 20,
+                  fontWeight: 900,
+                  letterSpacing: -0.6,
+                  color: stat.accent,
+                  marginBottom: 3,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {stat.value}
+              </div>
+              <div style={{ fontSize: 11, color: MUTED_TEXT }}>{stat.sub}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+      {/* ── Tab selector ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         {[
           { key: "drivers", label: "Drivers Championship" },
           { key: "constructors", label: "Constructors Championship" },
@@ -481,10 +514,11 @@ export default function StandingsPage({ compact = false }) {
             <button
               key={item.key}
               onClick={() => setTab(item.key)}
+              className="stnt-tab"
               style={{
-                border: active ? "1px solid rgba(249,115,22,0.28)" : "1px solid rgba(148,163,184,0.14)",
-                background: active ? "rgba(249,115,22,0.10)" : "rgba(255,255,255,0.03)",
-                color: active ? "#fff" : MUTED_TEXT,
+                border: active ? `1px solid ${hexToRgba(ACCENT, 0.30)}` : "1px solid rgba(148,163,184,0.14)",
+                background: active ? hexToRgba(ACCENT, 0.13) : "var(--btn-secondary-bg)",
+                color: active ? ACCENT : MUTED_TEXT,
                 borderRadius: 999,
                 padding: "10px 16px",
                 fontSize: 13,
@@ -498,6 +532,7 @@ export default function StandingsPage({ compact = false }) {
         })}
       </div>
 
+      {/* ── Championship table ── */}
       <section
         style={{
           borderRadius: SECTION_RADIUS,
@@ -507,28 +542,54 @@ export default function StandingsPage({ compact = false }) {
           overflow: "hidden",
         }}
       >
-        <div style={{ padding: "22px 24px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 10 }}>
-            {tab === "drivers" ? "Drivers championship" : "Constructors championship"}
+        <div
+          style={{
+            padding: isMobile ? "16px 18px 14px" : "20px 24px 16px",
+            borderBottom: `1px solid ${HAIRLINE}`,
+            background: PANEL_BG_ALT,
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: SUBTLE_TEXT,
+                marginBottom: 6,
+              }}
+            >
+              {tab === "drivers" ? "Drivers championship" : "Constructors championship"}
+            </div>
+            <div style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, letterSpacing: -0.8 }}>
+              {tab === "drivers" ? "Every driver ranked by season points" : "Every constructor ranked by season points"}
+            </div>
           </div>
-          <div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 900, letterSpacing: -1.1, marginBottom: 8 }}>
-            {tab === "drivers" ? "Every driver ranked by season points" : "Every constructor ranked by season points"}
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.75, color: MUTED_TEXT }}>
-            {tab === "drivers"
-              ? "Live cumulative standings from completed race and sprint sessions, including gap to the leader."
-              : "Constructor totals built from the same completed sessions and points flow."}
-          </div>
+          {!loading && currentRows.length > 0 && (
+            <div style={{ fontSize: 12, color: MUTED_TEXT, flexShrink: 0 }}>
+              {currentRows.length} {tab === "drivers" ? "drivers" : "constructors"}
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div style={{ padding: "26px 24px", color: MUTED_TEXT, fontSize: 14 }}>
-            Loading the real championship table...
+            Loading championship table…
           </div>
         ) : tab === "drivers" ? (
-          <DriversTable rows={currentRows} isMobile={isMobile} />
+          <div key="drivers" className="stnt-in">
+            <DriversTable rows={currentRows} isMobile={isMobile} />
+          </div>
         ) : (
-          <ConstructorsTable rows={currentRows} isMobile={isMobile} />
+          <div key="constructors" className="stnt-in">
+            <ConstructorsTable rows={currentRows} isMobile={isMobile} />
+          </div>
         )}
       </section>
     </div>

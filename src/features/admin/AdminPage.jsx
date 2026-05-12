@@ -216,7 +216,7 @@ export default function AdminPage({ user }) {
     return (
       <div style={{ maxWidth: 640, margin: "100px auto", textAlign: "center", padding: 40 }}>
         <div style={{ fontSize: 48, marginBottom: 18 }}>LOCKED</div>
-        <h2 style={{ fontWeight: 900, fontSize: 24, marginBottom: 12 }}>Admin only</h2>
+        <h2 className="stint-section-title" style={{ marginBottom: 12 }}>Admin only</h2>
         <p style={{ color: "rgba(255,255,255,0.46)", fontSize: 14 }}>This control center is only available to the local admin profile.</p>
       </div>
     );
@@ -293,7 +293,7 @@ export default function AdminPage({ user }) {
                 style={{
                   borderRadius: 14,
                   border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.03)",
+                  background: "var(--btn-secondary-bg)",
                   padding: "14px 15px",
                   display: "grid",
                   gap: 8,
@@ -319,17 +319,17 @@ export default function AdminPage({ user }) {
                   onChange={(event) => handleSelectRound(Number(event.target.value))}
                   style={{
                     minWidth: 260,
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-soft)",
                     borderRadius: RADIUS_MD,
-                    color: "#fff",
+                    color: "var(--text)",
                     padding: "12px 14px",
                     fontSize: 13,
                     fontFamily: "inherit",
                   }}
                 >
                   {(dashboard?.rounds || []).map((round) => (
-                    <option key={round.round} value={round.round} style={{ background: "#08111d" }}>
+                    <option key={round.round} value={round.round} style={{ background: "var(--bg-surface)", color: "var(--text)" }}>
                       {round.round}. {round.name}
                     </option>
                   ))}

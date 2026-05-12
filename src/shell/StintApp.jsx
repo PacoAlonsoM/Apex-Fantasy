@@ -235,13 +235,13 @@ export default function StintApp() {
           {page === "community" && <CommunityPage user={user} openAuth={openAuth} demoMode={demoMode} setPage={navigateToPage} />}
           {page === "grid" && <GridPage user={user} openAuth={openAuth} demoMode={demoMode} />}
           {page === "admin" && <AdminPage user={user} />}
-          {page === "profile" && <ProfilePage user={user} setUser={setUser} />}
+          {page === "profile" && <ProfilePage user={user} setUser={setUser} setPage={navigateToPage} />}
           {page === "game-guide" && <GameGuidePage setPage={navigateToPage} />}
           {page === "support" && <SupportPage />}
           {page === "terms" && <TermsPage />}
           {page === "privacy" && <PrivacyPage />}
-          {page === "pro" && <ProPage user={user} setPage={navigateToPage} />}
-          {page === "pro_success" && <ProSuccessPage user={user} />}
+          {page === "pro" && <ProPage user={user} setUser={setUser} setPage={navigateToPage} />}
+          {page === "pro_success" && <ProSuccessPage user={user} setPage={navigateToPage} />}
         </div>
         <LegalFooter setPage={navigateToPage} />
       </div>

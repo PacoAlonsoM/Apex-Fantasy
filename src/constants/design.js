@@ -6,21 +6,25 @@ export const BRAND_NAME = "Stint";
 export const BRAND_WORDMARK = "STINT";
 export const BRAND_DESCRIPTOR = "F1 Predictions";
 export const BRAND_TAGLINE = "Compete with sharper picks, cleaner reads, and race-week timing that stays in sync.";
+export const BRAND_LOGO_SRC = "/images/logo-primary.png";
 export const SUPPORT_EMAIL = "support@stint-web.com";
 export const LEGAL_DISCLAIMER = "Stint is an independent prediction platform and is not affiliated with, endorsed by, or officially connected to Formula 1, Formula One group companies, FIA, or any F1 team.";
 
-export const BG_BASE = "#06101B";
-export const BG_SURFACE = "#0E1929";
-export const BG_ELEVATED = "#152338";
-export const BG_HOVER = "#1E304A";
+// Theme-aware surface/text tokens — these resolve to CSS variables that flip
+// with `html[data-theme="light"]`. Brand and status hex values below stay
+// literal because they're consumed by JS calculations (rgbaFromHex, mix).
+export const BG_BASE = "var(--bg)";
+export const BG_SURFACE = "var(--bg-surface)";
+export const BG_ELEVATED = "var(--bg-elevated)";
+export const BG_HOVER = "var(--bg-hover)";
 
-export const TEXT_PRIMARY = "#F6F7FB";
-export const TEXT_SECONDARY = "rgba(214,223,239,0.74)";
-export const TEXT_TERTIARY = "rgba(214,223,239,0.62)";
+export const TEXT_PRIMARY = "var(--text)";
+export const TEXT_SECONDARY = "var(--text-muted)";
+export const TEXT_TERTIARY = "var(--text-subtle)";
 
 export const ACCENT = "#FF6A1A";
 export const ACCENT_DARK = "#E65310";
-export const ACCENT_GLOW = "rgba(255,106,26,0.18)";
+export const ACCENT_GLOW = "var(--accent-glow)";
 export const SUCCESS = "#22C55E";
 export const SPRINT = "#A855F7";
 export const DANGER = "#EF4444";
@@ -36,9 +40,8 @@ export const BRAND_BADGE_SHADOW = "0 16px 40px rgba(255,106,26,0.16), inset 0 1p
 
 export const PANEL_BG = BG_SURFACE;
 export const PANEL_BG_ALT = BG_ELEVATED;
-export const PANEL_BG_STRONG = BG_SURFACE;
-export const PANEL_BORDER = "1px solid rgba(214,223,239,0.08)";
-export const HAIRLINE = "rgba(214,223,239,0.08)";
+export const PANEL_BORDER = "1px solid var(--border)";
+export const HAIRLINE = "var(--border)";
 export const EDGE_RING = "inset 0 1px 0 rgba(255,255,255,0.04)";
 export const MUTED_TEXT = TEXT_SECONDARY;
 export const SUBTLE_TEXT = TEXT_TERTIARY;
@@ -93,15 +96,52 @@ export const SPACE = {
 };
 
 // --- Status tokens (#53) ---
-export const ERROR_TEXT   = "#fca5a5";
+// _TEXT values are theme-aware (light tints in dark mode, dark shades in
+// light mode). _BG and _BORDER are translucent and read on both backgrounds.
+export const ERROR_TEXT   = "var(--text-error)";
 export const ERROR_BG     = "rgba(239,68,68,0.08)";
 export const ERROR_BORDER = "rgba(239,68,68,0.24)";
-export const SUCCESS_TEXT   = "#86efac";
+export const SUCCESS_TEXT   = "var(--text-success)";
 export const SUCCESS_BG     = "rgba(34,197,94,0.08)";
 export const SUCCESS_BORDER = "rgba(34,197,94,0.24)";
-export const WARN_TEXT   = "#fcd34d";
+export const WARN_TEXT   = "var(--text-warn)";
 export const WARN_BG     = "rgba(252,211,77,0.08)";
 export const WARN_BORDER = "rgba(252,211,77,0.24)";
+
+// Pro amber — billing-ending / Pro-context warnings. Per design doc §13
+// this amber (#f59e0b) is reserved for Pro context (cancel-scheduled pills,
+// Pro League prize context), distinct from the general WARN_* tokens.
+export const PRO_AMBER       = "#f59e0b";
+export const PRO_AMBER_TEXT  = "var(--text-pro)";
+export const PRO_AMBER_DOT   = "#fbbf24";
+export const PRO_AMBER_BG    = "rgba(245,158,11,0.10)";
+export const PRO_AMBER_BORDER = "rgba(245,158,11,0.22)";
+
+// AI blue — used wherever an AI / insight / coach signal needs to carry its
+// own identity rather than reusing SUCCESS or INFO. Kept tonal (softer than
+// the INFO tone) so AI callouts whisper rather than shout. `_SOFT` is the
+// background alpha (call sites adopted it before the token landed; kept as
+// the canonical name). Mirror shape to the PRO_AMBER_* family.
+export const AI_BLUE         = "#60A5FA";
+export const AI_BLUE_TEXT    = "var(--text-ai)";
+export const AI_BLUE_SOFT    = "rgba(96,165,250,0.08)";
+export const AI_BLUE_BORDER  = "rgba(96,165,250,0.22)";
+
+// Note (info cyan) — one-off info / "returned from Stripe" / advisory
+// banners. A lighter-touch relative of INFO that never reads as a warning.
+export const NOTE_TEXT   = "var(--text-note)";
+export const NOTE_BG     = "rgba(56,189,248,0.08)";
+export const NOTE_BORDER = "rgba(56,189,248,0.22)";
+
+// Live-dot green — "active right now" signal used on subscription pills,
+// live Pro League indicator, etc. Keeps all "I am alive" signals on one hue.
+export const LIVE_GREEN      = "var(--text-live)";
+export const LIVE_GREEN_GLOW = "0 0 8px rgba(74,222,128,0.5)";
+
+// Motion — STINT's canonical ease-out-expo curve. Exported as a JS string
+// so inline-style blocks and scoped `<style>` tags can interpolate it.
+// Every motion surface in the app uses this same curve.
+export const EASE_OUT_EXPO = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 export const DEFAULT_AVATAR_COLOR = "ember";
 

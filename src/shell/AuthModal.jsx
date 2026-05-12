@@ -7,7 +7,6 @@ import {
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
-  PANEL_BG_STRONG,
   PANEL_BORDER,
   SOFT_SHADOW,
   SUBTLE_TEXT,
@@ -37,47 +36,42 @@ function ProviderButton({ icon, label, sublabel, onClick, disabled, dark = false
       onClick={onClick}
       style={{
         width: "100%",
-        borderRadius: 16,
-        border: dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.68)",
+        borderRadius: 14,
+        border: dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.72)",
         background: dark ? "linear-gradient(180deg,#121826,#0a0f1a)" : "#ffffff",
         color: dark ? "#f8fafc" : "#111827",
-        padding: "13px 16px",
+        padding: "13px 14px",
         cursor: "pointer",
-        display: "grid",
-        gridTemplateColumns: "auto minmax(0,1fr) auto",
+        display: "flex",
         alignItems: "center",
-        gap: 14,
+        gap: 12,
         boxShadow: dark ? EDGE_RING : "0 18px 38px rgba(255,255,255,0.08)",
         opacity: disabled ? 0.6 : 1,
       }}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34 }}>
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 11,
-            display: "grid",
-            placeItems: "center",
-            background: dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
-            color: dark ? "#fff" : "#111827",
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </span>
+      <span
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 11,
+          display: "grid",
+          placeItems: "center",
+          background: dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
+          color: dark ? "#fff" : "#111827",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
       </span>
 
-      <span style={{ display: "grid", gap: 2, textAlign: "center", minWidth: 0 }}>
+      <span style={{ display: "grid", gap: sublabel ? 2 : 0, textAlign: "left", minWidth: 0 }}>
         <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.15 }}>{label}</span>
         {sublabel && (
-          <span style={{ fontSize: 11, lineHeight: 1.2, color: dark ? "rgba(226,232,240,0.56)" : "rgba(15,23,42,0.56)" }}>
+          <span style={{ fontSize: 11, lineHeight: 1.25, color: dark ? "rgba(226,232,240,0.56)" : "rgba(15,23,42,0.56)" }}>
             {sublabel}
           </span>
         )}
       </span>
-
-      <span aria-hidden="true" style={{ width: 34, height: 34 }} />
     </button>
   );
 }
@@ -93,36 +87,49 @@ function SupportTeamCard({ option, active, onSelect }) {
       onClick={() => onSelect(option.team)}
       aria-pressed={active}
       style={{
-        borderRadius: 16,
-        border: active ? "1px solid rgba(248,250,252,0.68)" : `1px solid ${theme.border}`,
-        background: active ? theme.fill : PANEL_BG_ALT,
-        padding: "10px 10px 11px",
+        borderRadius: 14,
+        border: active ? "1px solid rgba(248,250,252,0.28)" : "1px solid rgba(148,163,184,0.14)",
+        background: active ? `linear-gradient(180deg,${theme.bg},rgba(14,25,41,0.98))` : PANEL_BG_ALT,
+        padding: "12px",
         textAlign: "left",
         cursor: "pointer",
-        boxShadow: active ? `0 20px 34px ${theme.bg}` : EDGE_RING,
+        display: "grid",
+        gap: 12,
+        boxShadow: active ? `0 18px 34px ${theme.bg}` : "none",
+        transition: "border-color 140ms ease, background 140ms ease, box-shadow 140ms ease",
       }}
     >
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 11,
-          display: "grid",
-          placeItems: "center",
-          background: theme.fill,
-          color: theme.text,
-          fontSize: 11,
-          fontWeight: 900,
-          marginBottom: 8,
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
-        }}
-      >
-        {option.label.slice(0, 2).toUpperCase()}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 11,
+            display: "grid",
+            placeItems: "center",
+            background: theme.fill,
+            color: theme.text,
+            fontSize: 11,
+            fontWeight: 900,
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+          }}
+        >
+          {option.label.slice(0, 2).toUpperCase()}
+        </div>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: active ? theme.accent : "rgba(148,163,184,0.28)",
+            boxShadow: active ? `0 0 0 4px ${theme.bg}` : "none",
+            flexShrink: 0,
+          }}
+        />
       </div>
-      <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, marginBottom: 2 }}>{option.label}</div>
-      <div style={{ color: active ? "rgba(248,250,252,0.82)" : MUTED_TEXT, fontSize: 10, lineHeight: 1.45 }}>
-        {active ? "Active theme." : "Set your accent."}
-      </div>
+
+      <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, lineHeight: 1.3 }}>{option.label}</div>
     </button>
   );
 }
@@ -166,7 +173,7 @@ function PasswordInput({ id, value, onChange, onKeyDown, inputStyle, visible, on
 }
 
 export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarget, demoMode = false }) {
-  const { isMobile, isTablet } = useViewport();
+  const { isMobile, isTablet, height: viewportHeight } = useViewport();
   const [f, setF] = useState({
     username: "",
     email: "",
@@ -183,13 +190,17 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
     pass: false,
     confirm: false,
   });
+  const [isLightTheme] = useState(() =>
+    typeof document !== "undefined" && document.documentElement.dataset.theme === "light"
+  );
 
   const selectedSupportTheme = AVATAR_THEMES[teamSupportKey(f.favoriteTeam)] || AVATAR_THEMES.ember;
   const isLoginMode = mode === "login";
   const isRegisterMode = mode === "register";
-  const modalWidth = isRegisterMode ? 920 : 980;
-  const modalMaxHeight = isMobile ? "calc(100vh - 24px)" : "min(88vh, 820px)";
-  const modalHeight = isRegisterMode ? modalMaxHeight : "auto";
+  const sheetPadding = isMobile ? 12 : 24;
+  const resolvedViewportHeight = viewportHeight || 900;
+  const modalMaxHeight = Math.max(isMobile ? 420 : 520, resolvedViewportHeight - sheetPadding * 2);
+  const modalMaxWidth = isRegisterMode ? (isTablet ? 560 : 640) : 460;
 
   const upd = (k, v) => {
     setIsDirty(true);
@@ -251,7 +262,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
 
   const buttonBaseStyle = {
     border: "none",
-    borderRadius: 16,
+    borderRadius: 14,
     color: "#fff",
     cursor: "pointer",
     fontWeight: 800,
@@ -491,7 +502,7 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
   };
 
   const title = mode === "register"
-    ? "Build your garage."
+    ? "Create your account"
     : mode === "forgot"
       ? "Reset your password"
       : mode === "reset"
@@ -499,278 +510,329 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
         : "Welcome back";
 
   const subtitle = mode === "register"
-    ? "Create a more personal Stint account. Use Google or email, and we will carry your support identity through the app."
+    ? "Pick a username and team accent. Everything else stays simple."
     : mode === "forgot"
-      ? "We will send you a recovery link by email."
+      ? "We will email you a reset link."
       : mode === "reset"
         ? "Choose a new password for your account."
-        : "Fastest way back in: use Google, or sign in with email.";
+        : "Sign in to keep your picks, leagues and profile in sync.";
 
-  const leftCards = mode === "register"
-    ? [
-        ["Support identity", "Your constructor sets profile colors, badges and the strongest action accents around STINT."],
-        ["League presence", "Show up with a team-backed identity that feels consistent across picks and community."],
-        ["Sharper onboarding", "We keep sign-in fast, then make signup feel more like joining your paddock."],
-      ]
-    : [
-        ["Predictions", "Lock the full board before qualifying starts."],
-        ["Leagues", "Compete privately without losing the global race."],
-        ["AI Insight", "Use one long-form weekend read before you submit picks."],
-      ];
+  const headerLabel = mode === "register"
+    ? "Sign up"
+    : mode === "forgot" || mode === "reset"
+      ? "Recovery"
+      : "Sign in";
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(1,5,14,0.84)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={handleBackdropClick}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        padding: sheetPadding,
+        background: "rgba(1,5,14,0.84)",
+        display: "grid",
+        placeItems: "center",
+        overflowY: "auto",
+        overscrollBehavior: "contain",
+        WebkitOverflowScrolling: "touch",
+      }}
+      onClick={handleBackdropClick}
+    >
       <div
         className={shaking ? "stint-shake" : undefined}
-        style={{ background: PANEL_BG_STRONG, border: PANEL_BORDER, borderRadius: 28, width: modalWidth, maxWidth: "100%", height: modalHeight, maxHeight: modalMaxHeight, boxShadow: "0 40px 110px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative" }}
+        style={{
+          background: PANEL_BG,
+          border: PANEL_BORDER,
+          borderRadius: isMobile ? 24 : 28,
+          width: "100%",
+          maxWidth: modalMaxWidth,
+          maxHeight: modalMaxHeight,
+          minHeight: 0,
+          boxShadow: "0 40px 110px rgba(0,0,0,0.5)",
+          overflow: "hidden",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignSelf: "center",
+        }}
         onClick={(event) => event.stopPropagation()}
       >
-        <button
-          onClick={closeModal}
-          aria-label="Close"
-          style={{ position: "absolute", top: 14, right: 16, background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 4, zIndex: 10 }}
+        <div
+          style={{
+            padding: isMobile ? "18px 18px 16px" : "22px 24px 18px",
+            borderBottom: "1px solid rgba(148,163,184,0.12)",
+            background: `radial-gradient(circle at 12% 0%, ${isRegisterMode ? selectedSupportTheme.bg : "var(--btn-secondary-bg)"}, transparent 36%), linear-gradient(180deg,rgba(255,255,255,0.03),rgba(10,18,32,0.98))`,
+          }}
         >
-          ×
-        </button>
-
-        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : isRegisterMode ? "0.82fr 1fr" : "0.9fr 1.1fr", minHeight: 0, height: "100%" }}>
-          <div style={{ padding: isRegisterMode ? "26px 24px" : "30px 28px", borderRight: isTablet ? "none" : "1px solid rgba(148,163,184,0.12)", borderBottom: isTablet ? "1px solid rgba(148,163,184,0.12)" : "none", background: mode === "register" ? `radial-gradient(circle at 12% 10%, ${selectedSupportTheme.bg}, transparent 30%), linear-gradient(180deg,rgba(255,255,255,0.02),rgba(10,18,32,0.96))` : "linear-gradient(180deg,rgba(255,255,255,0.02),rgba(10,18,32,0.96))", overflowY: isRegisterMode ? "auto" : "visible", minHeight: 0 }}>
-            <div style={{ marginBottom: 22 }}>
-              <BrandLockup mobile={isMobile} compact descriptor={!isMobile} />
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+              <BrandLockup mobile={isMobile} compact descriptor={false} />
+              <div style={{ display: "grid", gap: 8, maxWidth: 420 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                  {headerLabel}
+                </div>
+                <h2 className="stint-page-title" style={{ margin: 0, fontSize: isMobile ? 30 : 38, lineHeight: 0.96, letterSpacing: isMobile ? -1.1 : -1.6 }}>
+                  {title}
+                </h2>
+                <p style={{ margin: 0, color: MUTED_TEXT, fontSize: 14, lineHeight: 1.7 }}>
+                  {subtitle}
+                </p>
+              </div>
             </div>
 
-            <h2 style={{ margin: "0 0 10px", fontWeight: 900, fontSize: isMobile ? 32 : 42, lineHeight: 0.96, letterSpacing: isMobile ? -1.2 : -1.7 }}>{title}</h2>
-            <p style={{ margin: 0, color: MUTED_TEXT, fontSize: 14, lineHeight: 1.82, maxWidth: 340 }}>{subtitle}</p>
+            <button
+              onClick={closeModal}
+              aria-label="Close"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                background: "var(--btn-secondary-bg)",
+                border: "1px solid rgba(148,163,184,0.14)",
+                color: SUBTLE_TEXT,
+                cursor: "pointer",
+                fontSize: 18,
+                lineHeight: 1,
+                padding: 0,
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
 
-            {isRegisterMode && (
+          {isRegisterMode && (
+            <div
+              style={{
+                marginTop: 18,
+                borderRadius: 18,
+                border: `1px solid ${selectedSupportTheme.border}`,
+                background: `linear-gradient(180deg,${selectedSupportTheme.bg},rgba(6,16,27,0.92))`,
+                padding: "14px 15px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                boxShadow: SOFT_SHADOW,
+              }}
+            >
               <div
                 style={{
-                  marginTop: 24,
-                  borderRadius: 22,
-                  border: `1px solid ${selectedSupportTheme.border}`,
-                  background: `linear-gradient(180deg,${selectedSupportTheme.bg},rgba(6,16,27,0.88))`,
-                  padding: "18px 18px 16px",
-                  boxShadow: SOFT_SHADOW,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  background: selectedSupportTheme.fill,
+                  display: "grid",
+                  placeItems: "center",
+                  color: selectedSupportTheme.text,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+                  flexShrink: 0,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                  <div
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 16,
-                      background: selectedSupportTheme.fill,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: selectedSupportTheme.text,
-                      fontSize: 15,
-                      fontWeight: 900,
-                      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
-                    }}
-                  >
-                    {f.favoriteTeam.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
-                      Your support theme
-                    </div>
-                    <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{f.favoriteTeam}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>
-                  We use this choice to color your STINT profile, guide your visual accents and make the experience feel like it belongs to your side of the grid.
-                </div>
+                {f.favoriteTeam.slice(0, 2).toUpperCase()}
               </div>
-            )}
-
-            <div style={{ display: "grid", gap: 10, marginTop: 22 }}>
-              {leftCards.map(([label, copy]) => (
-                <div key={label} style={{ borderRadius: 18, border: "1px solid rgba(148,163,184,0.12)", background: PANEL_BG, padding: "14px 15px 13px", boxShadow: EDGE_RING }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 5 }}>{label}</div>
-                  <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT }}>{copy}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 3 }}>
+                  Selected team
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ padding: isRegisterMode ? "24px 24px 22px" : "30px 30px 26px", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-            <div style={{ overflowY: isRegisterMode ? "auto" : "visible", paddingRight: isRegisterMode ? 6 : 0, marginRight: isRegisterMode ? -6 : 0, flex: "1 1 auto", minHeight: 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 14 }}>
-                {isRegisterMode ? "Sign up" : "Account"}
+                <div style={{ color: "#fff", fontSize: 15, fontWeight: 800, lineHeight: 1.2 }}>{f.favoriteTeam}</div>
               </div>
-
-              {(isLoginMode || isRegisterMode) && (
-                <>
-                  <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
-                    <ProviderButton
-                      icon={<GoogleIcon />}
-                      label={isRegisterMode ? "Create with Google" : "Continue with Google"}
-                      sublabel={isRegisterMode ? "Fast signup, then finish your setup" : "Secure one-tap login"}
-                      disabled={loading}
-                      onClick={() => signInWithProvider("google")}
-                    />
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-                    <div style={{ height: 1, flex: 1, background: "rgba(148,163,184,0.14)" }} />
-                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-                      Or use email
-                    </span>
-                    <div style={{ height: 1, flex: 1, background: "rgba(148,163,184,0.14)" }} />
-                  </div>
-
-                  <div style={{ fontSize: 12, lineHeight: 1.72, color: MUTED_TEXT, margin: "-2px 0 18px" }}>
-                    {isRegisterMode
-                      ? "Google signup works too. We will bring your team choice forward and finish any missing profile details right after auth."
-                      : "New here? Social login stays quick, and we only ask for your team after your first successful sign-in."}
-                  </div>
-                </>
-              )}
-
-              {isRegisterMode && (
-                <>
-                  <div style={{ fontSize: 12, lineHeight: 1.65, color: MUTED_TEXT, marginBottom: 14 }}>
-                    Set the identity that should carry through picks, leagues and your profile before you create the account.
-                  </div>
-
-                  <label htmlFor="auth-username" style={labelStyle}>Username</label>
-                  <input id="auth-username" style={{ ...inputStyle, marginBottom: 12 }} placeholder="PaddockAlias" value={f.username} onChange={(event) => upd("username", event.target.value)} />
-
-                  <div style={{ ...labelStyle, marginBottom: 8 }}>Supported team</div>
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
-                    {TEAM_AVATAR_OPTIONS.map((option) => (
-                      <SupportTeamCard
-                        key={option.key}
-                        option={option}
-                        active={f.favoriteTeam === option.team}
-                        onSelect={(team) => upd("favoriteTeam", team)}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {(mode === "login" || mode === "register" || mode === "forgot") && (
-                <>
-                  <label htmlFor="auth-email" style={labelStyle}>Email</label>
-                  <input id="auth-email" style={{ ...inputStyle, marginBottom: 12 }} type="email" placeholder="you@email.com" value={f.email} onChange={(event) => upd("email", event.target.value)} />
-                </>
-              )}
-
-              {(mode === "login" || mode === "register") && (
-                <>
-                  <label htmlFor="auth-pass" style={labelStyle}>Password</label>
-                  <PasswordInput
-                    id="auth-pass"
-                    inputStyle={inputStyle}
-                    value={f.pass}
-                    visible={visiblePasswords.pass}
-                    onToggle={() => togglePasswordVisibility("pass")}
-                    onChange={(event) => upd("pass", event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && submit()}
-                  />
-                </>
-              )}
-
-              {mode === "reset" && (
-                <>
-                  <label htmlFor="auth-newpass" style={labelStyle}>New password</label>
-                  <PasswordInput
-                    id="auth-newpass"
-                    inputStyle={inputStyle}
-                    value={f.pass}
-                    visible={visiblePasswords.pass}
-                    onToggle={() => togglePasswordVisibility("pass")}
-                    marginBottom={14}
-                    onChange={(event) => upd("pass", event.target.value)}
-                  />
-                  <label htmlFor="auth-confirm" style={labelStyle}>Confirm password</label>
-                  <PasswordInput
-                    id="auth-confirm"
-                    inputStyle={inputStyle}
-                    value={f.confirm}
-                    visible={visiblePasswords.confirm}
-                    onToggle={() => togglePasswordVisibility("confirm")}
-                    onChange={(event) => upd("confirm", event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && submit()}
-                  />
-                </>
-              )}
-
-              {mode === "login" && (
-                <div style={{ textAlign: "right", marginBottom: 16 }}>
-                  <button onClick={() => switchMode("forgot")} style={{ background: "none", border: "none", color: "var(--team-accent)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0 }}>
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
-              {mode === "forgot" && <div style={{ marginBottom: 16 }} />}
             </div>
+          )}
+        </div>
 
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(148,163,184,0.12)", background: "linear-gradient(180deg,rgba(14,25,41,0),rgba(14,25,41,0.94) 18%)", position: "sticky", bottom: 0 }}>
-              {err && <p style={{ color: "#fca5a5", fontSize: 12, margin: "0 0 14px" }}>{err}</p>}
-              {note && <p style={{ color: "#67e8f9", fontSize: 12, margin: "0 0 14px" }}>{note}</p>}
-
-              {isDirty && !err && (
-                <p style={{ color: "rgba(214,223,239,0.48)", fontSize: 11, margin: "0 0 10px", letterSpacing: "0.04em" }}>
-                  Click × to dismiss without saving.
-                </p>
-              )}
-
-              <button
+        <div
+          style={{
+            padding: isMobile ? "18px" : "22px 24px",
+            overflowY: "auto",
+            minHeight: 0,
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {(isLoginMode || isRegisterMode) && (
+            <div style={{ display: "grid", gap: 12, marginBottom: isRegisterMode ? 18 : 20 }}>
+              <ProviderButton
+                icon={<GoogleIcon />}
+                label={isRegisterMode ? "Continue with Google" : "Sign in with Google"}
+                sublabel={isRegisterMode ? "Fastest way to start" : undefined}
                 disabled={loading}
-                onClick={submit}
-                style={{
-                  ...buttonBaseStyle,
-                  background: isRegisterMode
-                    ? `linear-gradient(135deg,${selectedSupportTheme.accent},#ffc247)`
-                    : "linear-gradient(135deg,var(--team-accent),#ffc247)",
-                  color: isRegisterMode ? selectedSupportTheme.text : "#fff",
-                  opacity: loading ? 0.6 : 1,
-                  boxShadow: SOFT_SHADOW,
-                }}
-              >
-                {loading
-                  ? "Please wait..."
-                  : mode === "register"
-                    ? "Create my garage"
-                    : mode === "forgot"
-                      ? "Send reset email"
-                      : mode === "reset"
-                        ? "Update password"
-                        : "Sign In"}
-              </button>
+                onClick={() => signInWithProvider("google")}
+                dark={isLightTheme}
+              />
 
-              {mode === "login" && (
-                <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
-                  No account?{" "}
-                  <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("register")}>
-                    Build one
-                  </span>
-                </p>
-              )}
-
-              {mode === "register" && (
-                <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
-                  Already in the paddock?{" "}
-                  <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
-                    Sign in
-                  </span>
-                </p>
-              )}
-
-              {mode === "forgot" && (
-                <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.46)" }}>
-                  Back to{" "}
-                  <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
-                    Sign in
-                  </span>
-                </p>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ height: 1, flex: 1, background: "rgba(148,163,184,0.14)" }} />
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                  Or use email
+                </span>
+                <div style={{ height: 1, flex: 1, background: "rgba(148,163,184,0.14)" }} />
+              </div>
             </div>
-          </div>
+          )}
+
+          {isRegisterMode && (
+            <div style={{ display: "grid", gap: 16, marginBottom: 18 }}>
+              <div>
+                <label htmlFor="auth-username" style={labelStyle}>Username</label>
+                <input
+                  id="auth-username"
+                  style={inputStyle}
+                  placeholder="PaddockAlias"
+                  value={f.username}
+                  onChange={(event) => upd("username", event.target.value)}
+                />
+              </div>
+
+              <div>
+                <div style={{ ...labelStyle, marginBottom: 8 }}>Team accent</div>
+                <div style={{ fontSize: 12, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 10 }}>
+                  Used for your profile, badges and key accents.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 10 }}>
+                  {TEAM_AVATAR_OPTIONS.map((option) => (
+                    <SupportTeamCard
+                      key={option.key}
+                      option={option}
+                      active={f.favoriteTeam === option.team}
+                      onSelect={(team) => upd("favoriteTeam", team)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(mode === "login" || mode === "register" || mode === "forgot") && (
+            <>
+              <label htmlFor="auth-email" style={labelStyle}>Email</label>
+              <input
+                id="auth-email"
+                style={{ ...inputStyle, marginBottom: 12 }}
+                type="email"
+                placeholder="you@email.com"
+                value={f.email}
+                onChange={(event) => upd("email", event.target.value)}
+              />
+            </>
+          )}
+
+          {(mode === "login" || mode === "register") && (
+            <>
+              <label htmlFor="auth-pass" style={labelStyle}>Password</label>
+              <PasswordInput
+                id="auth-pass"
+                inputStyle={inputStyle}
+                value={f.pass}
+                visible={visiblePasswords.pass}
+                onToggle={() => togglePasswordVisibility("pass")}
+                onChange={(event) => upd("pass", event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && submit()}
+                marginBottom={isLoginMode ? 8 : 0}
+              />
+            </>
+          )}
+
+          {mode === "reset" && (
+            <>
+              <label htmlFor="auth-newpass" style={labelStyle}>New password</label>
+              <PasswordInput
+                id="auth-newpass"
+                inputStyle={inputStyle}
+                value={f.pass}
+                visible={visiblePasswords.pass}
+                onToggle={() => togglePasswordVisibility("pass")}
+                marginBottom={14}
+                onChange={(event) => upd("pass", event.target.value)}
+              />
+              <label htmlFor="auth-confirm" style={labelStyle}>Confirm password</label>
+              <PasswordInput
+                id="auth-confirm"
+                inputStyle={inputStyle}
+                value={f.confirm}
+                visible={visiblePasswords.confirm}
+                onToggle={() => togglePasswordVisibility("confirm")}
+                onChange={(event) => upd("confirm", event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && submit()}
+              />
+            </>
+          )}
+
+          {mode === "login" && (
+            <div style={{ textAlign: "right", marginTop: 4 }}>
+              <button
+                onClick={() => switchMode("forgot")}
+                style={{ background: "none", border: "none", color: "var(--team-accent)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0 }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            padding: isMobile ? "14px 18px 18px" : "16px 24px 22px",
+            borderTop: "1px solid var(--border)",
+            background: "var(--bg-surface)",
+          }}
+        >
+          {err && <p style={{ color: "var(--text-error)", fontSize: 12, margin: "0 0 12px" }}>{err}</p>}
+          {note && <p style={{ color: "var(--text-note)", fontSize: 12, margin: "0 0 12px" }}>{note}</p>}
+
+          <button
+            disabled={loading}
+            onClick={submit}
+            style={{
+              ...buttonBaseStyle,
+              background: isRegisterMode
+                ? `linear-gradient(135deg,${selectedSupportTheme.accent},#ffc247)`
+                : "linear-gradient(135deg,var(--team-accent),#ffc247)",
+              color: isRegisterMode ? selectedSupportTheme.text : "#fff",
+              opacity: loading ? 0.6 : 1,
+              boxShadow: SOFT_SHADOW,
+            }}
+          >
+            {loading
+              ? "Please wait..."
+              : mode === "register"
+                ? "Create account"
+                : mode === "forgot"
+                  ? "Send reset link"
+                  : mode === "reset"
+                    ? "Update password"
+                    : "Sign in"}
+          </button>
+
+          {mode === "login" && (
+            <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.54)" }}>
+              No account?{" "}
+              <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("register")}>
+                Create one
+              </span>
+            </p>
+          )}
+
+          {mode === "register" && (
+            <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.54)" }}>
+              Already have an account?{" "}
+              <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
+                Sign in
+              </span>
+            </p>
+          )}
+
+          {mode === "forgot" && (
+            <p style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(226,232,240,0.54)" }}>
+              Back to{" "}
+              <span style={{ color: "var(--team-accent)", cursor: "pointer", fontWeight: 700 }} onClick={() => switchMode("login")}>
+                Sign in
+              </span>
+            </p>
+          )}
         </div>
       </div>
     </div>
