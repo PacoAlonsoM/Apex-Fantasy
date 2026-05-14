@@ -17,7 +17,7 @@ Behavior:
 
 ## Required server/admin contract
 
-These names are required for localhost admin reliability:
+These names are required in localhost and production for admin reliability:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `RACE_RESULTS_SYNC_SECRET`
@@ -25,7 +25,24 @@ These names are required for localhost admin reliability:
 Behavior:
 
 - critical admin writes must use the server-side service-role path when available
-- if these are missing locally, the admin dashboard should disable the affected actions with a clear reason instead of failing mid-request
+- if these are missing, the admin dashboard should disable the affected actions with a clear reason instead of failing mid-request
+- production readiness fails when this contract is incomplete
+
+## Required billing contract
+
+These names are required in production for Pro checkout, subscription management, and webhook-driven subscription state:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRICE_MONTHLY`
+- `STRIPE_PRICE_SEASON`
+- `STRIPE_WEBHOOK_SECRET`
+
+Behavior:
+
+- missing `STRIPE_SECRET_KEY` blocks checkout and customer portal session creation
+- missing Stripe price IDs blocks checkout session creation
+- missing `STRIPE_WEBHOOK_SECRET` blocks trusted webhook processing
+- production readiness fails when this contract is incomplete
 
 ## Optional integrations
 

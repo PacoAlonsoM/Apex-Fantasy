@@ -45,8 +45,15 @@ function getAdminClient() {
   const supabaseUrl = env("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new BillingRouteError("Supabase admin credentials are missing on the server.", 503);
+  if (!supabaseUrl) {
+    throw new BillingRouteError("Missing NEXT_PUBLIC_SUPABASE_URL in the server environment.", 503);
+  }
+
+  if (!serviceRoleKey) {
+    throw new BillingRouteError(
+      "Missing SUPABASE_SERVICE_ROLE_KEY in the server environment. Add it to your deployment environment to enable billing management.",
+      503
+    );
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {

@@ -17,6 +17,13 @@ const REQUIRED_SERVER = [
   "RACE_RESULTS_SYNC_SECRET",
 ];
 
+const REQUIRED_BILLING = [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_PRICE_MONTHLY",
+  "STRIPE_PRICE_SEASON",
+  "STRIPE_WEBHOOK_SECRET",
+];
+
 const OPTIONAL = [
   "OPENAI_API_KEY",
   "OPENAI_MODEL",
@@ -58,7 +65,7 @@ const mergedEnv = {
 const errors = [];
 const warnings = [];
 
-for (const name of [...REQUIRED_PUBLIC, ...REQUIRED_SERVER, ...OPTIONAL]) {
+for (const name of [...REQUIRED_PUBLIC, ...REQUIRED_SERVER, ...REQUIRED_BILLING, ...OPTIONAL]) {
   if (!(name in exampleEnv)) {
     errors.push(`.env.example is missing ${name}.`);
   }
@@ -73,6 +80,12 @@ for (const name of REQUIRED_PUBLIC) {
 for (const name of REQUIRED_SERVER) {
   if (!String(mergedEnv[name] || "").trim()) {
     errors.push(`Missing required server/admin env ${name} in .env.local or process env.`);
+  }
+}
+
+for (const name of REQUIRED_BILLING) {
+  if (!String(mergedEnv[name] || "").trim()) {
+    errors.push(`Missing required billing env ${name} in .env.local or process env.`);
   }
 }
 
@@ -106,6 +119,7 @@ if (errors.length) {
 console.log("STINT env check passed.");
 console.log(`Required public envs: ${REQUIRED_PUBLIC.join(", ")}`);
 console.log(`Required admin envs: ${REQUIRED_SERVER.join(", ")}`);
+console.log(`Required billing envs: ${REQUIRED_BILLING.join(", ")}`);
 if (warnings.length) {
   warnings.forEach((warning) => console.log(`warning: ${warning}`));
 }

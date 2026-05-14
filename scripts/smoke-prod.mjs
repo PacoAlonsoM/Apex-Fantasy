@@ -45,6 +45,16 @@ async function main() {
   const readiness = await expectJson("/api/health/readiness", "Readiness endpoint");
   assert.equal(readiness?.ok, true, "Readiness endpoint should report ok.");
   assert.equal(readiness?.env?.public?.contractOk, true, "Production public env contract should be complete.");
+  assert.equal(
+    readiness?.env?.server?.contractOk,
+    true,
+    `Production server env contract should be complete. Missing: ${(readiness?.env?.server?.missing || []).join(", ") || "none"}.`
+  );
+  assert.equal(
+    readiness?.billing?.configured,
+    true,
+    `Production billing env contract should be complete. Missing: ${(readiness?.billing?.missing || []).join(", ") || "none"}.`
+  );
   assert.equal(readiness?.supabase?.reachable, true, "Production Supabase read client should be reachable.");
 
   const weekendState = await expectJson("/api/race-weekend-state", "Race weekend state API");

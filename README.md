@@ -68,6 +68,13 @@ Required server/admin contract:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `RACE_RESULTS_SYNC_SECRET`
 
+Required billing contract:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRICE_MONTHLY`
+- `STRIPE_PRICE_SEASON`
+- `STRIPE_WEBHOOK_SECRET`
+
 Optional integrations:
 
 - `OPENAI_API_KEY`
@@ -100,6 +107,7 @@ It reports:
 - app version and commit
 - public env contract presence
 - server env presence
+- billing env presence
 - Supabase reachability
 - admin capability flags
 
