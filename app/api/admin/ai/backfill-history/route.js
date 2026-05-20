@@ -1,5 +1,6 @@
 import { CAL, raceSessions } from "@/src/constants/calendar";
 import { jsonError, jsonOk } from "../../_lib/response";
+import { upsertCanonicalHistoryFromResults } from "../../_lib/canonicalHistory";
 import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { appendOperationRun, buildOperationRun, updateLocalAdminStore } from "../../_lib/localAdminStore";
 import { buildAiContext, buildAiRacePredictionRows, generateInsightPayload } from "../../_lib/aiBrief";
@@ -219,10 +220,11 @@ export async function POST(request) {
 
     const completedResults = await safeRows(() => supabase
       .from("race_results")
-      .select("race_round")
+      .select("*")
       .eq("results_entered", true)
       .order("race_round", { ascending: true }));
 
+    const historySync = await upsertCanonicalHistoryFromResults(supabase, completedResults, { season });
     const completedRounds = completedResults
       .map((row) => Number(row?.race_round || 0))
       .filter((round) => round > 0);
@@ -266,6 +268,7 @@ export async function POST(request) {
       counts: {
         replayedRounds: successes.length,
         failedRounds: errors.length,
+        historyRows: historySync.count,
       },
     });
 
@@ -283,6 +286,7 @@ export async function POST(request) {
       season,
       counts: run.counts,
       warnings: run.warnings,
+      historyRows: historySync.rows,
       rounds: successes,
     });
   } catch (error) {

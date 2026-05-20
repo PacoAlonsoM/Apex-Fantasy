@@ -1,11 +1,12 @@
 import { after } from "next/server";
 
 import { jsonError, jsonOk } from "../../_lib/response";
+import { upsertCanonicalHistoryFromResults } from "../../_lib/canonicalHistory";
 import { appendOperationRun, buildOperationRun, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
 import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { markUpcomingAiBriefStale, runAiBriefGeneration } from "../../_lib/aiBriefService";
 import { buildRaceResultsRowFromDraft, deriveManualFieldsUsed, normalizeDraftRecord, normalizeOfficialResultsRow, validateDraftForPublish } from "../../_lib/results";
-import { getSupabaseAdmin, getSupabaseReadClient, invokeSupabaseFunction, requireServiceRole } from "../../_lib/supabaseAdmin";
+import { getSupabaseAdmin, getSupabaseReadClient, requireServiceRole } from "../../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -115,23 +116,10 @@ export async function POST(request) {
     });
 
     try {
-      await invokeSupabaseFunction(
-        "race-results-sync",
-        {
-          year: season,
-          raceRound: round,
-          historyOnly: true,
-          persistRaceResults: false,
-          persistRaceContextHistory: true,
-          score: false,
-        },
-        {
-          secretEnv: "RACE_RESULTS_SYNC_SECRET",
-          secretHeader: "x-sync-secret",
-          requireSecret: false,
-          preferSecretAuth: true,
-        },
-      );
+      const historySync = await upsertCanonicalHistoryFromResults(adminSupabase, publishedRow, { season });
+      if (!historySync.count) {
+        warnings = [...warnings, "History refresh skipped: no published result row was available."];
+      }
     } catch (error) {
       warnings = [...warnings, `History refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
     }

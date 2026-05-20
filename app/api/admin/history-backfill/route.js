@@ -1,7 +1,8 @@
 import { jsonError, jsonOk } from "../_lib/response";
+import { upsertCanonicalHistoryFromResults } from "../_lib/canonicalHistory";
 import { appendOperationRun, buildOperationRun, updateLocalAdminStore } from "../_lib/localAdminStore";
 import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
-import { invokeSupabaseFunction, requireServiceRole } from "../_lib/supabaseAdmin";
+import { getSupabaseAdmin, requireServiceRole } from "../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,31 +12,30 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     await requireAdminRequest(request, body);
     const season = Number(body?.year || body?.season || 2026) || 2026;
-    const payload = {
-      year: season,
-      backfillSeason: body?.backfillSeason !== false,
-      historyOnly: true,
-      persistRaceResults: false,
-      persistRaceContextHistory: true,
-      score: false,
-    };
 
     requireServiceRole("AI history backfills");
+    const supabase = getSupabaseAdmin();
 
-    const response = await invokeSupabaseFunction("race-results-sync", payload, {
-      secretEnv: "RACE_RESULTS_SYNC_SECRET",
-      secretHeader: "x-sync-secret",
-      requireSecret: false,
-      preferSecretAuth: true,
-    });
+    const { data: publishedResults, error } = await supabase
+      .from("race_results")
+      .select("*")
+      .eq("results_entered", true)
+      .order("race_round", { ascending: true });
+
+    if (error) throw error;
+
+    const response = await upsertCanonicalHistoryFromResults(supabase, publishedResults || [], { season });
+    const warnings = response.count
+      ? []
+      : ["No published race results were available to backfill."];
 
     const run = buildOperationRun("history-backfill", {
       season,
-      message: `Backfilled ${response?.syncedCount || 0} rounds into AI history.`,
-      warnings: response?.errors || [],
+      message: `Backfilled ${response.count} published result round${response.count === 1 ? "" : "s"} into AI history.`,
+      warnings,
       counts: {
-        synced: response?.syncedCount || 0,
-        errors: response?.errorCount || 0,
+        synced: response.count,
+        errors: 0,
       },
     });
 
@@ -49,6 +49,7 @@ export async function POST(request) {
       season,
       warnings: run.warnings,
       counts: run.counts,
+      rounds: response.rows,
       response,
     });
   } catch (error) {

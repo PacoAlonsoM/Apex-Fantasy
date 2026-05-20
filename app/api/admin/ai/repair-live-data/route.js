@@ -1,4 +1,4 @@
-import { buildHistoricalContext } from "../../_lib/aiBrief";
+import { upsertCanonicalHistoryFromResults } from "../../_lib/canonicalHistory";
 import { runAiBriefGeneration } from "../../_lib/aiBriefService";
 import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { appendOperationRun, buildOperationRun, updateLocalAdminStore } from "../../_lib/localAdminStore";
@@ -7,10 +7,6 @@ import { getSupabaseAdmin, requireServiceRole } from "../../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function stableJson(value) {
-  return JSON.stringify(value ?? null);
-}
 
 function warningList(values = []) {
   return values.filter(Boolean);
@@ -24,59 +20,16 @@ export async function POST(request) {
 
     const season = Number(body?.season || 2026) || 2026;
     const supabase = getSupabaseAdmin();
-    const [historyResponse, resultsResponse] = await Promise.all([
-      supabase
-        .from("race_context_history")
-        .select("id,season,race_round,race_name,race_date,race_outcome,qualifying_outcome,sprint_outcome,weather_summary,strategy_summary,driver_results,constructor_results,volatility_summary,source_payload,updated_at,last_synced_at")
-        .eq("season", season)
-        .order("race_round", { ascending: false }),
-      supabase
-        .from("race_results")
-        .select("*")
-        .order("race_round", { ascending: false }),
-    ]);
+    const { data: resultsRows, error: resultsError } = await supabase
+      .from("race_results")
+      .select("*")
+      .eq("results_entered", true)
+      .order("race_round", { ascending: true });
 
-    if (historyResponse.error) throw historyResponse.error;
-    if (resultsResponse.error) throw resultsResponse.error;
+    if (resultsError) throw resultsError;
 
-    const historyRows = historyResponse.data || [];
-    const resultsRows = resultsResponse.data || [];
-    const historicalContext = buildHistoricalContext({
-      historyRows,
-      resultsRows,
-      predictionRows: [],
-    });
-    const canonicalRows = Array.isArray(historicalContext?.canonicalHistoryRows)
-      ? historicalContext.canonicalHistoryRows
-      : [];
-    const historyByRound = new Map(historyRows.map((row) => [Number(row?.race_round || 0), row]));
-    const repairedRounds = [];
-
-    for (const canonicalRow of canonicalRows) {
-      const round = Number(canonicalRow?.race_round || 0);
-      if (!round) continue;
-
-      const existingRow = historyByRound.get(round);
-      if (!existingRow?.id) continue;
-
-      const updates = {};
-      for (const field of ["race_outcome", "qualifying_outcome", "volatility_summary"]) {
-        if (stableJson(existingRow?.[field]) !== stableJson(canonicalRow?.[field])) {
-          updates[field] = canonicalRow?.[field] || {};
-        }
-      }
-
-      if (!Object.keys(updates).length) continue;
-
-      updates.updated_at = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from("race_context_history")
-        .update(updates)
-        .eq("id", existingRow.id);
-
-      if (updateError) throw updateError;
-      repairedRounds.push(round);
-    }
+    const historySync = await upsertCanonicalHistoryFromResults(supabase, resultsRows || [], { season });
+    const repairedRounds = historySync.rows.map((row) => Number(row?.race_round || 0)).filter((round) => round > 0);
 
     let briefResult = null;
     let briefError = null;
@@ -90,7 +43,7 @@ export async function POST(request) {
     const warnings = warningList([
       repairedRounds.length
         ? null
-        : "No race history rows needed reconciliation against canonical race results.",
+        : "No published race results were available to rebuild canonical AI history.",
       briefError?.message || null,
     ]);
 
@@ -99,8 +52,8 @@ export async function POST(request) {
       round: briefResult?.race?.r || null,
       status: briefError ? "partial" : "ok",
       message: briefError
-        ? "Canonical AI history was repaired, but the upcoming brief still needs regeneration."
-        : "Canonical AI history was repaired and the upcoming brief was regenerated.",
+        ? "Canonical AI history was rebuilt from published results, but the upcoming brief still needs regeneration."
+        : "Canonical AI history was rebuilt from published results and the upcoming brief was regenerated.",
       counts: {
         repairedRounds: repairedRounds.length,
         regeneratedRound: briefResult?.race?.r || null,
