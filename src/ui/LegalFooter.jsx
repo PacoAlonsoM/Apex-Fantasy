@@ -2,8 +2,11 @@ import { BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_EMAIL } from "@/sr
 import { pageToHref } from "@/src/shell/routing";
 import BrandLockup from "@/src/ui/BrandLockup";
 
-export default function LegalFooter({ setPage }) {
+export default function LegalFooter({ setPage, sport = "f1" }) {
   const year = new Date().getFullYear();
+  const disclaimer = sport === "wc"
+    ? "WC mode is an independent World Cup prediction product. It is not affiliated with, endorsed by, or officially connected to FIFA, the FIFA World Cup, or any national football association."
+    : LEGAL_DISCLAIMER;
 
   return (
     <footer
@@ -24,7 +27,7 @@ export default function LegalFooter({ setPage }) {
       >
         <div className="stint-footer-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "grid", gap: 10 }}>
-            <BrandLockup compact descriptor />
+            <BrandLockup compact descriptor descriptorText={sport === "wc" ? "WC Predictions" : undefined} />
             <div style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 580 }}>
               {BRAND_NAME} · {BRAND_TAGLINE}
             </div>
@@ -62,7 +65,7 @@ export default function LegalFooter({ setPage }) {
             ))}
           </div>
         </div>
-        <div style={{ fontSize: 11, lineHeight: 1.7, color: "var(--text-muted)" }}>{LEGAL_DISCLAIMER}</div>
+        <div style={{ fontSize: 11, lineHeight: 1.7, color: "var(--text-muted)" }}>{disclaimer}</div>
         <div style={{ fontSize: 11, color: "var(--text-subtle)" }}>© {year} {BRAND_NAME}. Contact: {SUPPORT_EMAIL}</div>
       </div>
     </footer>

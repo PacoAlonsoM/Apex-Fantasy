@@ -5,7 +5,7 @@ import {
   SUBTLE_TEXT,
 } from "@/src/constants/design";
 
-export default function BrandLockup({ mobile = false, compact = false, markSize, descriptor = !mobile, ghost = false }) {
+export default function BrandLockup({ mobile = false, compact = false, markSize, descriptor = !mobile, descriptorText = BRAND_DESCRIPTOR, ghost = false }) {
   const logoHeight = markSize || (mobile ? 40 : compact ? 44 : 48);
   const logoWidth = Math.round(logoHeight * 4.1);
 
@@ -34,7 +34,7 @@ export default function BrandLockup({ mobile = false, compact = false, markSize,
             color: SUBTLE_TEXT,
           }}
         >
-          {BRAND_DESCRIPTOR}
+          {descriptorText}
         </span>
       )}
     </div>

@@ -3,6 +3,7 @@ import { BRAND_DESCRIPTOR, BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_
 import { getViewerTimeZoneLabel } from "@/src/lib/timezone";
 export const PUBLIC_NAV = [
   { href: "/", key: "home", label: "Home" },
+  { href: "/world-cup", key: "wc", label: "World Cup" },
   { href: "/calendar", key: "calendar", label: "Calendar" },
   { href: "/picks", key: "picks", label: "Picks" },
   { href: "/insight", key: "insight", label: "AI Insight" },
@@ -15,6 +16,7 @@ export const PUBLIC_NAV = [
 
 export const FOOTER_LINKS = [
   { href: "/", label: "Home" },
+  { href: "/world-cup", label: "World Cup" },
   { href: "/calendar", label: "Calendar" },
   { href: "/picks", label: "Picks" },
   { href: "/insight", label: "AI Insight" },
@@ -68,6 +70,34 @@ export const PAGE_META = {
   pro_success: {
     title: "Welcome to Stint Pro",
     description: "Your Pro subscription is active. All Pro features are now unlocked.",
+  },
+  wc: {
+    title: "WC 2026 Predictions",
+    description: "Two ways to play the World Cup: Predict every match or Survivor to the final whistle. Live fixtures, scoring per stage, private leagues.",
+  },
+  wc_picks: {
+    title: "WC Picks",
+    description: "Make World Cup match picks before kickoff and keep WC scoring separate from F1.",
+  },
+  wc_bracket: {
+    title: "WC Bracket",
+    description: "Lock group qualifiers, champion and awards picks before the World Cup opener.",
+  },
+  wc_survivor: {
+    title: "WC Survivor",
+    description: "Pick a winner each round. One loss and you're out. Only one user lifts the survivor crown.",
+  },
+  wc_leagues: {
+    title: "WC Leagues",
+    description: "Create and join World Cup prediction leagues separate from F1 leagues.",
+  },
+  wc_profile: {
+    title: "WC Profile",
+    description: "Review your World Cup match picks, bracket points and tournament record.",
+  },
+  wc_admin: {
+    title: "WC Admin",
+    description: "Publish World Cup results and recalculate WC scores.",
   },
 };
 

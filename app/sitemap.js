@@ -3,7 +3,20 @@ import { getPublicSiteUrl } from "@/src/lib/siteData";
 export default function sitemap() {
   const siteUrl = getPublicSiteUrl();
   const now = new Date();
-  const routes = ["", "/calendar", "/wire", "/leaderboard", "/picks", "/insight", "/leagues"];
+  const routes = [
+    "",
+    "/world-cup",
+    "/world-cup/picks",
+    "/world-cup/bracket",
+    "/world-cup/survivor",
+    "/world-cup/leagues",
+    "/calendar",
+    "/wire",
+    "/leaderboard",
+    "/picks",
+    "/insight",
+    "/leagues",
+  ];
 
   return routes.map((route) => ({
     url: `${siteUrl}${route || "/"}`,

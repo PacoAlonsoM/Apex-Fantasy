@@ -18,6 +18,14 @@ const APP_PAGE_KEYS = new Set([
   "privacy",
   "pro",
   "pro_success",
+  // WC integration point: keep all World Cup page ids prefixed for removal.
+  "wc-fixtures",
+  "wc-picks",
+  "wc-bracket",
+  "wc-survivor",
+  "wc-leagues",
+  "wc-profile",
+  "wc-admin",
 ]);
 
 const ROOT_PATH_BY_PAGE = {
@@ -31,10 +39,21 @@ const ROOT_PATH_BY_PAGE = {
   grid: "/grid",
   pro: "/pro",
   pro_success: "/pro/success",
+  // WC integration point: public World Cup routes are isolated under /world-cup.
+  "wc-fixtures": "/world-cup",
+  "wc-picks": "/world-cup/picks",
+  "wc-bracket": "/world-cup/bracket",
+  "wc-survivor": "/world-cup/survivor",
+  "wc-leagues": "/world-cup/leagues",
+  "wc-profile": "/world-cup/profile",
+  "wc-admin": "/world-cup/admin",
 };
 
 const PAGE_BY_ROOT_PATH = new Map(
-  Object.entries(ROOT_PATH_BY_PAGE).map(([page, pathname]) => [pathname, page])
+  [
+    ...Object.entries(ROOT_PATH_BY_PAGE).map(([page, pathname]) => [pathname, page]),
+    ["/world-cup/fixtures", "wc-fixtures"],
+  ]
 );
 
 const LEGACY_SLUG_TO_PAGE = {
@@ -60,6 +79,15 @@ const LEGACY_SLUG_TO_PAGE = {
   privacy: "privacy",
   pro: "pro",
   "pro-success": "pro_success",
+  wc: "wc-fixtures",
+  "world-cup": "wc-fixtures",
+  "wc-fixtures": "wc-fixtures",
+  "wc-picks": "wc-picks",
+  "wc-bracket": "wc-bracket",
+  "wc-survivor": "wc-survivor",
+  "wc-leagues": "wc-leagues",
+  "wc-profile": "wc-profile",
+  "wc-admin": "wc-admin",
 };
 
 function normalizePathname(value) {
@@ -74,6 +102,10 @@ function parseRaceRound(value) {
 
 export function isKnownPage(page) {
   return APP_PAGE_KEYS.has(page);
+}
+
+export function isWcPage(page) {
+  return String(page || "").startsWith("wc-");
 }
 
 export function legacySlugToPage(value) {

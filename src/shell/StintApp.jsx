@@ -20,11 +20,12 @@ import TermsPage from "@/src/features/legal/TermsPage";
 import PrivacyPage from "@/src/features/legal/PrivacyPage";
 import ProPage from "@/src/features/pro/ProPage";
 import ProSuccessPage from "@/src/features/pro/ProSuccessPage";
+import WCPage from "@/src/features/wc/WCPage";
 import LegalFooter from "@/src/ui/LegalFooter";
 import { consumePendingOAuthProfile, ensureProfileForUser, needsProfileOnboarding, profileFallbackFromAuthUser, requireActiveSession } from "@/src/shell/authProfile";
 import { getUserAccentTheme } from "@/src/constants/design";
 import { syncLocalAdminSession } from "@/src/lib/adminSession";
-import { pageToHref, readLocationState } from "@/src/shell/routing";
+import { isWcPage, pageToHref, readLocationState } from "@/src/shell/routing";
 
 export default function StintApp() {
   const initialState = readLocationState();
@@ -158,14 +159,31 @@ export default function StintApp() {
   };
 
   const accentTheme = getUserAccentTheme(user);
+  // WC integration point: sport mode is derived from prefixed WC page ids.
+  const wcMode = isWcPage(page);
 
   return (
     <div
+      data-sport={wcMode ? "wc" : "f1"}
       style={{
         minHeight: "100vh",
         color: "var(--text)",
         fontFamily: "var(--font-body)",
-        background: "transparent",
+        background: wcMode
+          ? "radial-gradient(circle at 78% 10%, rgba(214,165,69,0.13), transparent 28%), linear-gradient(180deg,#041008 0%,#071D12 48%,#06140D 100%)"
+          : "transparent",
+        "--bg": wcMode ? "#06140D" : undefined,
+        "--bg-surface": wcMode ? "#0D2117" : undefined,
+        "--bg-elevated": wcMode ? "#143222" : undefined,
+        "--panel": wcMode ? "#0D2117" : undefined,
+        "--panel-alt": wcMode ? "#143222" : undefined,
+        "--border": wcMode ? "rgba(247,241,221,0.10)" : undefined,
+        "--text": wcMode ? "#F7F1DD" : undefined,
+        "--text-muted": wcMode ? "rgba(247,241,221,0.72)" : undefined,
+        "--text-subtle": wcMode ? "rgba(247,241,221,0.56)" : undefined,
+        "--accent": wcMode ? "#D6A545" : undefined,
+        "--accent-warm": wcMode ? "#F7D36B" : undefined,
+        "--accent-glow": wcMode ? "rgba(214,165,69,0.22)" : undefined,
         "--team-accent": accentTheme.accent,
         "--team-accent-soft": accentTheme.accentSoft,
         "--team-accent-ghost": accentTheme.accentGhost,
@@ -175,7 +193,7 @@ export default function StintApp() {
       }}
     >
       <style>{`textarea{font-family:inherit;} h1,h2,h3,h4{font-family:var(--font-display);} section,aside,main{animation:apex-rise-in 420ms cubic-bezier(0.22,1,0.36,1);} `}</style>
-      <BgCanvas />
+      {!wcMode && <BgCanvas />}
       <div style={{ position: "relative", zIndex: 1 }}>
         <Navbar page={page} setPage={navigateToPage} user={user} openAuth={openAuth} onLogout={logout} demoMode={demoMode} exitDemo={exitDemo} />
         {authOpen && (
@@ -242,8 +260,9 @@ export default function StintApp() {
           {page === "privacy" && <PrivacyPage />}
           {page === "pro" && <ProPage user={user} setUser={setUser} setPage={navigateToPage} />}
           {page === "pro_success" && <ProSuccessPage user={user} setPage={navigateToPage} />}
+          {wcMode && <WCPage page={page} user={user} openAuth={openAuth} setPage={navigateToPage} />}
         </div>
-        <LegalFooter setPage={navigateToPage} />
+        <LegalFooter setPage={navigateToPage} sport={wcMode ? "wc" : "f1"} />
       </div>
     </div>
   );

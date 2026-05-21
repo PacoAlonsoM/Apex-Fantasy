@@ -6,6 +6,7 @@ This folder contains the database and Edge Function pieces needed for:
 - an ingested news feed via `news_articles`
 - AI-generated race briefs via `ai_insights`
 - a synced live race calendar via `race_calendar`
+- WC 2026 predictions via isolated `wc_` tables
 
 ## 1. Run the migration
 
@@ -199,3 +200,32 @@ Suggested cadence:
 
 - every 6 hours during the season
 - manually from admin right after any official schedule change
+
+## 12. WC 2026 backend
+
+The removable World Cup product slice is created by:
+
+- `supabase/migrations/2026052001_wc_2026_prediction_platform.sql` — teams, matches, predictions, brackets, leagues, score runs
+- `supabase/migrations/2026052002_wc_survivor.sql` — survivor pool game mode
+
+It creates only `wc_` tables, policies, helper functions and seed rows. User-facing WC actions run through Vercel/Next routes under:
+
+- `app/api/wc/*` (public + auth: bootstrap, picks, bracket, survivor, leagues, consensus, standings)
+- `app/api/admin/wc/*` (admin-gated: results/publish, matches/update, score, sync, reset)
+
+### Real fixture data + automation
+
+- The admin Sync button and the Vercel cron (`vercel.json` `crons[]`) both call `POST /api/admin/wc/sync` which pulls real WC 2026 fixtures from `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026`. The sync is idempotent; it upserts kickoff_at / lock_at / venue and, once results arrive, scores + winner_team_code + status. Any newly-completed match automatically rescores its predictions and the relevant survivor picks.
+- `WC_CRON_SECRET` (optional) — set if you want an external pinger to call the sync route. Vercel cron is already authorized via Vercel's signed headers.
+
+### Launch SOP
+
+1. Push migrations: `npx supabase db query --linked --file supabase/migrations/2026052002_wc_survivor.sql` (and the platform migration if not already applied).
+2. Clear staging/mock data: `node ./scripts/wc-launch-reset.mjs` (or, signed in as admin, click "Reset WC platform" in `/world-cup/admin`).
+3. Confirm zero state: `/world-cup` → no completed matches, leaderboard empty, group tables all zeros.
+4. Pull real fixtures: admin clicks "Sync fixtures from TheSportsDB" (or wait for the next cron tick). Verifies kickoffs and venues match FIFA's published schedule.
+5. Done. Once matches start, results flow in via cron sync and every prediction is auto-scored.
+
+Removal tracking lives in:
+
+- `docs/wc-removal.md`

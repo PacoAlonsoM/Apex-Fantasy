@@ -11,7 +11,7 @@ import {
   isAdminUser,
   rgbaFromHex,
 } from "@/src/constants/design";
-import { pageToHref } from "@/src/shell/routing";
+import { isWcPage, pageToHref } from "@/src/shell/routing";
 import BrandLockup from "@/src/ui/BrandLockup";
 import IdentityAvatar from "@/src/ui/IdentityAvatar";
 import ThemeToggle from "@/src/ui/ThemeToggle";
@@ -31,9 +31,20 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
   const [hoveredTab, setHoveredTab]   = useState(null);
   const timeout                       = useRef(null);
   const { isMobile, isTablet }        = useViewport();
+  // WC integration point: nav changes only when the active page id is wc-*.
+  const wcMode = isWcPage(page);
+  const navAccent = wcMode ? "#D6A545" : ACCENT;
+  const navGlow = wcMode ? "rgba(214,165,69,0.22)" : ACCENT_GLOW;
+  const tabActiveBg = wcMode ? "rgba(214,165,69,0.16)" : TAB_ACTIVE_BG;
+  const tabActiveBorder = wcMode ? "rgba(214,165,69,0.34)" : TAB_ACTIVE_BORDER;
+  const tabHoverBg = wcMode ? "rgba(247,241,221,0.07)" : TAB_HOVER_BG;
+  const navBackground = wcMode ? "rgba(3,18,10,0.82)" : NAV_BG;
+  const navHairline = wcMode ? "rgba(247,241,221,0.12)" : NAV_HAIRLINE;
+  const userPillBg = wcMode ? "rgba(7,32,19,0.78)" : USER_PILL_BG;
+  const dropdownBg = wcMode ? "rgba(5,24,15,0.96)" : DROPDOWN_BG;
 
   // Picks first — the product's primary verb. Everything else is supporting.
-  const tabs = [
+  const f1Tabs = [
     ["predictions", "Picks"],
     ["calendar",    "Calendar"],
     ["ai-brief",    "AI Insight"],
@@ -42,11 +53,20 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
     ["grid",        "Grid"],
     ...(user ? [["profile", "Profile"]] : []),
   ];
+  const wcTabs = [
+    ["wc-fixtures", "Home"],
+    ["wc-picks", "Predict"],
+    ["wc-survivor", "Survivor"],
+    ["wc-bracket", "Bracket"],
+    ["wc-leagues", "Leagues"],
+    ...(user ? [["wc-profile", "Profile"]] : []),
+  ];
+  const tabs = wcMode ? wcTabs : f1Tabs;
 
   const admin        = isAdminUser(user);
   const picksTarget  = user || demoMode ? "predictions" : "public-picks";
   const menuItems    = admin
-    ? [["Game Guide", "game-guide"], ["Contact Support", "support"], ["Admin", "admin"]]
+    ? [["Game Guide", "game-guide"], ["Contact Support", "support"], [wcMode ? "WC Admin" : "Admin", wcMode ? "wc-admin" : "admin"]]
     : [["Game Guide", "game-guide"], ["Contact Support", "support"]];
 
   const handleMouseEnter = () => {
@@ -58,13 +78,13 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
     timeout.current = setTimeout(() => setDropOpen(false), 140);
   };
 
-  const ctaLabel  = user ? "Open picks" : "Create account";
+  const ctaLabel  = user ? (wcMode ? "Open WC picks" : "Open picks") : "Create account";
   const ctaAction = () => {
     if (user) {
-      setPage("predictions");
+      setPage(wcMode ? "wc-picks" : "predictions");
       return;
     }
-    openAuth("register", { page: "predictions" });
+    openAuth("register", { page: wcMode ? "wc-picks" : "predictions" });
   };
 
   return (
@@ -73,10 +93,10 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
         position:             "sticky",
         top:                  0,
         zIndex:               100,
-        background:           NAV_BG,
+        background:           navBackground,
         backdropFilter:       "saturate(1.2) blur(18px)",
         WebkitBackdropFilter: "saturate(1.2) blur(18px)",
-        borderBottom:         `1px solid ${NAV_HAIRLINE}`,
+        borderBottom:         `1px solid ${navHairline}`,
       }}
     >
       <style>{`
@@ -172,23 +192,82 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
           alignItems:          "center",
         }}
       >
-        <a
-          href={pageToHref("home", { demoMode })}
-          onClick={(event) => {
-            event.preventDefault();
-            setPage("home");
-          }}
-          data-hover="minimal"
-          style={{
-            display:        "inline-flex",
-            alignItems:     "center",
-            justifySelf:    "start",
-            color:          TEXT_PRIMARY,
-            textDecoration: "none",
-          }}
-        >
-          <BrandLockup mobile={isMobile} descriptor={false} />
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: isMobile ? "wrap" : "nowrap", justifySelf: "start" }}>
+          <a
+            href={pageToHref(wcMode ? "wc-fixtures" : "home", { demoMode })}
+            onClick={(event) => {
+              event.preventDefault();
+              setPage(wcMode ? "wc-fixtures" : "home");
+            }}
+            data-hover="minimal"
+            style={{
+              display:        "inline-flex",
+              alignItems:     "center",
+              color:          TEXT_PRIMARY,
+              textDecoration: "none",
+            }}
+          >
+            <BrandLockup mobile={isMobile} descriptor={false} />
+          </a>
+
+          <div
+            aria-label="Sport switch"
+            role="tablist"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: 3,
+              borderRadius: 999,
+              background: wcMode ? "rgba(247,241,221,0.06)" : "var(--nav-pill-bg)",
+              border: `1px solid ${navHairline}`,
+            }}
+          >
+            {[
+              ["home", "F1"],
+              ["wc-fixtures", "WC"],
+            ].map(([target, label]) => {
+              const active = target === "wc-fixtures" ? wcMode : !wcMode;
+              return (
+                <a
+                  key={target}
+                  href={pageToHref(target, { demoMode })}
+                  role="tab"
+                  aria-selected={active}
+                  data-hover="minimal"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    if (active) return;
+                    withViewTransition(() => setPage(target), { name: "navbar-pill" });
+                  }}
+                  style={{
+                    minHeight: 28,
+                    minWidth: 38,
+                    padding: "0 9px",
+                    borderRadius: 999,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: active ? (wcMode ? "#1D1405" : ACCENT) : TEXT_SECONDARY,
+                    background: active
+                      ? wcMode
+                        ? "linear-gradient(135deg,#D6A545,#F7D36B)"
+                        : TAB_ACTIVE_BG
+                      : "transparent",
+                    border: active ? `1px solid ${tabActiveBorder}` : "1px solid transparent",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </a>
+              );
+            })}
+          </div>
+        </div>
 
         <div
           className="nv-tab-scroller"
@@ -217,8 +296,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             }}
           >
             {tabs.map(([id, label]) => {
-              const actualId = id === "predictions" ? picksTarget : id;
-              const active   = id === "predictions"
+              const actualId = !wcMode && id === "predictions" ? picksTarget : id;
+              const active   = !wcMode && id === "predictions"
                 ? page === "predictions" || page === "public-picks"
                 : page === id;
               const hovered  = hoveredTab === id;
@@ -244,14 +323,14 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     minHeight:          36,
                     padding:            isMobile ? "0 12px" : "0 14px",
                     borderRadius:       999,
-                    background:         active ? TAB_ACTIVE_BG : hovered ? TAB_HOVER_BG : "transparent",
-                    color:              active ? ACCENT : hovered ? TEXT_PRIMARY : TEXT_SECONDARY,
+                    background:         active ? tabActiveBg : hovered ? tabHoverBg : "transparent",
+                    color:              active ? navAccent : hovered ? TEXT_PRIMARY : TEXT_SECONDARY,
                     fontSize:           13,
                     fontWeight:         700,
                     letterSpacing:      "-0.005em",
                     whiteSpace:         "nowrap",
                     textDecoration:     "none",
-                    border:             `1px solid ${active ? TAB_ACTIVE_BORDER : "transparent"}`,
+                    border:             `1px solid ${active ? tabActiveBorder : "transparent"}`,
                     viewTransitionName: active ? "navbar-pill" : undefined,
                   }}
                 >
@@ -267,7 +346,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
 
           {!user && !demoMode && !isMobile && (
             <button
-              onClick={() => openAuth("login", { page: "predictions" })}
+              onClick={() => openAuth("login", { page: wcMode ? "wc-picks" : "predictions" })}
               className="stint-button-secondary"
               style={{ minHeight: 40, padding: "0 16px", fontSize: 13 }}
             >
@@ -283,7 +362,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                 minHeight: 40,
                 padding:   isMobile ? "0 14px" : "0 18px",
                 fontSize:  13,
-                boxShadow: `0 10px 22px ${ACCENT_GLOW}`,
+                boxShadow: `0 10px 22px ${navGlow}`,
               }}
             >
               {ctaLabel}
@@ -333,8 +412,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                   minHeight:      40,
                   padding:        "3px 10px 3px 3px",
                   borderRadius:   999,
-                  border:         `1px solid ${NAV_HAIRLINE}`,
-                  background:     USER_PILL_BG,
+                  border:         `1px solid ${navHairline}`,
+                  background:     userPillBg,
                   color:          TEXT_PRIMARY,
                   cursor:         "pointer",
                   willChange:     "transform",
@@ -369,15 +448,15 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     right:                0,
                     width:                248,
                     borderRadius:         14,
-                    background:           DROPDOWN_BG,
+                    background:           dropdownBg,
                     backdropFilter:       "saturate(1.2) blur(16px)",
                     WebkitBackdropFilter: "saturate(1.2) blur(16px)",
                     boxShadow:            "0 14px 34px rgba(0,0,0,0.32)",
                     overflow:             "hidden",
-                    border:               `1px solid ${NAV_HAIRLINE}`,
+                    border:               `1px solid ${navHairline}`,
                   }}
                 >
-                  <div style={{ padding: "14px 16px", borderBottom: `1px solid ${NAV_HAIRLINE}` }}>
+                  <div style={{ padding: "14px 16px", borderBottom: `1px solid ${navHairline}` }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: "-0.01em" }}>
                       {user.username}
                     </div>
@@ -427,7 +506,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     data-hover="minimal"
                     onClick={() => { setPage("pro"); setDropOpen(false); }}
                     onMouseEnter={(event) => {
-                      event.currentTarget.style.background = rgbaFromHex(ACCENT, 0.08);
+                      event.currentTarget.style.background = rgbaFromHex(navAccent, 0.08);
                     }}
                     onMouseLeave={(event) => {
                       event.currentTarget.style.background = "transparent";
@@ -435,8 +514,8 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                     style={{
                       width:        "100%",
                       border:       "none",
-                      borderTop:    `1px solid ${NAV_HAIRLINE}`,
-                      borderBottom: `1px solid ${NAV_HAIRLINE}`,
+                      borderTop:    `1px solid ${navHairline}`,
+                      borderBottom: `1px solid ${navHairline}`,
                       background:   "transparent",
                       color: "var(--brand)",
                       cursor:       "pointer",

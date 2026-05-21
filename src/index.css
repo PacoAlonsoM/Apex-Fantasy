@@ -813,3 +813,807 @@ html[data-density="compact"] [data-density-row] {
     transform: none;
   }
 }
+
+/* ============================================================
+   WC 2026 polish layer.
+   Every class is wc- prefixed so the feature stays cleanly removable.
+   Centralises interactive states, motion, and responsive helpers
+   used by the inline-styled WCPage components.
+   ============================================================ */
+
+:root {
+  --wc-accent:        #D6A545;
+  --wc-accent-warm:   #F7D36B;
+  --wc-accent-soft:   rgba(214, 165, 69, 0.16);
+  --wc-accent-glow:   rgba(214, 165, 69, 0.32);
+  --wc-text:          #F7F1DD;
+  --wc-muted:         rgba(247, 241, 221, 0.72);
+  --wc-subtle:        rgba(247, 241, 221, 0.56);
+  --wc-line:          rgba(247, 241, 221, 0.10);
+  --wc-line-soft:     rgba(247, 241, 221, 0.06);
+  --wc-pitch:         #74D99F;
+  --wc-pitch-soft:    rgba(116, 217, 159, 0.10);
+  --wc-pitch-line:    rgba(116, 217, 159, 0.32);
+  --wc-danger:        #FCA5A5;
+  --wc-shadow-card:   0 24px 70px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(247, 241, 221, 0.05);
+  --wc-ease:          cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --- View root: gentle fade-and-rise when the active WC tab changes. */
+.wc-view {
+  animation: wc-view-in 360ms var(--wc-ease) both;
+}
+
+@keyframes wc-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Stagger orchestration. Children read --wc-i for cascade order. */
+.wc-stagger > * {
+  --wc-i: 0;
+  animation: wc-view-in 520ms var(--wc-ease) both;
+  animation-delay: calc(var(--wc-i) * 70ms + 60ms);
+}
+
+/* --- Surface card hover treatment. */
+.wc-surface {
+  transition: transform 220ms var(--wc-ease), border-color 220ms var(--wc-ease), box-shadow 220ms var(--wc-ease);
+}
+
+/* --- Mode card. Big, tactile, the only call to action on Home. */
+.wc-mode-card {
+  position: relative;
+  isolation: isolate;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid var(--wc-line);
+  background: linear-gradient(135deg, rgba(247, 241, 221, 0.05), rgba(7, 28, 17, 0.94));
+  color: var(--wc-text);
+  box-shadow: var(--wc-shadow-card);
+  transition: transform 260ms var(--wc-ease), border-color 260ms var(--wc-ease), box-shadow 260ms var(--wc-ease), background 260ms var(--wc-ease);
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.wc-mode-card[data-accent="true"] {
+  border-color: rgba(214, 165, 69, 0.36);
+  background: linear-gradient(135deg, rgba(214, 165, 69, 0.18), rgba(7, 28, 17, 0.94));
+}
+
+.wc-mode-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 80% 0%, var(--wc-accent-glow), transparent 55%);
+  opacity: 0;
+  transition: opacity 280ms var(--wc-ease);
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-mode-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(214, 165, 69, 0.42);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(214, 165, 69, 0.15), inset 0 1px 0 rgba(247, 241, 221, 0.08);
+  }
+  .wc-mode-card:hover::after {
+    opacity: 1;
+  }
+}
+
+.wc-mode-card:active {
+  transform: scale(0.985);
+}
+
+.wc-mode-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(214, 165, 69, 0.55), var(--wc-shadow-card);
+}
+
+.wc-mode-card .wc-mode-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wc-subtle);
+}
+
+.wc-mode-card[data-accent="true"] .wc-mode-kicker {
+  color: var(--wc-accent);
+}
+
+.wc-mode-card .wc-mode-title {
+  margin: 0;
+  font-size: clamp(24px, 4.4vw, 30px);
+  letter-spacing: -0.04em;
+  color: var(--wc-text);
+  text-wrap: balance;
+}
+
+.wc-mode-card .wc-mode-copy {
+  margin: 0;
+  color: var(--wc-muted);
+  font-size: 14px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.wc-mode-card .wc-mode-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--wc-accent);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.wc-mode-card .wc-mode-cta svg {
+  transition: transform 260ms var(--wc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-mode-card:hover .wc-mode-cta svg {
+    transform: translateX(4px);
+  }
+}
+
+/* --- Small countdown / score tiles inside the hero. */
+.wc-tile {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--wc-line);
+  background: linear-gradient(180deg, rgba(247, 241, 221, 0.045), rgba(7, 28, 17, 0.92));
+  display: grid;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wc-tile-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wc-subtle);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wc-tile-value {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-weight: 900;
+  font-size: 22px;
+  color: var(--wc-text);
+  line-height: 1;
+}
+
+.wc-tile-value.is-accent {
+  color: var(--wc-accent);
+}
+
+.wc-tile-meta {
+  font-size: 11px;
+  color: var(--wc-muted);
+  font-weight: 700;
+}
+
+/* --- Live pulse dot. Sits next to the countdown label. */
+.wc-pulse {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wc-accent);
+  box-shadow: 0 0 0 0 var(--wc-accent-glow);
+  animation: wc-pulse 2.6s var(--wc-ease) infinite;
+  flex-shrink: 0;
+}
+
+@keyframes wc-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--wc-accent-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+/* --- Group strip: horizontal scroll with edge fade and snap. */
+.wc-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(247, 241, 221, 0.20) transparent;
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  touch-action: pan-x;
+}
+
+.wc-strip > * {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+}
+
+.wc-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.wc-strip::-webkit-scrollbar-thumb {
+  background: rgba(247, 241, 221, 0.16);
+  border-radius: 999px;
+}
+
+/* --- Mini group card. Used in two places:
+   1) Inside .wc-group-board — wrapped responsive grid (home page).
+   2) Inside .wc-strip — horizontal scroller (UpcomingStripe). The
+      .wc-strip context sets a fixed width via inline style. */
+.wc-mini-group {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--wc-line);
+  background: linear-gradient(180deg, rgba(247, 241, 221, 0.045), rgba(7, 28, 17, 0.94));
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  transition: border-color 220ms var(--wc-ease), transform 220ms var(--wc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-mini-group:hover {
+    border-color: rgba(214, 165, 69, 0.30);
+    transform: translateY(-2px);
+  }
+}
+
+/* --- Group board: wraps all 12 group tables into a responsive grid.
+   Cards keep the same outer edges as the hero and choose fewer, wider
+   columns so the team rows read like tables instead of cramped badges. */
+.wc-group-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .wc-group-board { gap: 10px; }
+}
+
+/* --- 3rd-place table. Compact on mobile (drops the P column). */
+.wc-3rd-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 28px 38px 38px 70px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: rgba(2, 18, 11, 0.30);
+  border: 1px solid var(--wc-line);
+  transition: background 220ms var(--wc-ease), border-color 220ms var(--wc-ease);
+}
+
+.wc-3rd-row.is-advancing {
+  background: var(--wc-pitch-soft);
+  border-color: var(--wc-pitch-line);
+}
+
+.wc-3rd-row.is-cut {
+  border-bottom: 2px dashed rgba(214, 165, 69, 0.55);
+}
+
+.wc-3rd-header {
+  display: grid;
+  grid-template-columns: 32px 1fr 28px 38px 38px 70px;
+  gap: 8px;
+  padding: 0 8px;
+  color: var(--wc-subtle);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 540px) {
+  .wc-3rd-row,
+  .wc-3rd-header {
+    grid-template-columns: 28px 1fr 36px 36px 64px;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .wc-3rd-header .wc-3rd-col-p,
+  .wc-3rd-row .wc-3rd-col-p {
+    display: none;
+  }
+}
+
+/* --- Match row. Better mobile layout: 2 rows, 4 cells. */
+.wc-match-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--wc-line);
+  transition: background 200ms var(--wc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-match-row:hover {
+    background: rgba(214, 165, 69, 0.06);
+  }
+}
+
+@media (max-width: 720px) {
+  .wc-match-row {
+    grid-template-columns: 60px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+}
+
+/* --- Match-number badge. */
+.wc-mnum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--wc-accent-soft);
+  color: var(--wc-accent);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(214, 165, 69, 0.28);
+}
+
+/* --- Focus ring (any focusable inside .wc-scope). */
+.wc-scope :focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(214, 165, 69, 0.55);
+  border-radius: 8px;
+}
+
+/* --- Hero noise overlay. Tiny SVG turbulence, fixed to its container. */
+.wc-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0.4 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  border-radius: inherit;
+}
+
+/* --- Hero grid: copy + tiles, stack on phones, balanced widths on desktop. */
+.wc-hero-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: end;
+}
+
+.wc-hero-copy {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.wc-hero-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 290px;
+}
+
+@media (max-width: 820px) {
+  .wc-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    align-items: stretch;
+  }
+  .wc-hero-tiles {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .wc-hero-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Pitch line at the bottom of the hero. Subtle broadcast cue. */
+.wc-hero-pitch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background:
+    linear-gradient(90deg, transparent, rgba(116, 217, 159, 0.30) 20%, rgba(116, 217, 159, 0.55) 50%, rgba(116, 217, 159, 0.30) 80%, transparent),
+    repeating-linear-gradient(90deg, rgba(247, 241, 221, 0.06) 0 12px, transparent 12px 24px);
+  pointer-events: none;
+}
+
+/* --- Hero copy. */
+.wc-hero-title {
+  margin: 10px 0 0;
+  font-size: clamp(40px, 7vw, 64px);
+  line-height: 0.92;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.wc-hero-sub {
+  max-width: 540px;
+  margin: 14px 0 0;
+  color: var(--wc-muted);
+  font-size: clamp(14px, 1.6vw, 16px);
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+/* --- Tabular numbers across WC. */
+.wc-scope [data-num] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Home wrapper: follows the same shell width as the hero so every
+   home section starts and ends on the same vertical edges. */
+.wc-home {
+  max-width: none;
+  width: 100%;
+}
+
+/* --- Mode grid: two refined tiles on desktop, stacked on phones. */
+.wc-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .wc-mode-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* --- Section label: small uppercase kicker used between blocks. */
+.wc-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.wc-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wc-accent);
+}
+
+.wc-section-meta {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wc-subtle);
+}
+
+/* --- Scoring panel: collapsible broadcast strip used at the top of
+   Predict / Survivor / Bracket views. Same chrome on all three, content
+   swaps based on the `mode` prop. Pitch-stripe motif + accent rail. */
+.wc-scoring-panel {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--wc-line);
+  background:
+    linear-gradient(180deg, rgba(247, 241, 221, 0.05), rgba(7, 28, 17, 0.92)),
+    repeating-linear-gradient(135deg, rgba(214, 165, 69, 0.045) 0 16px, transparent 16px 32px);
+  overflow: hidden;
+  transition: border-color 220ms var(--wc-ease);
+}
+
+.wc-scoring-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--wc-accent) 25%, var(--wc-accent-warm) 50%, var(--wc-accent) 75%, transparent);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wc-scoring-panel[open] {
+  border-color: rgba(214, 165, 69, 0.24);
+}
+
+/* Summary row: clickable header. */
+.wc-scoring-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  transition: background 200ms var(--wc-ease);
+}
+
+.wc-scoring-summary::-webkit-details-marker { display: none; }
+
+.wc-scoring-summary:hover {
+  background: rgba(214, 165, 69, 0.06);
+}
+
+.wc-scoring-summary:focus-visible {
+  outline: none;
+  background: rgba(214, 165, 69, 0.10);
+}
+
+.wc-scoring-summary-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wc-scoring-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wc-accent);
+}
+
+.wc-scoring-kicker::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--wc-accent), var(--wc-accent-warm));
+}
+
+.wc-scoring-title-line {
+  color: var(--wc-text);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.wc-scoring-summary-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.wc-scoring-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 165, 69, 0.28);
+  background: rgba(214, 165, 69, 0.10);
+  color: var(--wc-accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.wc-scoring-chevron {
+  color: var(--wc-subtle);
+  transition: transform 240ms var(--wc-ease);
+}
+
+.wc-scoring-panel[open] .wc-scoring-chevron {
+  transform: rotate(180deg);
+  color: var(--wc-accent);
+}
+
+@media (max-width: 540px) {
+  .wc-scoring-summary { gap: 10px; padding: 12px 14px; }
+  .wc-scoring-lock { display: none; }
+}
+
+/* Body: shown when open. Item grid + footnote. */
+.wc-scoring-body {
+  padding: 4px 16px 16px;
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--wc-line);
+  animation: wc-view-in 280ms var(--wc-ease) both;
+}
+
+.wc-scoring-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  .wc-scoring-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .wc-scoring-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wc-scoring-item {
+  position: relative;
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--wc-line);
+  background: rgba(2, 18, 11, 0.55);
+  display: grid;
+  gap: 4px;
+  transition: border-color 220ms var(--wc-ease), background 220ms var(--wc-ease);
+}
+
+.wc-scoring-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 12px; bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--wc-accent), var(--wc-accent-warm));
+  opacity: 0.55;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-scoring-item:hover {
+    border-color: rgba(214, 165, 69, 0.28);
+    background: rgba(2, 18, 11, 0.72);
+  }
+}
+
+.wc-scoring-item > span {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wc-accent);
+}
+
+.wc-scoring-item > strong {
+  color: var(--wc-text);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wc-scoring-item > p {
+  margin: 0;
+  color: var(--wc-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.wc-scoring-foot {
+  color: var(--wc-subtle);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* --- Host strip: USA · Canada · Mexico flag chips. */
+.wc-hosts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wc-host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--wc-line);
+  background: rgba(247, 241, 221, 0.05);
+  color: var(--wc-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* --- Profile stat card: subtle hover, tabular numbers. */
+.wc-stat-card {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--wc-line);
+  background: linear-gradient(180deg, rgba(247, 241, 221, 0.045), rgba(7, 28, 17, 0.94));
+  display: grid;
+  gap: 8px;
+  transition: border-color 220ms var(--wc-ease), transform 220ms var(--wc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wc-stat-card:hover {
+    border-color: rgba(214, 165, 69, 0.30);
+    transform: translateY(-2px);
+  }
+}
+
+.wc-stat-card .wc-stat-label {
+  color: var(--wc-subtle);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wc-stat-card .wc-stat-value {
+  margin-top: 6px;
+  color: var(--wc-text);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-weight: 900;
+  font-size: clamp(28px, 5vw, 36px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.wc-stat-card .wc-stat-hint {
+  margin-top: 4px;
+  color: var(--wc-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* --- Reduced motion: kill all WC keyframes, keep states. */
+@media (prefers-reduced-motion: reduce) {
+  .wc-view,
+  .wc-stagger > *,
+  .wc-pulse {
+    animation: none !important;
+  }
+  .wc-mode-card:hover,
+  .wc-mini-group:hover,
+  .wc-stat-card:hover {
+    transform: none;
+  }
+}
