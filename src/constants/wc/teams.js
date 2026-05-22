@@ -53,7 +53,7 @@ export const WC_GROUPS = {
   I: [
     { code: "FRA", name: "France", flag: "FR" },
     { code: "SEN", name: "Senegal", flag: "SN" },
-    { code: "BOL", name: "Bolivia", flag: "BO" },
+    { code: "IRQ", name: "Iraq", flag: "IQ" },
     { code: "NOR", name: "Norway", flag: "NO" },
   ],
   J: [
@@ -145,7 +145,8 @@ const WC_EXTERNAL_NAME_TO_CODE = {
   "uruguay": "URU",
   "france": "FRA",
   "senegal": "SEN",
-  "bolivia": "BOL",
+  "iraq": "IRQ",
+  "republic of iraq": "IRQ",
   "norway": "NOR",
   "argentina": "ARG",
   "algeria": "ALG",

@@ -32,7 +32,8 @@ This document lists the removable World Cup 2026 product slice. Everything named
 
 ## External data sources
 
-- `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026` — public, no key, free tier. Used only by `app/api/admin/wc/sync/route.js` to upsert real WC 2026 fixtures and results into `wc_matches`. Sync is idempotent and called by admin button, by the Vercel cron in `vercel.json` (every 15 min), or with `WC_CRON_SECRET` from an external pinger. The app never reads from TheSportsDB at request time.
+- FIFA World Cup 26 official match schedule PDF, April 2026 — canonical source for `wc_matches` order, teams, slots, venues, and kickoff times. Stored in `src/constants/wc/fixtures.js` and `supabase/migrations/2026052201_wc_official_fixture_schedule.sql`.
+- `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026` — public, no key, free tier. Used only by `app/api/admin/wc/sync/route.js` for result/status/scorer sync after matching an existing official group fixture. It must not rewrite official fixture teams, match numbers, kickoff times, or venues. Sync is idempotent and called by admin button, by the Vercel cron in `vercel.json` (every 15 min), or with `WC_CRON_SECRET` from an external pinger. The app never reads from TheSportsDB at request time.
 
 ## Vercel cron entry
 
@@ -58,6 +59,7 @@ This document lists the removable World Cup 2026 product slice. Everything named
   - `supabase/migrations/2026052001_wc_2026_prediction_platform.sql`
   - `supabase/migrations/2026052002_wc_survivor.sql`
   - `supabase/migrations/2026052101_wc_scorer_picks.sql`
+  - `supabase/migrations/2026052201_wc_official_fixture_schedule.sql`
 - Mock seed: `supabase/wc_mock_seed.sql`
 - Tables:
   - `wc_teams`

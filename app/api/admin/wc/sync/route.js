@@ -37,17 +37,12 @@ async function authorize(request, body) {
   return { cron: false };
 }
 
-// TheSportsDB is the free, no-key source we use to bootstrap real WC 2026
-// fixtures. The league id 4429 is "FIFA World Cup" and the season key is
-// "2026". The feed grows as FIFA confirms more fixtures.
+// TheSportsDB is the free, no-key source we use only for live/result fields.
+// The canonical WC fixture order lives in the WC fixture migration/constants,
+// so this sync must never rewrite official match numbers, teams, venues, or
+// kickoff times from a third-party feed.
 const SOURCE_NAME = "TheSportsDB";
 const SOURCE_URL = "https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026";
-
-function normalizeDate(value) {
-  if (!value) return null;
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
-}
 
 function normalizeScore(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -103,12 +98,6 @@ function sameScorers(left, right) {
   return sideMatches(left.home, right.home) && sideMatches(left.away, right.away);
 }
 
-function pickTimestamp(event) {
-  return normalizeDate(event.strTimestamp || event.strTimestampUTC)
-    || (event.dateEvent && event.strTime ? normalizeDate(`${event.dateEvent}T${event.strTime}Z`) : null)
-    || (event.dateEvent ? normalizeDate(`${event.dateEvent}T19:00:00Z`) : null);
-}
-
 async function fetchExternalEvents() {
   let response;
   try {
@@ -156,19 +145,11 @@ async function performSync(supabase, { invokedBy }) {
       continue;
     }
 
-    const kickoff = pickTimestamp(event);
     const homeScore = normalizeScore(event.intHomeScore);
     const awayScore = normalizeScore(event.intAwayScore);
     const status = externalStatusToLocal(event.strStatus);
 
     const patch = { updated_at: new Date().toISOString() };
-    if (kickoff && kickoff !== localMatch.kickoff_at) {
-      patch.kickoff_at = kickoff;
-      patch.lock_at = kickoff;
-    }
-    if (event.strVenue && event.strVenue !== localMatch.venue) {
-      patch.venue = event.strVenue;
-    }
     if (homeScore !== null && homeScore !== localMatch.home_score) {
       patch.home_score = homeScore;
     }

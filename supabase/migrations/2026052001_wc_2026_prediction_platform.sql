@@ -298,7 +298,7 @@ insert into public.wc_teams (code, name, group_code, seed_order, flag) values
   ('NED','Netherlands','F',1,'NL'), ('JPN','Japan','F',2,'JP'), ('SWE','Sweden','F',3,'SE'), ('TUN','Tunisia','F',4,'TN'),
   ('BEL','Belgium','G',1,'BE'), ('EGY','Egypt','G',2,'EG'), ('IRN','IR Iran','G',3,'IR'), ('NZL','New Zealand','G',4,'NZ'),
   ('ESP','Spain','H',1,'ES'), ('CPV','Cabo Verde','H',2,'CV'), ('KSA','Saudi Arabia','H',3,'SA'), ('URU','Uruguay','H',4,'UY'),
-  ('FRA','France','I',1,'FR'), ('SEN','Senegal','I',2,'SN'), ('BOL','Bolivia','I',3,'BO'), ('NOR','Norway','I',4,'NO'),
+  ('FRA','France','I',1,'FR'), ('SEN','Senegal','I',2,'SN'), ('IRQ','Iraq','I',3,'IQ'), ('NOR','Norway','I',4,'NO'),
   ('ARG','Argentina','J',1,'AR'), ('ALG','Algeria','J',2,'DZ'), ('AUT','Austria','J',3,'AT'), ('JOR','Jordan','J',4,'JO'),
   ('POR','Portugal','K',1,'PT'), ('COD','DR Congo','K',2,'CD'), ('UZB','Uzbekistan','K',3,'UZ'), ('COL','Colombia','K',4,'CO'),
   ('ENG','England','L',1,'GB-ENG'), ('CRO','Croatia','L',2,'HR'), ('GHA','Ghana','L',3,'GH'), ('PAN','Panama','L',4,'PA')
