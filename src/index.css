@@ -1188,6 +1188,96 @@ html[data-density="compact"] [data-density-row] {
   border: 1px solid rgba(214, 165, 69, 0.28);
 }
 
+.wc-pick-state {
+  margin-top: 6px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+.wc-pick-state span {
+  color: var(--wc-subtle);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.wc-pick-state strong {
+  color: var(--wc-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.wc-pick-state.is-ready span,
+.wc-pick-state.is-ready strong {
+  color: var(--wc-accent);
+}
+
+.wc-pick-state.is-scored span,
+.wc-pick-state.is-scored strong {
+  color: #a7f3c7;
+}
+
+.wc-pick-callout {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--wc-line);
+  background: rgba(247, 241, 221, 0.045);
+}
+
+.wc-pick-callout > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wc-pick-callout span {
+  color: var(--wc-subtle);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.wc-pick-callout strong {
+  color: var(--wc-muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.wc-pick-callout p {
+  margin: 0;
+  color: var(--wc-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wc-pick-callout.is-ready {
+  border-color: rgba(214, 165, 69, 0.36);
+  background: rgba(214, 165, 69, 0.08);
+}
+
+.wc-pick-callout.is-ready strong,
+.wc-pick-callout.is-ready p {
+  color: var(--wc-accent);
+}
+
+.wc-pick-callout.is-scored {
+  border-color: rgba(116, 217, 159, 0.36);
+  background: rgba(116, 217, 159, 0.08);
+}
+
+.wc-pick-callout.is-scored strong,
+.wc-pick-callout.is-scored p {
+  color: #a7f3c7;
+}
+
 /* --- Focus ring (any focusable inside .wc-scope). */
 .wc-scope :focus-visible {
   outline: none;
@@ -1538,7 +1628,7 @@ html[data-density="compact"] [data-density-row] {
   line-height: 1.6;
 }
 
-/* --- Host strip: USA · Canada · Mexico flag chips. */
+/* --- Host strip: USA · Canada · Mexico chips. */
 .wc-hosts {
   display: inline-flex;
   align-items: center;

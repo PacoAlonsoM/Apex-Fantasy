@@ -107,6 +107,36 @@ function byMatchNumber(left, right) {
   return Number(left.match_number || 0) - Number(right.match_number || 0);
 }
 
+function pickScoreline(prediction) {
+  if (!prediction) return "";
+  return `${prediction.predicted_home_score}–${prediction.predicted_away_score}`;
+}
+
+function matchPickState(prediction) {
+  if (!prediction) {
+    return {
+      label: "Not picked",
+      detail: "No score saved yet",
+      tone: "neutral",
+      className: "is-missing",
+    };
+  }
+  if (prediction.points != null) {
+    return {
+      label: "Scored",
+      detail: `${prediction.points} pts · Pick ${pickScoreline(prediction)}`,
+      tone: "green",
+      className: "is-scored",
+    };
+  }
+  return {
+    label: "Pick ready",
+    detail: `Saved pick ${pickScoreline(prediction)}`,
+    tone: "gold",
+    className: "is-ready",
+  };
+}
+
 function Field({ label, value, onChange, type = "text", min, max, disabled = false, placeholder = "" }) {
   return (
     <label style={{ display: "grid", gap: 7, minWidth: 0 }}>
@@ -211,6 +241,7 @@ function MatchRow({ match, prediction, onPick, compact = false }) {
   const locked = isLocked(match.lock_at);
   const isCompleted = match.status === "completed" && match.home_score !== null && match.away_score !== null;
   const score = isCompleted ? `${match.home_score}–${match.away_score}` : formatWcDate(match.kickoff_at);
+  const pickState = matchPickState(prediction);
 
   return (
     <div className="wc-match-row">
@@ -247,18 +278,14 @@ function MatchRow({ match, prediction, onPick, compact = false }) {
           <div data-num style={{ fontFamily: "var(--font-mono)", fontSize: compact ? 15 : 17, fontWeight: 900, color: isCompleted ? WC_THEME.text : WC_THEME.muted, whiteSpace: "nowrap" }}>
             {score}
           </div>
-          {prediction ? (
-            <div data-num style={{ marginTop: 3, fontSize: 11, color: prediction.points != null ? "#A7F3C7" : WC_THEME.muted, fontWeight: 700 }}>
-              Pick {prediction.predicted_home_score}–{prediction.predicted_away_score}
-              {prediction.points != null ? ` · ${prediction.points} pts` : ""}
-            </div>
-          ) : (
-            <div style={{ marginTop: 3, fontSize: 11, color: WC_THEME.subtle, fontWeight: 700 }}>No pick yet</div>
-          )}
+          <div className={`wc-pick-state ${pickState.className}`} aria-label={`Pick status: ${pickState.label}. ${pickState.detail}`}>
+            <span>{pickState.label}</span>
+            <strong data-num>{pickState.detail}</strong>
+          </div>
         </div>
         {onPick && (
           <button type="button" className="stint-button-secondary" onClick={() => onPick(match)} style={{ minHeight: 38, padding: "0 14px", fontSize: 12, borderColor: "rgba(214,165,69,0.26)" }}>
-            Pick
+            {prediction?.points != null ? "View" : prediction ? "Edit" : "Pick"}
           </button>
         )}
       </div>
@@ -466,6 +493,7 @@ function UpcomingStripe({ matches, predictionByMatch, setPage, isMobile }) {
         {upcoming.map((match) => {
           const teams = wcMatchTeams(match);
           const prediction = predictionByMatch.get(match.id);
+          const pickState = matchPickState(prediction);
           return (
             <button
               type="button"
@@ -493,10 +521,9 @@ function UpcomingStripe({ matches, predictionByMatch, setPage, isMobile }) {
                 {wcTeamFlag(teams.away.code) && <span aria-hidden="true">{wcTeamFlag(teams.away.code)}</span>}
                 <span>{teams.away.name}</span>
               </div>
-              <div style={{ fontSize: 11, color: prediction ? "#A7F3C7" : WC_THEME.muted, fontWeight: 700 }}>
-                {prediction
-                  ? `Pick ${prediction.predicted_home_score}–${prediction.predicted_away_score}${prediction.points != null ? ` · ${prediction.points} pts` : " · saved"}`
-                  : "Tap to pick"}
+              <div className={`wc-pick-state ${pickState.className}`} style={{ marginTop: 0, alignItems: "flex-start" }}>
+                <span>{pickState.label}</span>
+                <strong data-num>{prediction ? pickState.detail : "Tap to choose a score"}</strong>
               </div>
             </button>
           );
@@ -671,13 +698,26 @@ function PicksView({ user, openAuth, matches, predictions, onSaved, setPage, isM
   const [saving, setSaving] = useState(false);
   const slipRef = useRef(null);
   const predictionByMatch = useMemo(() => new Map((predictions || []).map((prediction) => [prediction.match_id, prediction])), [predictions]);
-  const openMatches = useMemo(
-    () => matches
-      .filter((match) => !isLocked(match.lock_at))
+  const visibleMatches = useMemo(
+    () => [...matches]
       .sort((left, right) => new Date(left.kickoff_at || 0) - new Date(right.kickoff_at || 0)),
     [matches]
   );
-  const totalOpen = openMatches.length;
+  const pickStats = useMemo(() => {
+    const pickedIds = new Set();
+    let ready = 0;
+    let scored = 0;
+    (predictions || []).forEach((prediction) => {
+      pickedIds.add(prediction.match_id);
+      if (prediction.points != null) scored += 1;
+      else ready += 1;
+    });
+    return {
+      ready,
+      scored,
+      missing: Math.max((matches || []).length - pickedIds.size, 0),
+    };
+  }, [matches, predictions]);
 
   const selectMatch = useCallback((match) => {
     const prediction = predictionByMatch.get(match.id);
@@ -721,6 +761,8 @@ function PicksView({ user, openAuth, matches, predictions, onSaved, setPage, isM
 
   const teams = activeMatch ? wcMatchTeams(activeMatch) : null;
   const knockout = activeMatch?.stage && activeMatch.stage !== "group";
+  const activePrediction = activeMatch ? predictionByMatch.get(activeMatch.id) : null;
+  const activePickState = matchPickState(activePrediction);
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -730,16 +772,16 @@ function PicksView({ user, openAuth, matches, predictions, onSaved, setPage, isM
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 360px", gap: 18, alignItems: "start" }}>
         <div style={{ display: "grid", gap: 12 }}>
           <WCCard style={{ overflow: "hidden" }}>
-            {openMatches.length ? openMatches.map((match) => (
+            {visibleMatches.length ? visibleMatches.map((match) => (
               <MatchRow key={match.id} match={match} prediction={predictionByMatch.get(match.id)} onPick={selectMatch} compact={isMobile} />
             )) : (
               <div style={{ padding: 22, color: WC_THEME.muted, fontSize: 13 }}>
-                {totalOpen === 0 ? "No open WC matches right now — picks will reopen on the next lock." : "No open matches."}
+                No WC matches loaded yet.
               </div>
             )}
-            {openMatches.length > 0 && (
+            {visibleMatches.length > 0 && (
               <div style={{ padding: "12px 18px", color: WC_THEME.subtle, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", borderTop: `1px solid ${WC_THEME.line}` }}>
-                {openMatches.length} open · {predictions?.length || 0} pick{predictions?.length === 1 ? "" : "s"} saved
+                {pickStats.missing} not picked · {pickStats.ready} ready · {pickStats.scored} scored
               </div>
             )}
           </WCCard>
@@ -758,6 +800,19 @@ function PicksView({ user, openAuth, matches, predictions, onSaved, setPage, isM
 
           {activeMatch && (
             <>
+              <div className={`wc-pick-callout ${activePickState.className}`}>
+                <div>
+                  <span>Pick status</span>
+                  <strong>{activePickState.label}</strong>
+                </div>
+                <p data-num>
+                  {activePrediction
+                    ? activePrediction.points != null
+                      ? `${activePrediction.points} points awarded for ${pickScoreline(activePrediction)}.`
+                      : `${pickScoreline(activePrediction)} is saved and ready to score after the result.`
+                    : "No score saved yet. Save this match before kickoff."}
+                </p>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <Field label={teams.home.name} type="number" min="0" max="99" value={homeScore} onChange={setHomeScore} disabled={isLocked(activeMatch.lock_at)} />
                 <Field label={teams.away.name} type="number" min="0" max="99" value={awayScore} onChange={setAwayScore} disabled={isLocked(activeMatch.lock_at)} />
@@ -1915,9 +1970,9 @@ export default function WCPage({ page, user, openAuth, setPage }) {
             <h1 className="wc-hero-title">World Cup</h1>
             <p className="wc-hero-sub">Two ways to play — Predict every match, or Survivor to the final whistle.</p>
             <div className="wc-hosts" aria-label="Host nations: USA, Canada, Mexico">
-              <span className="wc-host-chip"><span aria-hidden="true">{wcFlagEmoji("US")}</span>USA</span>
-              <span className="wc-host-chip"><span aria-hidden="true">{wcFlagEmoji("CA")}</span>Canada</span>
-              <span className="wc-host-chip"><span aria-hidden="true">{wcFlagEmoji("MX")}</span>Mexico</span>
+              <span className="wc-host-chip">USA</span>
+              <span className="wc-host-chip">Canada</span>
+              <span className="wc-host-chip">Mexico</span>
               <span className="wc-host-chip" style={{ borderColor: "rgba(214,165,69,0.28)", color: "var(--wc-accent)" }}>48 teams · 104 matches</span>
             </div>
           </div>
