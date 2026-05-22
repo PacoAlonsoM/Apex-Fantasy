@@ -37,8 +37,30 @@ function stageRow(stage) {
   return WC_STAGE_SCORING[stage] || WC_STAGE_SCORING.group;
 }
 
+export function isCompletedWcMatch(match) {
+  return match?.status === "completed"
+    && numberOrNull(match?.home_score) !== null
+    && numberOrNull(match?.away_score) !== null;
+}
+
+export function wcGroupCompletedMatchCount(matches = [], groupCode) {
+  return matches.filter((match) =>
+    match.stage === "group"
+    && match.group_code === groupCode
+    && isCompletedWcMatch(match)
+  ).length;
+}
+
+export function isWcGroupComplete(matches = [], groupCode) {
+  return wcGroupCompletedMatchCount(matches, groupCode) >= 6;
+}
+
 export function scoreWcMatchPrediction(prediction, match) {
   const breakdown = [];
+  if (!isCompletedWcMatch(match)) {
+    return { points: 0, breakdown };
+  }
+
   const homeScore = numberOrNull(match?.home_score);
   const awayScore = numberOrNull(match?.away_score);
   const predictedHome = numberOrNull(prediction?.predicted_home_score);
@@ -123,6 +145,8 @@ export function buildWcGroupTables(matches = []) {
   };
 
   matches.filter((match) => match.stage === "group").forEach((match) => {
+    if (!isCompletedWcMatch(match)) return;
+
     const home = ensureTeam(match.group_code, match.home_team_code, match.home_label);
     const away = ensureTeam(match.group_code, match.away_team_code, match.away_label);
     const homeScore = numberOrNull(match.home_score);
@@ -194,6 +218,8 @@ export function scoreWcBracketPrediction(prediction, matches = [], awards = {}) 
   let points = 0;
 
   Object.entries(groupTables).forEach(([group, rows]) => {
+    if (!isWcGroupComplete(matches, group)) return;
+
     const winner = rows[0]?.code;
     const runner = rows[1]?.code;
     const pickedWinner = picks.groupWinners?.[group];

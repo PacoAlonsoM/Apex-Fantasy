@@ -60,6 +60,7 @@ This document lists the removable World Cup 2026 product slice. Everything named
   - `supabase/migrations/2026052002_wc_survivor.sql`
   - `supabase/migrations/2026052101_wc_scorer_picks.sql`
   - `supabase/migrations/2026052201_wc_official_fixture_schedule.sql`
+  - `supabase/migrations/2026052202_wc_zero_future_result_state.sql`
 - Mock seed: `supabase/wc_mock_seed.sql`
 - Tables:
   - `wc_teams`

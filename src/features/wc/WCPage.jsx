@@ -4,7 +4,7 @@ import { WC_GROUPS, WC_TEAM_BY_CODE, WC_TEAMS, WC_TOURNAMENT_START } from "@/src
 import { wcStageLabel, wcMatchTeams } from "@/src/constants/wc/fixtures";
 import { WC_THEME } from "@/src/constants/wc/theme";
 import { formatWcDate, formatWcShortDate, wcSlugLabel } from "@/src/lib/wc/format";
-import { buildWcGroupTables, buildWcThirdPlaceTable } from "@/src/lib/wc/scoring";
+import { buildWcGroupTables, buildWcThirdPlaceTable, wcGroupCompletedMatchCount } from "@/src/lib/wc/scoring";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
 import {
@@ -296,7 +296,7 @@ function MatchRow({ match, prediction, onPick, compact = false }) {
 // Mini group table card — shows just the four teams with P, GD, Pts.
 // Top two get the accent rank (qualifying). Third place is marked but
 // not advancing here; the dedicated ThirdPlaceTable handles that race.
-function MiniGroupCard({ group, rows }) {
+function MiniGroupCard({ group, rows, completedMatches = 0 }) {
   const padded = rows.length === 4 ? rows : WC_GROUPS[group].map((team, index) => {
     const existing = rows.find((row) => row.code === team.code);
     return existing || { code: team.code, name: team.name, played: 0, points: 0, gd: 0, seed: index + 1 };
@@ -306,7 +306,7 @@ function MiniGroupCard({ group, rows }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div style={{ fontWeight: 900, color: WC_THEME.text, letterSpacing: "-0.01em" }}>Group {group}</div>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.10em", textTransform: "uppercase", color: WC_THEME.subtle }}>
-          {padded.reduce((sum, row) => sum + row.played, 0)}/6 played
+          {completedMatches}/6 played
         </div>
       </div>
       <div style={{ display: "grid", gap: 6 }}>
@@ -339,7 +339,6 @@ function MiniGroupCard({ group, rows }) {
 // Best 3rd-place race. WC 2026 advances the top 8 third-placed teams
 // into the Round of 32, so the cut-line is highlighted with a divider.
 function ThirdPlaceTable({ rows }) {
-  if (!rows?.length) return null;
   return (
     <WCCard style={{ padding: 18, display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
@@ -348,45 +347,51 @@ function ThirdPlaceTable({ rows }) {
           <div style={{ marginTop: 4, color: WC_THEME.muted, fontSize: 12 }}>Top 8 advance to the Round of 32.</div>
         </div>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.10em", textTransform: "uppercase", color: WC_THEME.subtle }}>
-          live · 12 teams
+          {rows?.length ? `live · ${rows.length} teams` : "opens after results"}
         </div>
       </div>
-      <div style={{ display: "grid", gap: 4 }}>
-        <div className="wc-3rd-header">
-          <span>Rk</span>
-          <span>Team</span>
-          <span style={{ textAlign: "right" }} className="wc-3rd-col-p">P</span>
-          <span style={{ textAlign: "right" }}>GD</span>
-          <span style={{ textAlign: "right" }}>Pts</span>
-          <span style={{ textAlign: "right" }} />
+      {rows?.length ? (
+        <div style={{ display: "grid", gap: 4 }}>
+          <div className="wc-3rd-header">
+            <span>Rk</span>
+            <span>Team</span>
+            <span style={{ textAlign: "right" }} className="wc-3rd-col-p">P</span>
+            <span style={{ textAlign: "right" }}>GD</span>
+            <span style={{ textAlign: "right" }}>Pts</span>
+            <span style={{ textAlign: "right" }} />
+          </div>
+          {rows.map((row, index) => {
+            const isCutLine = index === 7;
+            return (
+              <div
+                key={row.code}
+                className={`wc-3rd-row${row.advancing ? " is-advancing" : ""}${isCutLine ? " is-cut" : ""}`}
+              >
+                <span style={{ fontFamily: "var(--font-mono)", color: row.advancing ? "#A7F3C7" : WC_THEME.subtle, fontWeight: 900 }}>
+                  {row.rank}
+                </span>
+                <span style={{ color: WC_THEME.text, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                  {wcTeamFlag(row.code) && <span aria-hidden="true">{wcTeamFlag(row.code)}</span>}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row.name}</span>
+                  <span style={{ color: WC_THEME.subtle, fontSize: 11, fontWeight: 700 }}>· {row.group}</span>
+                </span>
+                <span className="wc-3rd-col-p" style={{ textAlign: "right", color: WC_THEME.muted, fontVariantNumeric: "tabular-nums" }}>{row.played}</span>
+                <span style={{ textAlign: "right", color: row.gd > 0 ? "#A7F3C7" : row.gd < 0 ? "#FCA5A5" : WC_THEME.muted, fontVariantNumeric: "tabular-nums" }}>
+                  {row.gd > 0 ? `+${row.gd}` : row.gd}
+                </span>
+                <span style={{ textAlign: "right", color: WC_THEME.text, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{row.points}</span>
+                <span style={{ textAlign: "right" }}>
+                  {row.advancing ? <WCPill tone="green">Through</WCPill> : <WCPill>Out</WCPill>}
+                </span>
+              </div>
+            );
+          })}
         </div>
-        {rows.map((row, index) => {
-          const isCutLine = index === 7;
-          return (
-            <div
-              key={row.code}
-              className={`wc-3rd-row${row.advancing ? " is-advancing" : ""}${isCutLine ? " is-cut" : ""}`}
-            >
-              <span style={{ fontFamily: "var(--font-mono)", color: row.advancing ? "#A7F3C7" : WC_THEME.subtle, fontWeight: 900 }}>
-                {row.rank}
-              </span>
-              <span style={{ color: WC_THEME.text, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                {wcTeamFlag(row.code) && <span aria-hidden="true">{wcTeamFlag(row.code)}</span>}
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row.name}</span>
-                <span style={{ color: WC_THEME.subtle, fontSize: 11, fontWeight: 700 }}>· {row.group}</span>
-              </span>
-              <span className="wc-3rd-col-p" style={{ textAlign: "right", color: WC_THEME.muted, fontVariantNumeric: "tabular-nums" }}>{row.played}</span>
-              <span style={{ textAlign: "right", color: row.gd > 0 ? "#A7F3C7" : row.gd < 0 ? "#FCA5A5" : WC_THEME.muted, fontVariantNumeric: "tabular-nums" }}>
-                {row.gd > 0 ? `+${row.gd}` : row.gd}
-              </span>
-              <span style={{ textAlign: "right", color: WC_THEME.text, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{row.points}</span>
-              <span style={{ textAlign: "right" }}>
-                {row.advancing ? <WCPill tone="green">Through</WCPill> : <WCPill>Out</WCPill>}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      ) : (
+        <div style={{ padding: "8px 0 2px", color: WC_THEME.muted, fontSize: 13, lineHeight: 1.6 }}>
+          No group results have been published yet. This table will populate automatically from completed group standings.
+        </div>
+      )}
     </WCCard>
   );
 }
@@ -419,6 +424,10 @@ function ModeCard({ title, kicker, copy, ctaLabel, onSelect, accent = false }) {
 function HomeView({ matches, setPage, isMobile }) {
   const groups = useMemo(() => buildWcGroupTables(matches), [matches]);
   const thirdPlace = useMemo(() => buildWcThirdPlaceTable(groups), [groups]);
+  const completedByGroup = useMemo(
+    () => Object.fromEntries(Object.keys(WC_GROUPS).map((group) => [group, wcGroupCompletedMatchCount(matches, group)])),
+    [matches]
+  );
   const orderedGroups = Object.keys(WC_GROUPS);
 
   return (
@@ -456,6 +465,7 @@ function HomeView({ matches, setPage, isMobile }) {
               key={group}
               group={group}
               rows={groups[group] || []}
+              completedMatches={completedByGroup[group] || 0}
             />
           ))}
         </div>
@@ -1675,8 +1685,8 @@ function SyncPanel({ refresh }) {
       <div>
         <h2 style={{ margin: 0, fontSize: 23 }}>Real fixture sync</h2>
         <p style={{ color: WC_THEME.muted, margin: "6px 0 0", fontSize: 13, lineHeight: 1.6 }}>
-          Pulls the official WC 2026 fixtures and results from TheSportsDB. Idempotent — runs as often as you like.
-          Newly completed matches automatically rescore every saved prediction.
+          Pulls WC 2026 result status, scores, and scorer data from TheSportsDB. The official fixture order stays locked to
+          the FIFA schedule. Newly completed matches automatically rescore every saved prediction.
         </p>
       </div>
       <button
