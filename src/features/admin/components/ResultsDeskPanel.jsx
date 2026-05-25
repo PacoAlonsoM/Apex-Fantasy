@@ -3,6 +3,7 @@ import AdminCard from "./AdminCard";
 import AdminPill from "./AdminPill";
 import { buttonStyle, fieldLabelStyle, inputStyle, formatStamp } from "../formatters";
 import { CONSTRUCTORS, DRV } from "@/src/constants/teams";
+import { CAL } from "@/src/constants/calendar";
 
 function normalizeKey(value) {
   return String(value || "")
@@ -43,6 +44,11 @@ function valueRow(label, value) {
 
 function hasSprintPayload(payload = {}) {
   return Boolean(payload.sp_pole || payload.sp_winner || payload.sp_p2 || payload.sp_p3);
+}
+
+function isCanonicalSprintRound(round, race) {
+  const raceRound = Number(round || race?.r || race?.round || 0);
+  return Boolean(race?.sprint || CAL.find((item) => Number(item.r || 0) === raceRound)?.sprint);
 }
 
 function payloadRows(payload = {}, { includeSprint = false } = {}) {
@@ -208,6 +214,7 @@ function SummaryGrid({ payload, tone = "default", includeSprint = false }) {
 }
 
 export default function ResultsDeskPanel({
+  round,
   race,
   draft,
   official,
@@ -231,7 +238,7 @@ export default function ResultsDeskPanel({
   setDraftForm,
 }) {
   const payload = draftForm?.payload || draft?.payload || {};
-  const isSprintRound = !!race?.sprint;
+  const isSprintRound = isCanonicalSprintRound(round, race) || hasSprintPayload(payload) || hasSprintPayload(official);
   const manualFields = draft?.publishedSnapshot?.manualFields || official?.manualFields || [];
   const driverOptions = buildDriverOptions(payload, official);
   const constructorOptions = CONSTRUCTORS.map((team) => ({ value: team, label: team }));

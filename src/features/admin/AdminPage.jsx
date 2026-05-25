@@ -554,6 +554,7 @@ export default function AdminPage({ user }) {
             />
 
             <ResultsDeskPanel
+              round={selectedRound}
               race={selectedRace}
               draft={roundWorkspace?.draft}
               official={roundWorkspace?.official}

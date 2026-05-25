@@ -2,9 +2,15 @@ import AdminActionResult from "./AdminActionResult";
 import AdminCard from "./AdminCard";
 import AdminPill from "./AdminPill";
 import { buttonStyle, formatStamp } from "../formatters";
+import { CAL } from "@/src/constants/calendar";
 
 function hasSprintResult(official) {
   return Boolean(official?.sp_pole && official?.sp_winner && official?.sp_p2 && official?.sp_p3);
+}
+
+function isCanonicalSprintRound(round, race) {
+  const raceRound = Number(round || race?.r || race?.round || 0);
+  return Boolean(race?.sprint || CAL.find((item) => Number(item.r || 0) === raceRound)?.sprint);
 }
 
 export default function ScoringPanel({
@@ -25,7 +31,7 @@ export default function ScoringPanel({
     ? new Date(latestAwardRun.updatedAt).getTime() < new Date(latestPublishRun.updatedAt).getTime()
     : !!latestPublishRun && !latestAwardRun;
   const awardBlockedReason = capabilities?.canAwardPoints ? "" : capabilities?.awardPointsReason || "";
-  const sprintRound = !!race?.sprint;
+  const sprintRound = isCanonicalSprintRound(round, race) || hasSprintResult(official);
   const sprintReady = hasSprintResult(official);
   const sprintDisabledReason = !sprintRound
     ? "This round does not have a sprint."
