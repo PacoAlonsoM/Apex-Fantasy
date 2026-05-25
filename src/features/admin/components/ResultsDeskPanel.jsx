@@ -42,8 +42,8 @@ function valueRow(label, value) {
   return { label, value: value || "—" };
 }
 
-function hasSprintPayload(payload = {}) {
-  return Boolean(payload.sp_pole || payload.sp_winner || payload.sp_p2 || payload.sp_p3);
+function hasSprintPayload(payload) {
+  return Boolean(payload?.sp_pole || payload?.sp_winner || payload?.sp_p2 || payload?.sp_p3);
 }
 
 function isCanonicalSprintRound(round, race) {
@@ -52,25 +52,26 @@ function isCanonicalSprintRound(round, race) {
 }
 
 function payloadRows(payload = {}, { includeSprint = false } = {}) {
+  const source = payload || {};
   const rows = [
-    valueRow("Winner", payload.winner),
-    valueRow("P2", payload.p2),
-    valueRow("P3", payload.p3),
-    valueRow("Pole", payload.pole),
-    valueRow("Fastest Lap", payload.fastest_lap),
-    valueRow("Driver of the Day", payload.dotd),
-    valueRow("Best Constructor", payload.best_constructor),
-    valueRow("DNF", Array.isArray(payload.dnf_list) && payload.dnf_list.length ? payload.dnf_list.join(", ") : payload.dnf),
-    valueRow("Safety Car", typeof payload.safety_car === "boolean" ? (payload.safety_car ? "Yes" : "No") : null),
-    valueRow("Red Flag", typeof payload.red_flag === "boolean" ? (payload.red_flag ? "Yes" : "No") : null),
+    valueRow("Winner", source.winner),
+    valueRow("P2", source.p2),
+    valueRow("P3", source.p3),
+    valueRow("Pole", source.pole),
+    valueRow("Fastest Lap", source.fastest_lap),
+    valueRow("Driver of the Day", source.dotd),
+    valueRow("Best Constructor", source.best_constructor),
+    valueRow("DNF", Array.isArray(source.dnf_list) && source.dnf_list.length ? source.dnf_list.join(", ") : source.dnf),
+    valueRow("Safety Car", typeof source.safety_car === "boolean" ? (source.safety_car ? "Yes" : "No") : null),
+    valueRow("Red Flag", typeof source.red_flag === "boolean" ? (source.red_flag ? "Yes" : "No") : null),
   ];
 
-  if (includeSprint || hasSprintPayload(payload)) {
+  if (includeSprint || hasSprintPayload(source)) {
     rows.push(
-      valueRow("Sprint Pole", payload.sp_pole),
-      valueRow("Sprint Winner", payload.sp_winner),
-      valueRow("Sprint P2", payload.sp_p2),
-      valueRow("Sprint P3", payload.sp_p3),
+      valueRow("Sprint Pole", source.sp_pole),
+      valueRow("Sprint Winner", source.sp_winner),
+      valueRow("Sprint P2", source.sp_p2),
+      valueRow("Sprint P3", source.sp_p3),
     );
   }
 
