@@ -47,7 +47,13 @@ const themeBootstrap = `
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark" data-theme-preference="auto" data-density="comfortable">
+    <html
+      lang="en"
+      data-theme="dark"
+      data-theme-preference="auto"
+      data-density="comfortable"
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
