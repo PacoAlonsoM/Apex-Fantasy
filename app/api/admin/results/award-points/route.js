@@ -14,6 +14,7 @@ export async function POST(request) {
     await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     const round = Number(body?.round || body?.raceRound || 0);
+    const scope = body?.scope === "sprint" ? "sprint" : "full";
 
     if (!round) {
       return jsonError("Missing round for points award.", 400);
@@ -21,30 +22,32 @@ export async function POST(request) {
 
     requireServiceRole("awarding points");
     const supabase = getSupabaseAdmin();
-    const scoring = await awardRoundPoints(supabase, round);
+    const scoring = await awardRoundPoints(supabase, round, { scope });
     let warnings = [];
     let historySync = { count: 0, rows: [] };
 
-    try {
-      const { data: officialResult, error: resultError } = await supabase
-        .from("race_results")
-        .select("*")
-        .eq("race_round", round)
-        .eq("results_entered", true)
-        .maybeSingle();
+    if (scope === "full") {
+      try {
+        const { data: officialResult, error: resultError } = await supabase
+          .from("race_results")
+          .select("*")
+          .eq("race_round", round)
+          .eq("results_entered", true)
+          .maybeSingle();
 
-      if (resultError) throw resultError;
+        if (resultError) throw resultError;
 
-      if (officialResult) {
-        historySync = await upsertCanonicalHistoryFromResults(supabase, officialResult, { season });
-      } else {
-        warnings = [...warnings, "AI history refresh skipped: no published result row was found for this round."];
+        if (officialResult) {
+          historySync = await upsertCanonicalHistoryFromResults(supabase, officialResult, { season });
+        } else {
+          warnings = [...warnings, "AI history refresh skipped: no published result row was found for this round."];
+        }
+      } catch (error) {
+        warnings = [...warnings, `AI history refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
       }
-    } catch (error) {
-      warnings = [...warnings, `AI history refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
     }
 
-    const message = scoring?.message || `Awarded points for round ${round}.`;
+    const message = scoring?.message || `Awarded ${scope === "sprint" ? "sprint " : ""}points for round ${round}.`;
     const run = buildOperationRun("award-points", {
       season,
       round,
@@ -56,6 +59,7 @@ export async function POST(request) {
         changedUsers: Number(scoring?.changedUsers || 0) || 0,
         historyRows: historySync.count,
       },
+      details: { scope, scoringScope: scoring?.scoringScope || scope },
     });
 
     await updateLocalAdminStore((store) => {
@@ -67,6 +71,7 @@ export async function POST(request) {
       runId: run.id,
       season,
       round,
+      scope,
       counts: {
         repaired: Number(scoring?.repaired || 0) || 0,
         changedUsers: Number(scoring?.changedUsers || 0) || 0,

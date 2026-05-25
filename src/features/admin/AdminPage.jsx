@@ -229,7 +229,7 @@ export default function AdminPage({ user }) {
       const response = await task();
       setActionResult(key, response);
 
-      if (key === "import") {
+      if (key === "import" || key === "importSprint") {
         setDraftForm(response.draft || emptyDraft(selectedRound));
       }
 
@@ -559,14 +559,20 @@ export default function AdminPage({ user }) {
               official={roundWorkspace?.official}
               capabilities={roundWorkspace?.capabilities || capabilities}
               fetchResult={actionResults.import}
+              importSprintResult={actionResults.importSprint}
               saveResult={actionResults.saveDraft}
               publishResult={actionResults.publish}
+              publishSprintResult={actionResults.publishSprint}
               importBusy={!!loadingFlags.import}
+              importSprintBusy={!!loadingFlags.importSprint}
               saveBusy={!!loadingFlags.saveDraft}
               publishBusy={!!loadingFlags.publish}
+              publishSprintBusy={!!loadingFlags.publishSprint}
               onImport={() => runAction("import", () => importRoundResults(SEASON, selectedRound))}
+              onImportSprint={() => runAction("importSprint", () => importRoundResults(SEASON, selectedRound, "sprint"))}
               onSaveDraft={() => runAction("saveDraft", () => saveRoundDraft(SEASON, selectedRound, draftForm), { refreshDashboard: true, refreshRound: true })}
               onPublish={() => runAction("publish", () => publishRoundResults(SEASON, selectedRound), { refreshDashboard: true, refreshRound: true })}
+              onPublishSprint={() => runAction("publishSprint", () => publishRoundResults(SEASON, selectedRound, "sprint"), { refreshDashboard: true, refreshRound: true })}
               draftForm={draftForm}
               setDraftForm={setDraftForm}
             />
@@ -575,13 +581,17 @@ export default function AdminPage({ user }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(360px,1fr))", gap: 18, alignItems: "start" }}>
             <ScoringPanel
               round={selectedRound}
+              race={selectedRace}
               official={roundWorkspace?.official}
               latestAwardRun={roundWorkspace?.latestAwardRun || selectedRoundStatus?.latestAwardRun}
               latestPublishRun={roundWorkspace?.latestPublishRun || selectedRoundStatus?.latestPublishRun}
               capabilities={roundWorkspace?.capabilities || capabilities}
               actionResult={actionResults.award}
+              sprintActionResult={actionResults.awardSprint}
               loading={!!loadingFlags.award}
+              sprintLoading={!!loadingFlags.awardSprint}
               onAward={() => runAction("award", () => awardRoundPoints(SEASON, selectedRound), { refreshDashboard: true, refreshRound: true })}
+              onAwardSprint={() => runAction("awardSprint", () => awardRoundPoints(SEASON, selectedRound, "sprint"), { refreshDashboard: true, refreshRound: true })}
             />
 
             <NewsAiPanel

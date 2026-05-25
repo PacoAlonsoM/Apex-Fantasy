@@ -5,7 +5,14 @@ import { upsertCanonicalHistoryFromResults } from "../../_lib/canonicalHistory";
 import { appendOperationRun, buildOperationRun, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
 import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { markUpcomingAiBriefStale, runAiBriefGeneration } from "../../_lib/aiBriefService";
-import { buildRaceResultsRowFromDraft, deriveManualFieldsUsed, normalizeDraftRecord, normalizeOfficialResultsRow, validateDraftForPublish } from "../../_lib/results";
+import {
+  buildRaceResultsRowFromDraft,
+  buildSprintResultsRowFromDraft,
+  deriveManualFieldsUsed,
+  normalizeDraftRecord,
+  normalizeOfficialResultsRow,
+  validateDraftForPublish,
+} from "../../_lib/results";
 import { getSupabaseAdmin, getSupabaseReadClient, requireServiceRole } from "../../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -21,6 +28,7 @@ export async function POST(request) {
     await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     const round = Number(body?.round || 0);
+    const scope = body?.scope === "sprint" ? "sprint" : "full";
 
     if (!round) {
       return jsonError("Missing round for publish.", 400);
@@ -57,12 +65,14 @@ export async function POST(request) {
       }
       const draft = normalizeDraftRecord(storedDraft);
 
-      const validation = validateDraftForPublish(draft);
+      const validation = validateDraftForPublish(draft, { scope });
       if (!validation.ok) {
-        throw new Error(`Missing manual result fields: ${validation.missing.join(", ")}.`);
+        throw new Error(`Missing ${scope === "sprint" ? "sprint" : "manual result"} fields: ${validation.missing.join(", ")}.`);
       }
 
-      publishedRow = buildRaceResultsRowFromDraft(draft);
+      publishedRow = scope === "sprint"
+        ? buildSprintResultsRowFromDraft(draft, existingOfficial)
+        : buildRaceResultsRowFromDraft(draft, existingOfficial);
 
       const { error: upsertError } = await adminSupabase
         .from("race_results")
@@ -77,23 +87,30 @@ export async function POST(request) {
 
       if (verifyError) throw verifyError;
       const verifiedRow = normalizeOfficialResultsRow(storedOfficial || null);
-      if (!verifiedRow?.results_entered || Number(verifiedRow.race_round || 0) !== round) {
+      if (Number(verifiedRow?.race_round || 0) !== round) {
         throw new Error(`Publish verification failed for round ${round}.`);
+      }
+      if (scope === "full" && !verifiedRow?.results_entered) {
+        throw new Error(`Publish verification failed for round ${round}.`);
+      }
+      if (scope === "sprint" && (!verifiedRow?.sp_pole || !verifiedRow?.sp_winner || !verifiedRow?.sp_p2 || !verifiedRow?.sp_p3)) {
+        throw new Error(`Sprint publish verification failed for round ${round}.`);
       }
 
       const changedOfficialRow = existingOfficial ? rowsDiffer(existingOfficial, publishedRow) : true;
       if (changedOfficialRow && existingOfficial?.results_entered) {
-        warnings = ["Official results changed. Award points again to refresh stored scores."];
+        warnings = [`${scope === "sprint" ? "Sprint results" : "Official results"} changed. Award points again to refresh stored scores.`];
       }
 
       store.resultsDrafts[key] = {
         ...draft,
-        status: "published",
-        publishedAt: updatedAt,
+        status: scope === "sprint" && !publishedRow.results_entered ? "sprint-published" : "published",
+        publishedAt: scope === "full" ? updatedAt : draft.publishedAt || null,
         updatedAt,
         publishedSnapshot: {
           publishedAt: updatedAt,
           publishedBy: "local-admin",
+          scope,
           manualFields: deriveManualFieldsUsed(draft.payload),
           officialRow: publishedRow,
         },
@@ -103,11 +120,12 @@ export async function POST(request) {
         season,
         round,
         status: warnings.length ? "partial" : "ok",
-        message: `Published official results for round ${round}.`,
+        message: `Published ${scope === "sprint" ? "sprint" : "official"} results for round ${round}.`,
         warnings,
         counts: {
           manualFields: deriveManualFieldsUsed(draft.payload).length,
         },
+        details: { scope },
         updatedAt,
       });
 
@@ -115,49 +133,55 @@ export async function POST(request) {
       return store;
     });
 
-    try {
-      const historySync = await upsertCanonicalHistoryFromResults(adminSupabase, publishedRow, { season });
-      if (!historySync.count) {
-        warnings = [...warnings, "History refresh skipped: no published result row was available."];
+    if (scope === "full") {
+      try {
+        const historySync = await upsertCanonicalHistoryFromResults(adminSupabase, publishedRow, { season });
+        if (!historySync.count) {
+          warnings = [...warnings, "History refresh skipped: no published result row was available."];
+        }
+      } catch (error) {
+        warnings = [...warnings, `History refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
       }
-    } catch (error) {
-      warnings = [...warnings, `History refresh skipped: ${error instanceof Error ? error.message : "unknown error"}`];
     }
 
-    after(async () => {
-      try {
-        await markUpcomingAiBriefStale({
-          round,
-          reason: `Official results changed for round ${round}. Refreshing the upcoming AI brief.`,
-        });
-      } catch (error) {
-        console.warn("AI brief stale marker skipped", error?.message || error);
-      }
+    if (scope === "full") {
+      after(async () => {
+        try {
+          await markUpcomingAiBriefStale({
+            round,
+            reason: `Official results changed for round ${round}. Refreshing the upcoming AI brief.`,
+          });
+        } catch (error) {
+          console.warn("AI brief stale marker skipped", error?.message || error);
+        }
 
-      try {
-        await runAiBriefGeneration({ season });
-      } catch (error) {
-        console.warn("Post-publish AI brief refresh skipped", error?.message || error);
-      }
-    });
+        try {
+          await runAiBriefGeneration({ season });
+        } catch (error) {
+          console.warn("Post-publish AI brief refresh skipped", error?.message || error);
+        }
+      });
+    }
 
     if (warnings.length) {
-      return jsonOk(`Published official results for round ${round}.`, {
+      return jsonOk(`Published ${scope === "sprint" ? "sprint" : "official"} results for round ${round}.`, {
         runId: run?.id,
         season,
         round,
+        scope,
         warnings,
-        aiRefreshScheduled: true,
+        aiRefreshScheduled: scope === "full",
         official: publishedRow,
         draft: nextStore.resultsDrafts[key],
       });
     }
 
-    return jsonOk(`Published official results for round ${round}.`, {
+    return jsonOk(`Published ${scope === "sprint" ? "sprint" : "official"} results for round ${round}.`, {
       runId: run?.id,
       season,
       round,
-      aiRefreshScheduled: true,
+      scope,
+      aiRefreshScheduled: scope === "full",
       official: publishedRow,
       draft: nextStore.resultsDrafts[key],
     });

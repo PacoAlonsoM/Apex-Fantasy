@@ -3,11 +3,35 @@ import AdminCard from "./AdminCard";
 import AdminPill from "./AdminPill";
 import { buttonStyle, formatStamp } from "../formatters";
 
-export default function ScoringPanel({ round, official, latestAwardRun, latestPublishRun, capabilities, actionResult, loading, onAward }) {
+function hasSprintResult(official) {
+  return Boolean(official?.sp_pole && official?.sp_winner && official?.sp_p2 && official?.sp_p3);
+}
+
+export default function ScoringPanel({
+  round,
+  race,
+  official,
+  latestAwardRun,
+  latestPublishRun,
+  capabilities,
+  actionResult,
+  sprintActionResult,
+  loading,
+  sprintLoading,
+  onAward,
+  onAwardSprint,
+}) {
   const stale = latestPublishRun && latestAwardRun
     ? new Date(latestAwardRun.updatedAt).getTime() < new Date(latestPublishRun.updatedAt).getTime()
     : !!latestPublishRun && !latestAwardRun;
   const awardBlockedReason = capabilities?.canAwardPoints ? "" : capabilities?.awardPointsReason || "";
+  const sprintRound = !!race?.sprint;
+  const sprintReady = hasSprintResult(official);
+  const sprintDisabledReason = !sprintRound
+    ? "This round does not have a sprint."
+    : !sprintReady
+      ? "Publish the sprint result first."
+      : awardBlockedReason;
 
   return (
     <AdminCard
@@ -23,12 +47,26 @@ export default function ScoringPanel({ round, official, latestAwardRun, latestPu
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <AdminPill label={official?.results_entered ? "Official result published" : "Waiting for publish"} tone={official?.results_entered ? "ok" : "partial"} />
+              {sprintRound && sprintReady && !official?.results_entered && <AdminPill label="Sprint result ready" tone="partial" />}
               {stale && <AdminPill label="Needs re-award" tone="partial" />}
             </div>
           </div>
-          <button type="button" onClick={onAward} disabled={loading || !official?.results_entered || !!awardBlockedReason} style={buttonStyle()}>
-            {loading ? "Awarding..." : "Award points"}
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {sprintRound && (
+              <button
+                type="button"
+                onClick={onAwardSprint}
+                disabled={sprintLoading || loading || !!sprintDisabledReason}
+                title={sprintDisabledReason || undefined}
+                style={buttonStyle({ emphasis: "secondary" })}
+              >
+                {sprintLoading ? "Awarding sprint..." : "Award sprint only"}
+              </button>
+            )}
+            <button type="button" onClick={onAward} disabled={loading || sprintLoading || !official?.results_entered || !!awardBlockedReason} style={buttonStyle()}>
+              {loading ? "Awarding..." : "Award full round"}
+            </button>
+          </div>
         </div>
 
         {awardBlockedReason && (
@@ -43,9 +81,10 @@ export default function ScoringPanel({ round, official, latestAwardRun, latestPu
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(214,223,239,0.62)" }}>
-          This recalculates scores from the current published database row only.
+          Sprint-only scoring uses only sprint fields before the GP is published. If the GP is already published, it repairs the full-round score with the sprint fields included, so points are added as a delta instead of double counted.
         </div>
 
+        <AdminActionResult result={sprintActionResult} />
         <AdminActionResult result={actionResult} />
       </div>
     </AdminCard>

@@ -3,7 +3,7 @@ import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localA
 import { appendOperationRun, buildOperationRun, readLocalAdminStore, roundStoreKey, updateLocalAdminStore } from "../../_lib/localAdminStore";
 import { getDraftForRound } from "../../_lib/dashboardData";
 import { buildDraftPayload, normalizeDraftRecord } from "../../_lib/results";
-import { fetchRaceData } from "@/src/lib/openf1";
+import { fetchRaceData, fetchSprintData } from "@/src/lib/openf1";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,14 +14,17 @@ export async function POST(request) {
     await requireAdminRequest(request, body);
     const season = Number(body?.season || 2026) || 2026;
     const round = Number(body?.round || body?.raceRound || 0);
+    const scope = body?.scope === "sprint" ? "sprint" : "full";
 
     if (!round) {
       return jsonError("Missing race round for import.", 400);
     }
 
-    const imported = await fetchRaceData(season, round);
+    const imported = scope === "sprint"
+      ? await fetchSprintData(season, round)
+      : await fetchRaceData(season, round);
     if (!imported) {
-      return jsonError(`No OpenF1 race result payload found for round ${round}.`, 404);
+      return jsonError(`No OpenF1 ${scope === "sprint" ? "sprint" : "race"} result payload found for round ${round}.`, 404);
     }
 
     const store = await readLocalAdminStore();
@@ -42,6 +45,7 @@ export async function POST(request) {
       updatedAt: new Date().toISOString(),
       source: {
         provider: "OpenF1",
+        scope,
         integrity: imported?.integrity || null,
         rawResults: imported?.raw_results || [],
       },
@@ -56,12 +60,13 @@ export async function POST(request) {
       season,
       round,
       status: warnings.length ? "partial" : "ok",
-      message: `Imported OpenF1 data for round ${round}.`,
+      message: `Imported OpenF1 ${scope === "sprint" ? "sprint" : "race"} data for round ${round}.`,
       warnings,
       counts: {
         classified: imported?.integrity?.classifiedCount || 0,
         rows: imported?.integrity?.totalRows || 0,
       },
+      details: { scope },
     });
 
     const nextStore = await updateLocalAdminStore((currentStore) => {
@@ -70,10 +75,11 @@ export async function POST(request) {
       return currentStore;
     });
 
-    return jsonOk(`Imported OpenF1 results for round ${round}.`, {
+    return jsonOk(`Imported OpenF1 ${scope === "sprint" ? "sprint" : "race"} results for round ${round}.`, {
       runId: run.id,
       season,
       round,
+      scope,
       draft: nextStore.resultsDrafts[roundStoreKey(season, round)],
       warnings,
       counts: run.counts,

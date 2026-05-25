@@ -273,6 +273,16 @@ export async function getRaceSession(year, round) {
   }
 }
 
+export async function getMeetingSessionByName(year, round, names = []) {
+  const raceSession = await getRaceSession(year, round);
+  const meetingKey = raceSession?.meeting_key || null;
+  if (!meetingKey) return null;
+
+  const wanted = names.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean);
+  const sessions = await fetchMeetingSessions(meetingKey);
+  return sessions.find((session) => wanted.includes(String(session?.session_name || "").trim().toLowerCase())) || null;
+}
+
 // Trae los resultados finales de una carrera
 export async function getRaceResults(sessionKey) {
   try {
@@ -319,6 +329,60 @@ export async function getDrivers(sessionKey) {
   }
 }
 
+function buildDriverMapFromRows(rows = [], driverRows = []) {
+  const driverMap = { ...LOCAL_DRIVER_MAP };
+  driverRows.forEach((driver) => {
+    driverMap[driver.driver_number] = driverMap[driver.driver_number] || driver.full_name;
+  });
+  rows.forEach((row) => {
+    const driverNumber = row?.driver_number;
+    if (!driverNumber) return;
+    driverMap[driverNumber] = driverMap[driverNumber] || LOCAL_DRIVER_MAP[String(driverNumber)];
+  });
+  return driverMap;
+}
+
+function orderedSessionResults(rows = []) {
+  return rows
+    .filter((row) => row.position)
+    .sort((left, right) => left.position - right.position);
+}
+
+export async function fetchSprintData(year, round) {
+  const sprintSession = await getMeetingSessionByName(year, round, ["Sprint"]);
+  if (!sprintSession?.session_key) return null;
+
+  const sprintResults = await getRaceResults(sprintSession.session_key);
+  await wait(REQUEST_GAP_MS);
+
+  const sprintQualifyingSession = await getMeetingSessionByName(year, round, ["Sprint Qualifying", "Sprint Shootout"]);
+  const sprintQualifyingResults = sprintQualifyingSession?.session_key
+    ? await getRaceResults(sprintQualifyingSession.session_key)
+    : [];
+  await wait(REQUEST_GAP_MS);
+
+  const driverRows = await getDrivers(sprintSession.session_key);
+  const driverMap = buildDriverMapFromRows([...sprintResults, ...sprintQualifyingResults], driverRows);
+  const sprintSorted = orderedSessionResults(sprintResults);
+  const sprintQualifyingSorted = orderedSessionResults(sprintQualifyingResults);
+  const integrity = buildRaceIntegritySummary(sprintSession, sprintResults, sprintSorted, []);
+
+  return {
+    session_key: sprintSession.session_key,
+    meeting_key: sprintSession?.meeting_key || null,
+    sp_pole: driverMap[sprintQualifyingSorted[0]?.driver_number] || null,
+    sp_winner: driverMap[sprintSorted[0]?.driver_number] || null,
+    sp_p2: driverMap[sprintSorted[1]?.driver_number] || null,
+    sp_p3: driverMap[sprintSorted[2]?.driver_number] || null,
+    integrity,
+    raw_results: sprintSorted.map((row) => ({
+      position: row.position,
+      driver: driverMap[row.driver_number],
+      driver_number: row.driver_number,
+    })),
+  };
+}
+
 // Función principal: trae todos los datos de una carrera y los formatea
 export async function fetchRaceData(year, round) {
   const session = await getRaceSession(year, round);
@@ -343,9 +407,7 @@ export async function fetchRaceData(year, round) {
   });
 
   // Resultados ordenados por posición
-  const sorted = results
-    .filter(r => r.position)
-    .sort((a, b) => a.position - b.position);
+  const sorted = orderedSessionResults(results);
 
   const winner = driverMap[sorted[0]?.driver_number] || null;
   const p2 = driverMap[sorted[1]?.driver_number] || null;

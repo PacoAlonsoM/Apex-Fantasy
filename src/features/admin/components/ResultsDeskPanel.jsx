@@ -41,8 +41,12 @@ function valueRow(label, value) {
   return { label, value: value || "—" };
 }
 
-function payloadRows(payload = {}) {
-  return [
+function hasSprintPayload(payload = {}) {
+  return Boolean(payload.sp_pole || payload.sp_winner || payload.sp_p2 || payload.sp_p3);
+}
+
+function payloadRows(payload = {}, { includeSprint = false } = {}) {
+  const rows = [
     valueRow("Winner", payload.winner),
     valueRow("P2", payload.p2),
     valueRow("P3", payload.p3),
@@ -54,6 +58,17 @@ function payloadRows(payload = {}) {
     valueRow("Safety Car", typeof payload.safety_car === "boolean" ? (payload.safety_car ? "Yes" : "No") : null),
     valueRow("Red Flag", typeof payload.red_flag === "boolean" ? (payload.red_flag ? "Yes" : "No") : null),
   ];
+
+  if (includeSprint || hasSprintPayload(payload)) {
+    rows.push(
+      valueRow("Sprint Pole", payload.sp_pole),
+      valueRow("Sprint Winner", payload.sp_winner),
+      valueRow("Sprint P2", payload.sp_p2),
+      valueRow("Sprint P3", payload.sp_p3),
+    );
+  }
+
+  return rows;
 }
 
 function buildDriverOptions(payload = {}, official = null) {
@@ -83,6 +98,14 @@ function buildDriverOptions(payload = {}, official = null) {
     official?.pole,
     official?.fastest_lap,
     official?.dotd,
+    payload.sp_pole,
+    payload.sp_winner,
+    payload.sp_p2,
+    payload.sp_p3,
+    official?.sp_pole,
+    official?.sp_winner,
+    official?.sp_p2,
+    official?.sp_p3,
     ...(official?.dnf_list || []),
   ].forEach(add);
 
@@ -107,6 +130,10 @@ function rowsDiffer(left = {}, right = {}) {
     safety_car: !!payload?.safety_car,
     red_flag: !!payload?.red_flag,
     dnf_list: canonicalDriverList(payload?.dnf_list || []),
+    sp_pole: canonicalDriverName(payload?.sp_pole),
+    sp_winner: canonicalDriverName(payload?.sp_winner),
+    sp_p2: canonicalDriverName(payload?.sp_p2),
+    sp_p3: canonicalDriverName(payload?.sp_p3),
   });
 
   return JSON.stringify(normalize(left)) !== JSON.stringify(normalize(right));
@@ -155,11 +182,11 @@ function BooleanToggleField({ label, value, onChange }) {
   );
 }
 
-function SummaryGrid({ payload, tone = "default" }) {
+function SummaryGrid({ payload, tone = "default", includeSprint = false }) {
   const isPublished = tone === "published";
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-      {payloadRows(payload).map((item) => (
+      {payloadRows(payload, { includeSprint }).map((item) => (
         <div
           key={`${tone}-${item.label}`}
           style={{
@@ -186,23 +213,35 @@ export default function ResultsDeskPanel({
   official,
   capabilities,
   fetchResult,
+  importSprintResult,
   saveResult,
   publishResult,
+  publishSprintResult,
   importBusy,
+  importSprintBusy,
   saveBusy,
   publishBusy,
+  publishSprintBusy,
   onImport,
+  onImportSprint,
   onSaveDraft,
   onPublish,
+  onPublishSprint,
   draftForm,
   setDraftForm,
 }) {
   const payload = draftForm?.payload || draft?.payload || {};
+  const isSprintRound = !!race?.sprint;
   const manualFields = draft?.publishedSnapshot?.manualFields || official?.manualFields || [];
   const driverOptions = buildDriverOptions(payload, official);
   const constructorOptions = CONSTRUCTORS.map((team) => ({ value: team, label: team }));
   const selectedDnfDrivers = canonicalDriverList(payload.dnf_list || []);
   const publishStateIsStale = official?.results_entered && rowsDiffer(payload, official);
+  const sprintPublishBlockedReason = !isSprintRound
+    ? "This round does not have a sprint."
+    : capabilities?.canPublishResults
+      ? ""
+      : capabilities?.publishReason || "";
   const publishBlockedReason = capabilities?.canPublishResults ? "" : capabilities?.publishReason || "";
 
   const updatePayload = (key, value) => {
@@ -236,6 +275,7 @@ export default function ResultsDeskPanel({
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <AdminPill label={draft?.status || "no draft"} tone={draft?.status === "published" ? "ok" : draft ? "partial" : "error"} />
             {official?.results_entered && <AdminPill label="Database row exists" tone="ok" />}
+            {official && !official?.results_entered && hasSprintPayload(official) && <AdminPill label="Sprint stored" tone="partial" />}
             {publishStateIsStale && <AdminPill label="Draft differs from published row" tone="partial" />}
           </div>
         </div>
@@ -243,9 +283,19 @@ export default function ResultsDeskPanel({
           <button type="button" onClick={onImport} disabled={importBusy} style={buttonStyle({ emphasis: "secondary" })}>
             {importBusy ? "Importing..." : "Import OpenF1"}
           </button>
+          {isSprintRound && (
+            <button type="button" onClick={onImportSprint} disabled={importSprintBusy} style={buttonStyle({ emphasis: "secondary" })}>
+              {importSprintBusy ? "Importing sprint..." : "Import sprint"}
+            </button>
+          )}
           <button type="button" onClick={onSaveDraft} disabled={saveBusy} style={buttonStyle()}>
             {saveBusy ? "Saving..." : "Save draft"}
           </button>
+          {isSprintRound && (
+            <button type="button" onClick={onPublishSprint} disabled={publishSprintBusy || !!sprintPublishBlockedReason} style={buttonStyle({ emphasis: "secondary" })}>
+              {publishSprintBusy ? "Publishing sprint..." : "Publish sprint only"}
+            </button>
+          )}
           <button type="button" onClick={onPublish} disabled={publishBusy || !!publishBlockedReason} style={buttonStyle({ emphasis: "danger" })}>
             {publishBusy ? "Publishing..." : "Publish to database"}
           </button>
@@ -259,6 +309,8 @@ export default function ResultsDeskPanel({
       )}
 
       <AdminActionResult result={fetchResult} />
+      <AdminActionResult result={importSprintResult} />
+      <AdminActionResult result={publishSprintResult} />
       <AdminActionResult result={saveResult} />
       <AdminActionResult result={publishResult} />
 
@@ -269,7 +321,7 @@ export default function ResultsDeskPanel({
         <div style={{ fontSize: 13, color: "rgba(214,223,239,0.62)" }}>
           This is your editable version. If it looks right here, this is what you want to publish.
         </div>
-        <SummaryGrid payload={{ ...payload, dnf_list: selectedDnfDrivers }} />
+        <SummaryGrid payload={{ ...payload, dnf_list: selectedDnfDrivers }} includeSprint={isSprintRound} />
       </div>
 
       {publishStateIsStale && (
@@ -298,6 +350,23 @@ export default function ResultsDeskPanel({
         <BooleanToggleField label="Safety Car" value={!!payload.safety_car} onChange={(value) => updatePayload("safety_car", value)} />
         <BooleanToggleField label="Red Flag" value={!!payload.red_flag} onChange={(value) => updatePayload("red_flag", value)} />
       </div>
+
+      {isSprintRound && (
+        <div style={{ display: "grid", gap: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Sprint result</div>
+            <div style={{ fontSize: 12, color: "rgba(214,223,239,0.62)", lineHeight: 1.6 }}>
+              These fields can be published and scored before the Grand Prix finishes.
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            <SelectField label="Sprint Pole" value={payload.sp_pole || ""} options={driverOptions} placeholder="Select sprint pole" onChange={(value) => updatePayload("sp_pole", value)} />
+            <SelectField label="Sprint Winner" value={payload.sp_winner || ""} options={driverOptions} placeholder="Select sprint winner" onChange={(value) => updatePayload("sp_winner", value)} />
+            <SelectField label="Sprint 2nd" value={payload.sp_p2 || ""} options={driverOptions} placeholder="Select sprint P2" onChange={(value) => updatePayload("sp_p2", value)} />
+            <SelectField label="Sprint 3rd" value={payload.sp_p3 || ""} options={driverOptions} placeholder="Select sprint P3" onChange={(value) => updatePayload("sp_p3", value)} />
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: 10 }}>
         <div style={fieldLabelStyle}>DNF Drivers</div>
@@ -354,20 +423,21 @@ export default function ResultsDeskPanel({
       <div style={{ display: "grid", gap: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Current published database row</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Current database row</div>
             <div style={{ fontSize: 12, color: "rgba(214,223,239,0.62)" }}>
               This is the live `race_results` row that scoring will use right now.
             </div>
           </div>
           {official?.results_entered && <AdminPill label="Published" tone="ok" />}
+          {official && !official?.results_entered && hasSprintPayload(official) && <AdminPill label="Sprint only" tone="partial" />}
         </div>
 
         {official ? (
           <div style={{ display: "grid", gap: 10 }}>
             <div style={{ fontSize: 12, color: "rgba(214,223,239,0.7)" }}>
-              Published {formatStamp(draft?.publishedAt || official.locked_at)}{manualFields.length ? ` · Manual fields: ${manualFields.join(", ")}` : ""}
+              {official.results_entered ? "Published" : "Stored"} {formatStamp(draft?.publishedAt || official.locked_at || draft?.updatedAt)}{manualFields.length ? ` · Manual fields: ${manualFields.join(", ")}` : ""}
             </div>
-            <SummaryGrid payload={official} tone="published" />
+            <SummaryGrid payload={official} tone="published" includeSprint={isSprintRound} />
           </div>
         ) : (
           <div style={{ fontSize: 13, lineHeight: 1.7, color: "rgba(214,223,239,0.62)" }}>

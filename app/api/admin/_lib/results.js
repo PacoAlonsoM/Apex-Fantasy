@@ -13,6 +13,23 @@ export const MANUAL_RESULT_KEYS = [
   "sp_p3",
 ];
 
+const FULL_RESULT_KEYS = [
+  "winner",
+  "p2",
+  "p3",
+  "fastest_lap",
+  "pole",
+  "dotd",
+  "best_constructor",
+];
+
+const SPRINT_RESULT_KEYS = [
+  "sp_pole",
+  "sp_winner",
+  "sp_p2",
+  "sp_p3",
+];
+
 function normalizeKey(value) {
   return String(value || "")
     .normalize("NFD")
@@ -178,27 +195,26 @@ export function buildDraftPayload({ season = 2026, round, imported = {}, manual 
       best_constructor: normalizedManual.best_constructor || draft.best_constructor || "",
       safety_car: typeof imported?.safety_car === "boolean" ? imported.safety_car : !!draft.safety_car,
       red_flag: typeof imported?.red_flag === "boolean" ? imported.red_flag : !!draft.red_flag,
-      sp_pole: normalizedManual.sp_pole || draft.sp_pole || "",
-      sp_winner: normalizedManual.sp_winner || draft.sp_winner || "",
-      sp_p2: normalizedManual.sp_p2 || draft.sp_p2 || "",
-      sp_p3: normalizedManual.sp_p3 || draft.sp_p3 || "",
+      sp_pole: normalizedManual.sp_pole || normalizedImported.sp_pole || draft.sp_pole || "",
+      sp_winner: normalizedManual.sp_winner || normalizedImported.sp_winner || draft.sp_winner || "",
+      sp_p2: normalizedManual.sp_p2 || normalizedImported.sp_p2 || draft.sp_p2 || "",
+      sp_p3: normalizedManual.sp_p3 || normalizedImported.sp_p3 || draft.sp_p3 || "",
       raw_results: normalizedImported.raw_results?.length ? normalizedImported.raw_results : draft.raw_results || [],
       integrity: normalizedImported.integrity || draft.integrity || null,
     }),
   };
 }
 
-export function validateDraftForPublish(draft) {
+export function validateDraftForPublish(draft, { scope = "full" } = {}) {
   const payload = normalizeResultsPayload(draft?.payload || {});
-  const missing = [];
+  const requiredKeys = scope === "sprint" ? SPRINT_RESULT_KEYS : FULL_RESULT_KEYS;
+  const missing = requiredKeys.filter((key) => !payload[key]);
 
-  if (!payload.winner) missing.push("winner");
-  if (!payload.p2) missing.push("p2");
-  if (!payload.p3) missing.push("p3");
-  if (!payload.fastest_lap) missing.push("fastest_lap");
-  if (!payload.pole) missing.push("pole");
-  if (!payload.dotd) missing.push("dotd");
-  if (!payload.best_constructor) missing.push("best_constructor");
+  if (scope !== "sprint" && SPRINT_RESULT_KEYS.some((key) => payload[key])) {
+    SPRINT_RESULT_KEYS.forEach((key) => {
+      if (!payload[key] && !missing.includes(key)) missing.push(key);
+    });
+  }
 
   return {
     ok: missing.length === 0,
@@ -206,8 +222,39 @@ export function validateDraftForPublish(draft) {
   };
 }
 
-export function buildRaceResultsRowFromDraft(draft) {
+function preserveExistingRaceValue(existingOfficial, key, fallback = null) {
+  const value = existingOfficial?.[key];
+  return value === undefined ? fallback : value;
+}
+
+export function buildSprintResultsRowFromDraft(draft, existingOfficial = null) {
   const payload = normalizeResultsPayload(draft?.payload || {});
+  const existing = normalizeOfficialResultsRow(existingOfficial);
+
+  return {
+    race_round: Number(draft?.round || payload.race_round || existing?.race_round || 0),
+    pole: preserveExistingRaceValue(existing, "pole"),
+    winner: preserveExistingRaceValue(existing, "winner"),
+    p2: preserveExistingRaceValue(existing, "p2"),
+    p3: preserveExistingRaceValue(existing, "p3"),
+    dnf: preserveExistingRaceValue(existing, "dnf"),
+    fastest_lap: preserveExistingRaceValue(existing, "fastest_lap"),
+    dotd: preserveExistingRaceValue(existing, "dotd"),
+    best_constructor: preserveExistingRaceValue(existing, "best_constructor"),
+    safety_car: Boolean(preserveExistingRaceValue(existing, "safety_car", false)),
+    red_flag: Boolean(preserveExistingRaceValue(existing, "red_flag", false)),
+    sp_pole: payload.sp_pole || existing?.sp_pole || null,
+    sp_winner: payload.sp_winner || existing?.sp_winner || null,
+    sp_p2: payload.sp_p2 || existing?.sp_p2 || null,
+    sp_p3: payload.sp_p3 || existing?.sp_p3 || null,
+    results_entered: Boolean(existing?.results_entered),
+    locked_at: existing?.locked_at || null,
+  };
+}
+
+export function buildRaceResultsRowFromDraft(draft, existingOfficial = null) {
+  const payload = normalizeResultsPayload(draft?.payload || {});
+  const existing = normalizeOfficialResultsRow(existingOfficial);
   return {
     race_round: Number(draft?.round || payload.race_round || 0),
     pole: payload.pole || null,
@@ -220,10 +267,10 @@ export function buildRaceResultsRowFromDraft(draft) {
     best_constructor: payload.best_constructor || null,
     safety_car: !!payload.safety_car,
     red_flag: !!payload.red_flag,
-    sp_pole: payload.sp_pole || null,
-    sp_winner: payload.sp_winner || null,
-    sp_p2: payload.sp_p2 || null,
-    sp_p3: payload.sp_p3 || null,
+    sp_pole: payload.sp_pole || existing?.sp_pole || null,
+    sp_winner: payload.sp_winner || existing?.sp_winner || null,
+    sp_p2: payload.sp_p2 || existing?.sp_p2 || null,
+    sp_p3: payload.sp_p3 || existing?.sp_p3 || null,
     results_entered: true,
     locked_at: new Date().toISOString(),
   };

@@ -162,20 +162,20 @@ export function fetchRoundResults(season, round) {
   return getJson(`/api/admin/results?season=${season}&round=${round}`);
 }
 
-export function importRoundResults(season, round) {
-  return postJson("/api/admin/results/import", { season, round });
+export function importRoundResults(season, round, scope = "full") {
+  return postJson("/api/admin/results/import", { season, round, scope });
 }
 
 export function saveRoundDraft(season, round, draft) {
   return postJson("/api/admin/results/save-draft", { season, round, draft });
 }
 
-export function publishRoundResults(season, round) {
-  return postJson("/api/admin/results/publish", { season, round });
+export function publishRoundResults(season, round, scope = "full") {
+  return postJson("/api/admin/results/publish", { season, round, scope });
 }
 
-export function awardRoundPoints(season, round) {
-  return postJson("/api/admin/results/award-points", { season, round });
+export function awardRoundPoints(season, round, scope = "full") {
+  return postJson("/api/admin/results/award-points", { season, round, scope });
 }
 
 export function syncNewsFeed(season = 2026) {
