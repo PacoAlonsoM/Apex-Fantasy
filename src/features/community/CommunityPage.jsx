@@ -583,6 +583,17 @@ function LeagueReviewView({ currentLeague, currentLeagueReview, currentLeagueRou
   const hasPredictions = members.some((e) => e.prediction);
   const colTemplate = `140px 100px ${members.map(() => "minmax(58px,1fr)").join(" ")}`;
   const gridMinWidth = Math.max(380, 240 + members.length * 68);
+  const resultSummaryRows = currentLeagueRoundResult
+    ? [
+        ["P2",          currentLeagueRoundResult.p2,            "#dbe4f0"],
+        ["P3",          currentLeagueRoundResult.p3,            "#c2956c"],
+        ["FL",          currentLeagueRoundResult.fastest_lap,   "#fde68a"],
+        ["DOTD",        currentLeagueRoundResult.dotd,          "#86efac"],
+        ["Constructor", currentLeagueRoundResult.best_constructor, "#bfdbfe"],
+        ["SC",  typeof currentLeagueRoundResult.safety_car === "boolean" ? (currentLeagueRoundResult.safety_car ? "Yes" : "No") : null, "#f97316"],
+        ["RF",  typeof currentLeagueRoundResult.red_flag   === "boolean" ? (currentLeagueRoundResult.red_flag   ? "Yes" : "No") : null, "#ef4444"],
+      ].filter(([, value]) => value !== null)
+    : [];
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -637,17 +648,9 @@ function LeagueReviewView({ currentLeague, currentLeagueReview, currentLeagueRou
               </div>
             )}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(80px,1fr))", gap: 1, background: HAIRLINE }}>
-            {[
-              ["P2",          currentLeagueRoundResult.p2,            "#dbe4f0"],
-              ["P3",          currentLeagueRoundResult.p3,            "#c2956c"],
-              ["FL",          currentLeagueRoundResult.fastest_lap,   "#fde68a"],
-              ["DOTD",        currentLeagueRoundResult.dotd,          "#86efac"],
-              ["Constructor", currentLeagueRoundResult.best_constructor, "#bfdbfe"],
-              ["SC",  typeof currentLeagueRoundResult.safety_car === "boolean" ? (currentLeagueRoundResult.safety_car ? "Yes" : "No") : null, "#f97316"],
-              ["RF",  typeof currentLeagueRoundResult.red_flag   === "boolean" ? (currentLeagueRoundResult.red_flag   ? "Yes" : "No") : null, "#ef4444"],
-            ].filter(([, v]) => v !== null).map(([label, value, color]) => (
-              <div key={label} style={{ padding: "10px 12px", background: PANEL_BG }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(128px,1fr))", gap: 1, background: HAIRLINE }}>
+            {resultSummaryRows.map(([label, value, color]) => (
+              <div key={label} style={{ minWidth: 0, padding: "10px 12px", background: PANEL_BG }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 3 }}>{label}</div>
                 <div style={{ fontSize: 13, fontWeight: 900, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
               </div>
