@@ -1,7 +1,7 @@
 import "server-only";
 
 const OPENAI_BASE = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4.1";
+const DEFAULT_MODEL = process.env.OPENAI_AI_BRIEF_MODEL || process.env.OPENAI_MODEL || "gpt-5.5";
 
 const DRIVER_OPTIONS = [
   "Lando Norris",

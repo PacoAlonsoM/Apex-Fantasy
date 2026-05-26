@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENF1_BASE = "https://api.openf1.org/v1";
 const OPENAI_BASE = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL = "gpt-4.1";
+const DEFAULT_MODEL = "gpt-5.5";
 const FALLBACK_ADMIN_ID = "cb9d7c71-74a6-4a5f-90d6-0809c83f4101";
 const REQUEST_TIMEOUT_MS = 12000;
 const MAX_NEWS_ARTICLES = 48;
@@ -1889,7 +1889,7 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || serviceRoleKey;
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  const model = Deno.env.get("OPENAI_MODEL") || DEFAULT_MODEL;
+  const model = Deno.env.get("OPENAI_AI_BRIEF_MODEL") || Deno.env.get("OPENAI_MODEL") || DEFAULT_MODEL;
   const adminId = Deno.env.get("AI_ADMIN_USER_ID") || FALLBACK_ADMIN_ID;
   const sharedSyncSecret = Deno.env.get("RACE_RESULTS_SYNC_SECRET");
 

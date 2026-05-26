@@ -163,7 +163,7 @@ function buildMonthlyFallbackSummary({ month, userStats }) {
 
 async function generateInsight({ prompt, insightType, fallbackContent }) {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model = process.env.OPENAI_PRO_INSIGHTS_MODEL || "gpt-4o-mini";
   const resolvedFallback = fallbackContent || {
     post_race: "Your race is scored and your Pro board is up to date. The live AI debrief is temporarily unavailable, but your picks, points and finishing trends are still being tracked for the next update.",
     pre_race: "Your next-race briefing is waiting on the live AI analyst. Your Pro history is still synced, so you can review your strongest categories and lock your board as usual.",

@@ -164,7 +164,7 @@ async function generateBriefViaRemoteProxy(season, preferredRound = null) {
   const store = await readLocalAdminStore();
   const inputs = await loadAiBriefInputs({ supabase, store, season, preferredRound });
   const { context, categoryOptions } = buildAiContext(inputs);
-  const requestedModel = process.env.OPENAI_MODEL || "gpt-4.1";
+  const requestedModel = process.env.OPENAI_AI_BRIEF_MODEL || process.env.OPENAI_MODEL || "gpt-5.5";
 
   const response = await invokeSupabaseFunction(
     "ai-race-brief",
