@@ -60,6 +60,25 @@ async function loadAiBriefInputs({ supabase, store, season, preferredRound = nul
   };
 }
 
+async function shouldSaveInsightRow({ supabase, insight }) {
+  if (insight?.mode !== "fallback") return true;
+
+  const { data, error } = await supabase
+    .from("ai_insights")
+    .select("provider,metadata")
+    .eq("insight_key", "upcoming_race_brief")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("AI brief fallback preservation check skipped", error.message);
+    return true;
+  }
+
+  const existingMode = String(data?.metadata?.generation_mode || "").trim().toLowerCase();
+  const existingProvider = String(data?.provider || "").trim().toLowerCase();
+  return !(existingMode === "openai" || existingProvider === "openai");
+}
+
 async function persistAiBrief({
   supabase,
   season,
@@ -81,8 +100,12 @@ async function persistAiBrief({
     insight,
   });
 
-  const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
-  if (upsertError) throw upsertError;
+  const savedInsightRow = await shouldSaveInsightRow({ supabase, insight });
+
+  if (savedInsightRow) {
+    const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
+    if (upsertError) throw upsertError;
+  }
 
   const generatedPredictionRows = buildAiRacePredictionRows({
     race,
@@ -91,7 +114,7 @@ async function persistAiBrief({
     generatedAt: row.generated_at,
   });
 
-  if (generatedPredictionRows.length) {
+  if (savedInsightRow && generatedPredictionRows.length) {
     try {
       const raceRound = generatedPredictionRows[0]?.race_round || null;
       if (raceRound) {
@@ -126,14 +149,19 @@ async function persistAiBrief({
     season,
     round: race.r,
     status: insight.mode === "fallback" ? "partial" : "ok",
-    message: aiMessage(insight.mode, race.n),
+    message: savedInsightRow
+      ? aiMessage(insight.mode, race.n)
+      : `Fallback brief generated for ${race.n}; kept the existing live AI brief.`,
     counts: {
       articles: articles.length,
       sources: row.source_count || 0,
       historyRows: historyRows.length,
       predictions: generatedPredictionRows.length,
     },
-    warnings: insight.mode === "fallback" && insight.note ? [insight.note] : [],
+    warnings: [
+      ...(insight.mode === "fallback" && insight.note ? [insight.note] : []),
+      ...(!savedInsightRow ? ["Existing OpenAI brief was preserved because this run fell back."] : []),
+    ],
   });
 
   await updateLocalAdminStore((state) => {

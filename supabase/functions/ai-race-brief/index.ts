@@ -1766,6 +1766,25 @@ function buildAiRacePredictionRows({
     }));
 }
 
+async function shouldSaveInsightRow(supabase: ReturnType<typeof createClient>, insight: Record<string, unknown>) {
+  if (insight?.mode !== "fallback") return true;
+
+  const { data, error } = await supabase
+    .from("ai_insights")
+    .select("provider,metadata")
+    .eq("insight_key", "upcoming_race_brief")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("AI brief fallback preservation check skipped", error.message);
+    return true;
+  }
+
+  const existingMode = String(data?.metadata?.generation_mode || "").trim().toLowerCase();
+  const existingProvider = String(data?.provider || "").trim().toLowerCase();
+  return !(existingMode === "openai" || existingProvider === "openai");
+}
+
 async function loadHistoricalContext({
   supabase,
   year,
@@ -2116,8 +2135,12 @@ Deno.serve(async (req: Request) => {
       },
     };
 
-    const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
-    if (upsertError) throw new Error(upsertError.message);
+    const savedInsightRow = await shouldSaveInsightRow(supabase, insight);
+
+    if (savedInsightRow) {
+      const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
+      if (upsertError) throw new Error(upsertError.message);
+    }
 
     const aiPredictionRows = buildAiRacePredictionRows({
       upcomingRace,
@@ -2128,7 +2151,7 @@ Deno.serve(async (req: Request) => {
       generatedAt: row.generated_at,
     });
 
-    if (aiPredictionRows.length) {
+    if (savedInsightRow && aiPredictionRows.length) {
       try {
         const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", historicalContext.targetRound);
         if (deleteError) throw deleteError;
@@ -2162,6 +2185,7 @@ Deno.serve(async (req: Request) => {
       provider: insight.mode === "fallback" ? "fallback" : "openai",
       model: insight.model || responseModel,
       researchSourceCount: Array.isArray(insight.research_sources) ? insight.research_sources.length : 0,
+      savedInsightRow,
     });
   } catch (error) {
     await supabase.from("ai_insight_runs").insert({

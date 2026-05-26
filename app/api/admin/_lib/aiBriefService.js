@@ -78,6 +78,25 @@ function aiWarningsFromInsight(mode, insightRow, fallbackWarnings = []) {
   return warnings.filter(Boolean);
 }
 
+async function shouldSaveInsightRow({ supabase, insight }) {
+  if (insight?.mode !== "fallback") return true;
+
+  const { data, error } = await supabase
+    .from("ai_insights")
+    .select("provider,metadata")
+    .eq("insight_key", "upcoming_race_brief")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("AI brief fallback preservation check skipped", error.message);
+    return true;
+  }
+
+  const existingMode = String(data?.metadata?.generation_mode || "").trim().toLowerCase();
+  const existingProvider = String(data?.provider || "").trim().toLowerCase();
+  return !(existingMode === "openai" || existingProvider === "openai");
+}
+
 export async function persistAiBrief({
   supabase,
   season,
@@ -99,8 +118,12 @@ export async function persistAiBrief({
     insight,
   });
 
-  const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
-  if (upsertError) throw upsertError;
+  const savedInsightRow = await shouldSaveInsightRow({ supabase, insight });
+
+  if (savedInsightRow) {
+    const { error: upsertError } = await supabase.from("ai_insights").upsert(row, { onConflict: "insight_key" });
+    if (upsertError) throw upsertError;
+  }
 
   const { error: runError } = await supabase.from("ai_insight_runs").insert({
     scope: "upcoming_race",
@@ -122,14 +145,19 @@ export async function persistAiBrief({
     season,
     round: race.r,
     status: insight.mode === "fallback" ? "partial" : "ok",
-    message: aiMessage(insight.mode, race.n),
+    message: savedInsightRow
+      ? aiMessage(insight.mode, race.n)
+      : `Fallback brief generated for ${race.n}; kept the existing live AI brief.`,
     counts: {
       articles: articles.length,
       sources: row.source_count || 0,
       historyRows: historyRows.length,
       predictions: predictionRows.length,
     },
-    warnings: insight.mode === "fallback" && insight.note ? [insight.note] : [],
+    warnings: [
+      ...(insight.mode === "fallback" && insight.note ? [insight.note] : []),
+      ...(!savedInsightRow ? ["Existing OpenAI brief was preserved because this run fell back."] : []),
+    ],
   });
 
   await updateLocalAdminStore((state) => {
