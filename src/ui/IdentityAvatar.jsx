@@ -6,32 +6,15 @@ import {
 } from "@/src/constants/design";
 
 /**
- * Stint identity avatar — a single-circle tone-keyed medallion.
+ * Stint identity avatar — flat team-color disc + clean initials, no ring.
  *
- * Single outer ring. No inner bezel. Pro is signalled by upgrading the ring
- * to ACCENT and adding an external halo glow — no extra concentric circles,
- * no chequer pin, no duplicate badges.
+ * Visual language:
+ *   • Flat-ish team-color fill with a subtle top sheen for dimension.
+ *   • Clean Sora 900 initials in white with a soft drop shadow.
+ *   • Tone-tinted ground shadow grounds the disc against the page.
+ *   • Pro adds an outer ambient halo glow only — no ring border.
  *
- * Structural language derived from the AI Insight DriverPortrait bubble
- * (circular, team-tinted radial gradient, engraved initials, tone-keyed
- * drop shadow). Translated into an identity context so the avatar feels
- * like a minted token of the user's chosen team without becoming visually
- * busy.
- *
- *   • Tone-keyed radial gradient.  Light at the top-left, darkening into
- *     the team colour at the bottom-right. Reads as a struck metallic
- *     surface catching light from above.
- *   • Single ring.  1px outer border at the team accent tone. That's the
- *     only circle on the surface.
- *   • Soft specular.  A top-left radial sheen paired with a 1px top-rim
- *     highlight. Gives the surface dimension without adding a ring.
- *   • Engraved initials.  Deep ink shadow + 0.5px top-rim bright gives
- *     the monogram a struck feel rather than painted-on.
- *   • Pro.  The ring upgrades to ACCENT + a short external halo. No inner
- *     concentric ring.
- *
- * Scales fluidly from 20px (tight community row) to 96px (profile hero).
- * Every dimension derives from `size`.
+ * Scales fluidly from 20px (tight community row) to 104px (profile hero).
  *
  * @param {object} props
  * @param {string} [props.name]       — display name (fallback).
@@ -39,7 +22,7 @@ import {
  * @param {string} [props.colorKey]   — avatar theme key.
  * @param {number} [props.size=40]    — outer diameter in px.
  * @param {number} [props.fontSize]   — optional initials size override.
- * @param {boolean} [props.pro=false] — promotes the ring to ACCENT + halo.
+ * @param {boolean} [props.pro=false] — adds an outer halo glow.
  * @param {object} [props.style]      — inline style overrides.
  * @param {string} [props.className]  — passed to the outer element.
  * @param {string} [props.title]      — optional tooltip.
@@ -64,22 +47,16 @@ export default function IdentityAvatar({
     : (display || "Member");
 
   // Fluid dimensions — all keyed to `size`.
-  const fontSize    = fontSizeOverride ?? Math.round(size * 0.38);
-  const groundY     = Math.max(3,  Math.round(size * 0.11));
-  const groundBlur  = Math.max(10, Math.round(size * 0.30));
-  const haloRing    = Math.max(1.4, size * 0.05);
-  const haloGlow    = Math.max(12, Math.round(size * 0.42));
+  const fontSize    = fontSizeOverride ?? Math.round(size * 0.40);
+  const groundY     = Math.max(2, Math.round(size * 0.08));
+  const groundBlur  = Math.max(8, Math.round(size * 0.24));
+  const haloGlow    = Math.max(10, Math.round(size * 0.32));
 
-  // Shadow stack — non-Pro: a single tone-tinted ground shadow.
-  // Pro: same ground + a short accent rim spread + an ambient halo.
-  const baseShadow = `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.28)}`;
+  // Shadow stack — base ground shadow + (Pro only) outer ambient halo.
+  const baseShadow = `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.32)}`;
   const shadow = pro
-    ? `${baseShadow}, 0 0 0 ${haloRing}px ${rgbaFromHex(ACCENT, 0.58)}, 0 0 ${haloGlow}px ${rgbaFromHex(ACCENT, 0.26)}`
+    ? `${baseShadow}, 0 0 ${haloGlow}px ${rgbaFromHex(ACCENT, 0.32)}`
     : baseShadow;
-
-  // The single circle: tone border on non-Pro, ACCENT on Pro. Alpha stepped
-  // so the border reads as a rim rather than a stamp.
-  const ringColor = pro ? rgbaFromHex(ACCENT, 0.78) : rgbaFromHex(tone, 0.64);
 
   return (
     <div
@@ -93,8 +70,9 @@ export default function IdentityAvatar({
         height:         size,
         flexShrink:     0,
         borderRadius:   "50%",
-        background:     `radial-gradient(circle at 30% 22%, ${rgbaFromHex(tone, 0.92)} 0%, ${rgbaFromHex(tone, 0.48)} 58%, rgba(6,16,27,0.96) 100%)`,
-        border:         `1px solid ${ringColor}`,
+        // Mostly flat team color — a very subtle linear gradient gives it
+        // just enough dimension to feel like a struck disc.
+        background:     `linear-gradient(165deg, ${rgbaFromHex(tone, 0.98)} 0%, ${rgbaFromHex(tone, 0.78)} 100%)`,
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
@@ -104,44 +82,32 @@ export default function IdentityAvatar({
         ...style,
       }}
     >
-      {/* Soft specular — top-left radial sheen. Gives the surface material
-          depth without adding a ring. */}
+      {/* Subtle top sheen — gives the disc dimension without the orb effect.
+          Very low-opacity, top-quarter only, so the disc still reads as
+          mostly flat team color. */}
       <span
         aria-hidden="true"
         style={{
           position:      "absolute",
           inset:         0,
-          background:    "radial-gradient(circle at 28% 22%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 34%, rgba(255,255,255,0) 60%)",
+          background:    "radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 32%, rgba(255,255,255,0) 60%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Top-rim specular — a 1px inset highlight at the crown only.
-          Not a full ring; just a sliver of caught light at the top. */}
-      <span
-        aria-hidden="true"
-        style={{
-          position:      "absolute",
-          inset:         0,
-          borderRadius:  "50%",
-          boxShadow:     "inset 0 1px 0 rgba(255,255,255,0.26)",
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Initials — layered text-shadow (deep ink + top-rim highlight)
-           gives the monogram an engraved feel. */}
+      {/* Initials — clean Sora 900, soft drop shadow only. No engraved bevel. */}
       <span
         aria-hidden="true"
         style={{
           position:           "relative",
           zIndex:             1,
-          color:              "rgba(255,255,255,0.97)",
+          color:              "#fff",
           fontSize,
           fontWeight:         900,
-          letterSpacing:      "-0.04em",
+          letterSpacing:      "-0.03em",
+          lineHeight:         1,
           fontVariantNumeric: "tabular-nums",
-          textShadow:         "0 1px 2px rgba(6,16,27,0.58), 0 -0.5px 0 rgba(255,255,255,0.22)",
+          textShadow:         "0 2px 6px rgba(6,16,27,0.45)",
         }}
       >
         {initials}

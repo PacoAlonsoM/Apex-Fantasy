@@ -4,18 +4,22 @@ import { chooseInsightForRace } from "@/src/lib/aiInsight";
 import { nextRace } from "@/src/constants/calendar";
 import {
   ACCENT,
+  AI_BLUE_TEXT,
   CARD_RADIUS,
-  CONTENT_MAX,
+  CARD_SHADOW,
   DANGER,
   ERROR_TEXT,
   HAIRLINE,
+  LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
+  PANEL_BORDER,
   PRO_AMBER_DOT,
   PRO_AMBER_TEXT,
   RADIUS_MD,
   RADIUS_PILL,
+  SECTION_RADIUS,
   SUBTLE_TEXT,
   SUCCESS,
   SUCCESS_TEXT,
@@ -23,21 +27,17 @@ import {
   rgbaFromHex,
 } from "@/src/constants/design";
 
-// Soft info-blue — used wherever a roadmap / advisory / AI-insight tone
-// reads better than the ember ACCENT. Routes through the `--text-ai` token
-// so it darkens to a legible blue in light mode.
-const INFO_SOFT = "var(--text-ai)";
-// Live cyan — "fresh read / just published" signal. Paired with INFO_SOFT.
-// Kept as a hex literal because `rgbaFromHex(INFO_CYAN, …)` calculations
-// elsewhere in this file need the hex digits.
-const INFO_CYAN = "#67e8f9";
+// Soft info-blue alias — Insight surfaces use this name historically; it
+// resolves to the AI_BLUE_TEXT token (which is the `--text-ai` CSS var) so
+// the page reads through the design system in both color modes.
+const INFO_SOFT = AI_BLUE_TEXT;
 import { IS_SNAPSHOT } from "@/src/lib/runtimeFlags";
 import { DRV, TEAMS } from "@/src/constants/teams";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import { previewText } from "@/src/lib/format";
 import SectionLabel from "@/src/ui/SectionLabel";
-import PageMasthead from "@/src/ui/PageMasthead";
+import PageShell from "@/src/ui/PageShell";
 import useViewport from "@/src/lib/useViewport";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -394,228 +394,289 @@ function Thumbnail({ src, size = 72, aspect = "square", source }) {
   );
 }
 
-// ─── Masthead ────────────────────────────────────────────────────────────────
-// Wraps the canonical `PageMasthead` with NewsPage-specific data: mode-keyed
-// image (`header-wire.png` ↔ `header-insight.png`), tone (Wire = ambient,
-// AI Insight = editorial), state-dot status line, and the search input on
-// Wire. All structural chrome — vignette, image fade, hero-image opacity
-// tokens — lives in `PageMasthead` so future global tweaks reach this page
-// automatically.
+// ─── Hero ────────────────────────────────────────────────────────────────────
+// Home-level hero card. For AI mode the protagonist is the AI's *read* of the
+// race (headline + summary + provenance stat strip on a header-insight.png
+// editorial backdrop). For Wire mode the protagonist is the race week itself
+// (current race + stat strip + search rail on a header-wire.png backdrop).
 
-function Masthead({ mode, state, currentRace, insight, meta, search, onSearchChange, isMobile, loading }) {
-  const isAi   = mode === "ai";
-  const eyebrow = isAi ? "AI Insight" : "Wire";
+function HeroStatCell({ label, value, accent, caption, mono }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{
+        fontSize:      10,
+        fontWeight:    900,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color:         "rgba(255,255,255,0.62)",
+        marginBottom:  6,
+      }}>{label}</div>
+      <div style={{
+        fontSize:           mono ? 22 : 19,
+        fontWeight:         900,
+        letterSpacing:      mono ? "-0.04em" : "-0.025em",
+        lineHeight:         1.05,
+        color:              accent || "rgba(255,255,255,0.96)",
+        fontVariantNumeric: "tabular-nums",
+        fontFamily:         mono ? "var(--font-mono)" : "var(--font-display)",
+        overflow:           "hidden",
+        textOverflow:       "ellipsis",
+        whiteSpace:         "nowrap",
+      }}>{value || "—"}</div>
+      {caption && (
+        <div style={{
+          fontSize:      11,
+          fontWeight:    600,
+          color:         "rgba(255,255,255,0.52)",
+          marginTop:     4,
+          letterSpacing: "-0.005em",
+          overflow:      "hidden",
+          textOverflow:  "ellipsis",
+          whiteSpace:    "nowrap",
+        }}>{caption}</div>
+      )}
+    </div>
+  );
+}
 
-  const titleLine = isAi
-    ? (insight?.race_name || currentRace?.n || "This week's brief")
-    : (currentRace?.n || "Race-week wire");
+function Hero({ mode, state, currentRace, insight, meta, search, onSearchChange, isMobile, isTablet, loading }) {
+  const isAi    = mode === "ai";
+  const accent  = isAi ? AI_BLUE_TEXT : ACCENT;
+  const image   = isAi ? "/images/header-insight.png" : "/images/header-wire.png";
 
-  // Status dot + secondary description.
-  const secondary = (() => {
+  // Status dot color
+  const stateDot = state === "stale"
+    ? PRO_AMBER_DOT
+    : state === "empty"
+      ? "rgba(148,163,184,0.7)"
+      : isAi
+        ? accent
+        : SUCCESS_TEXT;
+  const stateLabel = (() => {
     if (loading) return "Reading race-week context…";
     if (isAi) {
-      if (state === "stale" && currentRace) {
-        return `Saved brief does not match ${currentRace.n}. Regenerate from Admin.`;
-      }
-      if (state === "empty") return "No brief generated yet. Check back after admin publishes this round's read.";
-      const bits = [];
-      if (insight?.generated_at)  bits.push(`Generated ${relativeTime(insight.generated_at)}`);
-      if (insight?.source_count)  bits.push(`${insight.source_count} sources read`);
-      const conf = confidenceReading(insight?.confidence);
-      if (conf)                   bits.push(`${Math.round(conf.value * 100)}% confidence`);
-      return bits.join(" · ") || "Awaiting a fresh race brief.";
+      if (state === "stale" && currentRace) return `Saved brief is out of date for ${currentRace.n}`;
+      if (state === "empty")                 return "Awaiting this round's read";
+      return "Live brief";
     }
-    return meta.lastUpdated ? `Updated ${relativeTime(meta.lastUpdated)}` : "Waiting for first ingest";
+    return meta?.lastUpdated ? `Updated ${relativeTime(meta.lastUpdated)}` : "Awaiting first ingest";
   })();
 
-  const stateTone = state === "stale"
-    ? { dot: PRO_AMBER_DOT,       text: PRO_AMBER_TEXT }
-    : state === "empty"
-      ? { dot: "rgba(148,163,184,0.7)", text: MUTED_TEXT }
-      : isAi
-        ? { dot: "var(--text-note)", text: INFO_SOFT }
-        : { dot: SUCCESS_TEXT,    text: SUCCESS_TEXT };
+  // Hero title + lede are mode-dependent
+  let kicker, title, lede;
+  if (isAi) {
+    const raceName = insight?.race_name || currentRace?.n;
+    kicker = raceName
+      ? `AI Brief · Vol 2026 / № ${String(currentRace?.r || insight?.metadata?.round || 0).padStart(2, "0")} · ${raceName}`
+      : "AI Brief · This week's read";
+    title = insight?.headline || (currentRace?.n ? `${currentRace.n} — the read` : "This week's brief");
+    lede  = insight?.summary
+      || (state === "stale"
+        ? "The saved AI read does not match the upcoming round. An admin can regenerate it from the Admin page."
+        : "Stint AI publishes one read per race week. Check back after qualifying — or open the Wire for the latest stories.");
+  } else {
+    kicker = currentRace?.n
+      ? `F1 Wire · Race week · ${currentRace.n}`
+      : "F1 Wire · Live feed";
+    title = loading
+      ? "Reading the wire…"
+      : meta?.articles
+        ? `${meta.articles} ${meta.articles === 1 ? "story" : "stories"} on the table.`
+        : "The wire is quiet right now.";
+    lede = "A single live race-week feed — every publisher we trust, time-grouped, with the sources that actually move picks.";
+  }
 
-  const description = (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <span aria-hidden="true" style={{
-        width:        6,
-        height:       6,
-        borderRadius: "50%",
-        background:   stateTone.dot,
-        flexShrink:   0,
-        boxShadow:    mode === "news" && state === "ready" ? `0 0 8px ${rgbaFromHex(SUCCESS, 0.6)}` : "none",
-      }} />
-      <span style={{ color: stateTone.text, fontWeight: 600 }}>{secondary}</span>
-    </span>
-  );
-
-  // Wire: count-of-stories chip on the right rail. AI: Vol/№ marker.
-  const metaNode = isAi
-    ? (currentRace?.r ? (
-        <span
-          aria-hidden="true"
-          style={{
-            display:            "inline-flex",
-            alignItems:         "baseline",
-            gap:                8,
-            fontSize:           10,
-            fontWeight:         900,
-            letterSpacing:      "0.16em",
-            textTransform:      "uppercase",
-            color:              SUBTLE_TEXT,
-            fontVariantNumeric: "tabular-nums",
-            whiteSpace:         "nowrap",
-          }}
-        >
-          <span>Vol&nbsp;2026</span>
-          <span style={{ color: "rgba(148,163,184,0.26)", fontWeight: 400 }}>/</span>
-          <span style={{ color: INFO_SOFT }}>№&nbsp;{String(currentRace.r).padStart(2, "0")}</span>
-        </span>
-      ) : null)
-    : (loading ? null : (
-        <span style={{
-          fontSize:           11,
-          fontWeight:         700,
-          letterSpacing:      "0.06em",
-          textTransform:      "uppercase",
-          color:              SUBTLE_TEXT,
-          fontVariantNumeric: "tabular-nums",
-          whiteSpace:         "nowrap",
-        }}>
-          {meta.articles} {meta.articles === 1 ? "story" : "stories"} · {meta.sources} {meta.sources === 1 ? "source" : "sources"}
-        </span>
-      ));
-
-  // Wire-only search input — desktop renders inline as an action; mobile
-  // renders as a row below the masthead body.
-  const searchInput = !isAi ? (
-    <input
-      type="search"
-      placeholder="Search stories…"
-      value={search}
-      onChange={(e) => onSearchChange(e.target.value)}
-      className="nw-search"
-      style={{
-        background:    "var(--bg-elevated)",
-        border:        `1px solid ${HAIRLINE}`,
-        borderRadius:  RADIUS_PILL,
-        color:         TEXT_PRIMARY,
-        padding:       isMobile ? "9px 14px" : "7px 14px",
-        fontSize:      isMobile ? 13 : 12,
-        outline:       "none",
-        width:         isMobile ? "100%" : 220,
-        fontFamily:    "inherit",
-        letterSpacing: "-0.005em",
-      }}
-    />
-  ) : null;
+  // Stat strip cells
+  const aiConf = confidenceReading(insight?.confidence);
+  const stats = isAi
+    ? [
+        { label: "Generated", value: insight?.generated_at ? relativeTime(insight.generated_at) : "—", caption: insight?.generated_at ? absoluteTime(insight.generated_at) : null, mono: true },
+        { label: "Sources read", value: insight?.source_count ? String(insight.source_count) : "—", caption: insight?.source_count ? "Race-week wire" : null, mono: true },
+        { label: "Confidence", value: aiConf?.label || "—", accent: aiConf?.color, caption: aiConf ? `${Math.round(aiConf.value * 100)}%` : null },
+        { label: "Round", value: currentRace?.r ? `№ ${String(currentRace.r).padStart(2, "0")}` : "—", caption: currentRace?.circuit || null, mono: true },
+      ]
+    : [
+        { label: "Stories", value: meta?.articles ? String(meta.articles) : "—", caption: "On the wire", mono: true },
+        { label: "Sources", value: meta?.sources ? String(meta.sources) : "—", caption: "Publishers feeding", mono: true },
+        { label: "Updated", value: meta?.lastUpdated ? relativeTime(meta.lastUpdated) : "—", caption: meta?.lastUpdated ? absoluteTime(meta.lastUpdated) : null, mono: true },
+        { label: "Round", value: currentRace?.r ? `№ ${String(currentRace.r).padStart(2, "0")}` : "—", caption: currentRace?.n || null, mono: true },
+      ];
 
   return (
-    <PageMasthead
-      variant="flush"
-      viewTransitionName="news-masthead"
-      eyebrow={eyebrow}
-      title={titleLine}
-      description={description}
-      meta={metaNode}
-      actions={searchInput}
-      image={{
-        src: isAi ? "/images/header-insight.png" : "/images/header-wire.png",
-        position: "right-mask",
+    <section
+      className="f1-stagger-strong"
+      style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       PANEL_BORDER,
+        background:   `
+          linear-gradient(140deg, ${rgbaFromHex(accent, isAi ? 0.30 : 0.34)} 0%, ${rgbaFromHex(accent, 0.10)} 40%, rgba(6,16,27,0.94) 100%),
+          url("${image}") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow:    LIFTED_SHADOW,
+        marginBottom: isMobile ? 22 : 32,
+        minHeight:    isMobile ? 0 : isTablet ? 360 : 420,
+        padding:      isMobile ? "20px 18px 22px" : isTablet ? "28px 28px 28px" : "34px 36px 36px",
+        viewTransitionName: "news-masthead",
       }}
-      tone={isAi ? "editorial" : "ambient"}
-      marginBottom={isAi ? 28 : 18}
-    />
+    >
+      {/* Top accent rail */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, transparent, ${accent} 30%, ${accent} 70%, transparent)`,
+          opacity: 0.92,
+        }}
+      />
+
+      {/* Row 1: kicker + status pill */}
+      <div style={{
+        "--f1-i": 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.78)", flexWrap: "wrap" }}>
+          <span aria-hidden="true" style={{
+            width: 6, height: 6, borderRadius: "50%", background: accent,
+            boxShadow: `0 0 0 4px ${rgbaFromHex(accent, 0.20)}`,
+          }} />
+          <span style={{
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.82)",
+          }}>{kicker}</span>
+        </div>
+        <span style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           7,
+          padding:       "5px 10px 5px 8px",
+          borderRadius:  RADIUS_PILL,
+          background:    "rgba(6,16,27,0.42)",
+          border:        `1px solid ${rgbaFromHex(accent, 0.22)}`,
+          fontSize:      10,
+          fontWeight:    800,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color:         "rgba(255,255,255,0.84)",
+          flexShrink:    0,
+        }}>
+          <span
+            aria-hidden="true"
+            className={!isAi && state === "ready" ? "nw-lead-dot" : undefined}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: stateDot,
+              flexShrink: 0,
+            }}
+          />
+          {stateLabel}
+        </span>
+      </div>
+
+      {/* Row 2: BIG title */}
+      <div style={{ "--f1-i": 1, marginTop: isMobile ? 18 : 26 }}>
+        <h1
+          className="stint-page-title"
+          style={{
+            margin: 0,
+            fontSize:      isMobile ? 30 : isTablet ? 44 : 56,
+            letterSpacing: "-0.045em",
+            lineHeight:    isAi ? 1.02 : 1,
+            color:         "rgba(255,255,255,0.98)",
+            textShadow:    "0 2px 18px rgba(0,0,0,0.32)",
+            maxWidth:      isAi ? "22ch" : "20ch",
+          }}
+        >
+          {title}
+        </h1>
+      </div>
+
+      {/* Row 3: lede */}
+      <p style={{
+        "--f1-i": 2,
+        margin:     isMobile ? "12px 0 0" : "16px 0 0",
+        fontSize:   isMobile ? 14 : 16,
+        fontWeight: 500,
+        lineHeight: 1.65,
+        color:      "rgba(255,255,255,0.78)",
+        letterSpacing: "-0.005em",
+        maxWidth:   "62ch",
+      }}>
+        {lede}
+      </p>
+
+      {/* Row 4: stat strip */}
+      <div style={{
+        "--f1-i": 3,
+        marginTop:     isMobile ? 18 : 26,
+        paddingTop:    isMobile ? 16 : 22,
+        borderTop:     "1px solid rgba(255,255,255,0.10)",
+        display:       "grid",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gap:           isMobile ? "16px 18px" : "0 22px",
+      }}>
+        {stats.map((s) => (
+          <HeroStatCell
+            key={s.label}
+            label={s.label}
+            value={s.value}
+            caption={s.caption}
+            accent={s.accent}
+            mono={s.mono}
+          />
+        ))}
+      </div>
+
+      {/* Row 5: search (Wire only) */}
+      {!isAi && (
+        <div style={{
+          "--f1-i": 4,
+          marginTop:     isMobile ? 18 : 22,
+          display:       "flex",
+          alignItems:    "center",
+          gap:           12,
+          flexWrap:      "wrap",
+        }}>
+          <input
+            type="search"
+            placeholder="Search the wire…"
+            value={search || ""}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="nw-search"
+            style={{
+              background:    "rgba(6,16,27,0.50)",
+              border:        `1px solid ${rgbaFromHex(ACCENT, 0.28)}`,
+              borderRadius:  RADIUS_PILL,
+              color:         "rgba(255,255,255,0.96)",
+              padding:       isMobile ? "10px 16px" : "10px 18px",
+              fontSize:      isMobile ? 13 : 13,
+              outline:       "none",
+              width:         isMobile ? "100%" : 300,
+              fontFamily:    "inherit",
+              letterSpacing: "-0.005em",
+            }}
+          />
+        </div>
+      )}
+    </section>
   );
 }
 
 // ─── AI Insight ────────────────────────────────────────────────────────────
-// Slow, editorial, flagship. The Read → The Calls → Angles + Signals → Watch
-// → Provenance. One vertical column; Signals floats to a right rail on desktop.
-
-function TheRead({ insight, isMobile }) {
-  if (!insight) return null;
-  const conf = confidenceReading(insight.confidence);
-  return (
-    <section className="nw-read" style={{ marginBottom: isMobile ? 36 : 52 }}>
-      <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 22 }}>The Read</SectionLabel>
-
-      <h1 className="stint-page-title" style={{
-        margin:        "0 0 20px",
-        fontSize:      isMobile ? 30 : "clamp(36px, 4.2vw, 52px)",
-        letterSpacing: "-0.05em",
-        lineHeight:    1.02,
-        maxWidth:      "20ch",
-      }}>
-        {insight.headline}
-      </h1>
-
-      <p style={{
-        margin:         0,
-        fontSize:       isMobile ? 15 : 17,
-        fontWeight:     500,
-        lineHeight:     1.7,
-        color:          "rgba(226,232,240,0.88)",
-        letterSpacing:  "-0.008em",
-        maxWidth:       "62ch",
-      }}>
-        {insight.summary}
-      </p>
-
-      <div style={{
-        marginTop:     22,
-        display:       "inline-flex",
-        alignItems:    "center",
-        gap:           10,
-        paddingTop:    16,
-        borderTop:     `1px solid ${HAIRLINE}`,
-        flexWrap:      "wrap",
-      }}>
-        <span aria-hidden="true" style={{
-          display:     "inline-block",
-          width:       18,
-          height:      1,
-          background:  INFO_SOFT,
-          opacity:     0.6,
-          marginRight: 2,
-        }} />
-        <span style={{
-          fontSize:      10,
-          fontWeight:    900,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color:         INFO_SOFT,
-        }}>Stint AI</span>
-        {insight.generated_at && (
-          <>
-            <span style={{ color: "rgba(148,163,184,0.32)", fontSize: 11 }}>·</span>
-            <span style={{ fontSize: 11, color: SUBTLE_TEXT, fontWeight: 600 }}>
-              {relativeTime(insight.generated_at)}
-            </span>
-          </>
-        )}
-        {insight.source_count ? (
-          <>
-            <span style={{ color: "rgba(148,163,184,0.32)", fontSize: 11 }}>·</span>
-            <span style={{ fontSize: 11, color: SUBTLE_TEXT, fontWeight: 600 }}>
-              {insight.source_count} sources
-            </span>
-          </>
-        ) : null}
-        {conf && (
-          <>
-            <span style={{ color: "rgba(148,163,184,0.32)", fontSize: 11 }}>·</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: conf.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: conf.color }}>{conf.label} confidence</span>
-            </span>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
+// The Hero absorbs "The Read" — headline + summary + provenance render as the
+// hero card itself. The rest of the page is: The Calls → Angles + Signals
+// → Watch → Cross-link.
 
 function DriverPortrait({ ctx, size = 56 }) {
   if (!ctx) return null;
@@ -771,49 +832,81 @@ function PrimaryPickCard({ item, isMobile }) {
   const conf = confidenceReading(item.confidence);
   const categoryLabel = CATEGORY_LABELS[item.key] || item.category || item.key;
 
+  // Team / driver color leaks into the card backdrop so each pick reads with
+  // its own identity. Falls back to AI_BLUE_TEXT when no driver/constructor
+  // context resolves (binary / unknown picks).
+  let pickColor = AI_BLUE_TEXT;
+  if (item.type === "driver") {
+    const ctx = driverContext(item.pick);
+    if (ctx) pickColor = ctx.color;
+  } else if (item.type === "constructor") {
+    const ctx = constructorContext(item.pick);
+    if (ctx) pickColor = ctx.color;
+  } else if (item.type === "binary") {
+    pickColor = item.pick === "Yes" ? SUCCESS_TEXT : ERROR_TEXT;
+  }
+
   return (
     <div
-      className="nw-primary-pick"
+      className="nw-primary-pick f1-hoverable"
       style={{
-        display:       "flex",
+        position:      "relative",
+        overflow:      "hidden",
+        display:       "grid",
+        gridTemplateColumns: isMobile ? "auto 1fr" : "auto 1fr",
         alignItems:    "center",
         gap:           isMobile ? 14 : 18,
-        padding:       isMobile ? "14px 14px" : "16px 18px",
+        padding:       isMobile ? "18px 16px" : "22px 22px",
         borderRadius:  CARD_RADIUS,
-        border:        `1px solid ${HAIRLINE}`,
-        background:    PANEL_BG_ALT,
+        border:        `1px solid ${rgbaFromHex(pickColor, 0.22)}`,
+        background:    `linear-gradient(135deg, ${rgbaFromHex(pickColor, 0.16)} 0%, ${rgbaFromHex(pickColor, 0.04)} 55%, ${PANEL_BG_ALT} 100%)`,
+        boxShadow:     CARD_SHADOW,
         minWidth:      0,
       }}
     >
-      <PickVisual item={item} size={isMobile ? 52 : 60} />
+      {/* Left tone rail */}
+      <span aria-hidden="true" style={{
+        position:   "absolute",
+        top:        0,
+        bottom:     0,
+        left:       0,
+        width:      3,
+        background: pickColor,
+        opacity:    0.78,
+      }} />
+
+      <PickVisual item={item} size={isMobile ? 56 : 68} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           display:        "flex",
-          alignItems:     "baseline",
+          alignItems:     "center",
           justifyContent: "space-between",
           gap:            10,
-          marginBottom:   4,
+          marginBottom:   6,
         }}>
           <span style={{
             fontSize:      10,
             fontWeight:    900,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
-            color:         SUBTLE_TEXT,
+            color:         rgbaFromHex(pickColor, 0.92),
           }}>{categoryLabel}</span>
           <ConfidenceDial conf={conf} />
         </div>
-        <div style={{
-          fontSize:       isMobile ? 18 : 20,
+        <div className="stint-card-title" style={{
+          fontSize:       isMobile ? 22 : 26,
           fontWeight:     900,
-          letterSpacing:  "-0.03em",
+          letterSpacing:  "-0.035em",
           color:          TEXT_PRIMARY,
-          lineHeight:     1.12,
-          marginBottom:   6,
+          lineHeight:     1.05,
+          marginBottom:   item.reason ? 8 : 0,
+          overflow:       "hidden",
+          textOverflow:   "ellipsis",
+          whiteSpace:     "nowrap",
         }}>{item.pick}</div>
         {item.reason && (
           <div style={{
-            fontSize:   12,
+            fontSize:   12.5,
             lineHeight: 1.6,
             color:      MUTED_TEXT,
             display:    "-webkit-box",
@@ -967,20 +1060,45 @@ function TheCalls({ aiPredictions, isPro, isMobile, currentRace }) {
   }
 
   return (
-    <section className="nw-calls" style={{ marginBottom: isMobile ? 32 : 44 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        <SectionLabel color={INFO_SOFT} rule>The Calls</SectionLabel>
-        <span style={{ fontSize: 11, color: SUBTLE_TEXT, fontWeight: 600 }}>
-          {aiPredictions.length} categories · {primary.length} primary · {secondary.length} supporting
+    <section className="nw-calls f1-stagger-strong" style={{ marginBottom: isMobile ? 36 : 52 }}>
+      <header style={{
+        "--f1-i": 0,
+        display:        "flex",
+        alignItems:     "baseline",
+        justifyContent: "space-between",
+        gap:            12,
+        marginBottom:   isMobile ? 18 : 24,
+        flexWrap:       "wrap",
+      }}>
+        <div>
+          <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 8 }}>The Calls</SectionLabel>
+          <h2 className="stint-section-title" style={{
+            margin: 0,
+            fontSize:      isMobile ? 22 : 28,
+            letterSpacing: "-0.035em",
+            lineHeight:    1.12,
+          }}>
+            {currentRace?.n ? `${currentRace.n} category picks` : "Race-week category picks"}
+          </h2>
+        </div>
+        <span style={{
+          fontSize:      11,
+          fontWeight:    700,
+          color:         SUBTLE_TEXT,
+          letterSpacing: "-0.005em",
+          fontVariantNumeric: "tabular-nums",
+        }}>
+          {primary.length} primary · {secondary.length} supporting
         </span>
-      </div>
+      </header>
 
       {primary.length > 0 && (
         <div style={{
+          "--f1-i": 1,
           display:             "grid",
           gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-          gap:                 10,
-          marginBottom:        secondary.length ? 18 : 22,
+          gap:                 isMobile ? 12 : 14,
+          marginBottom:        secondary.length ? 22 : 26,
         }}>
           {primary.map((item) => (
             <PrimaryPickCard key={item.key || item.category} item={item} isMobile={isMobile} />
@@ -990,12 +1108,25 @@ function TheCalls({ aiPredictions, isPro, isMobile, currentRace }) {
 
       {secondary.length > 0 && (
         <div style={{
+          "--f1-i": 2,
           borderRadius: CARD_RADIUS,
           border:       `1px solid ${HAIRLINE}`,
           background:   PANEL_BG,
-          padding:      isMobile ? "4px 14px 0" : "4px 18px 0",
-          marginBottom: 22,
+          padding:      isMobile ? "6px 16px 4px" : "8px 22px 6px",
+          marginBottom: 24,
         }}>
+          <div style={{
+            fontSize:      10,
+            fontWeight:    900,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color:         AI_BLUE_TEXT,
+            padding:       "10px 0 4px",
+            borderBottom:  `1px solid ${HAIRLINE}`,
+            marginBottom:  2,
+          }}>
+            Supporting calls
+          </div>
           {secondary.map((item, idx) => (
             <SecondaryPickRow
               key={item.key || item.category || idx}
@@ -1010,18 +1141,19 @@ function TheCalls({ aiPredictions, isPro, isMobile, currentRace }) {
         href={picksHref}
         className="nw-calls-cta"
         style={{
+          "--f1-i": 3,
           display:        "inline-flex",
           alignItems:     "center",
-          gap:            8,
+          gap:            10,
           background: "var(--brand)",
           color:          "#fff",
-          fontSize:       13,
+          fontSize:       14,
           fontWeight:     900,
           letterSpacing:  "-0.005em",
-          padding:        "11px 22px",
+          padding:        isMobile ? "13px 22px" : "14px 26px",
           borderRadius:   RADIUS_PILL,
           textDecoration: "none",
-          boxShadow:      `0 6px 18px ${rgbaFromHex(ACCENT, 0.28)}`,
+          boxShadow:      `0 8px 24px ${rgbaFromHex(ACCENT, 0.32)}`,
         }}
       >
         <span>{ctaLabel}</span>
@@ -1050,40 +1182,69 @@ function AngleCard({ item, index, isMobile }) {
 
   return (
     <article
-      className="nw-angles-item"
+      className="nw-angles-item f1-hoverable"
       style={{
-        padding:    isMobile ? "20px 0" : "24px 0",
-        borderTop:  `1px solid ${HAIRLINE}`,
-        willChange: "transform",
+        position:     "relative",
+        overflow:     "hidden",
+        padding:      isMobile ? "20px 18px" : "24px 26px",
+        marginBottom: 12,
+        borderRadius: CARD_RADIUS,
+        border:       `1px solid ${rgbaFromHex(toneColor, 0.22)}`,
+        background:   `linear-gradient(135deg, ${rgbaFromHex(toneColor, 0.10)} 0%, ${rgbaFromHex(toneColor, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+        boxShadow:    CARD_SHADOW,
       }}
     >
+      {/* Tone rail */}
+      <span aria-hidden="true" style={{
+        position:   "absolute",
+        top:        0,
+        bottom:     0,
+        left:       0,
+        width:      3,
+        background: toneColor,
+        opacity:    0.85,
+      }} />
+
       <div style={{
-        display:       "inline-flex",
+        display:       "flex",
         alignItems:    "center",
+        justifyContent: "space-between",
         gap:           10,
-        marginBottom:  10,
+        marginBottom:  12,
         fontVariantNumeric: "tabular-nums",
+        flexWrap:      "wrap",
       }}>
         <span style={{
-          fontSize:      10,
-          fontWeight:    900,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color:         SUBTLE_TEXT,
-        }}>Angle&nbsp;{ordinal}</span>
-        <span aria-hidden="true" style={{
-          display:    "inline-block",
-          width:      14,
-          height:     1,
-          background: "rgba(148,163,184,0.22)",
-        }} />
+          display:       "inline-flex",
+          alignItems:    "baseline",
+          gap:           6,
+        }}>
+          <span style={{
+            fontSize:      11,
+            fontWeight:    900,
+            letterSpacing: "-0.02em",
+            color:         "rgba(148,163,184,0.46)",
+            fontFamily:    "var(--font-mono)",
+          }}>{ordinal}</span>
+          <span style={{
+            fontSize:      10,
+            fontWeight:    900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color:         SUBTLE_TEXT,
+          }}>Angle</span>
+        </span>
         <span style={{
           display:       "inline-flex",
           alignItems:    "center",
           gap:           6,
+          padding:       "4px 9px",
+          borderRadius:  RADIUS_PILL,
+          background:    rgbaFromHex(toneColor, 0.12),
+          border:        `1px solid ${rgbaFromHex(toneColor, 0.28)}`,
           fontSize:      10,
           fontWeight:    900,
-          letterSpacing: "0.14em",
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
           color:         toneColor,
         }}>
@@ -1092,29 +1253,39 @@ function AngleCard({ item, index, isMobile }) {
         </span>
       </div>
       <h3 className="stint-card-title" style={{
-        margin:        "0 0 8px",
-        fontSize:      isMobile ? 17 : 20,
-        lineHeight:    1.22,
+        margin:        "0 0 10px",
+        fontSize:      isMobile ? 19 : 22,
+        letterSpacing: "-0.028em",
+        lineHeight:    1.18,
       }}>
         {item.title}
       </h3>
       {item.detail && (
         <p style={{
-          margin:     closingNote ? "0 0 10px" : 0,
-          fontSize:   14,
-          lineHeight: 1.7,
-          color:      "rgba(226,232,240,0.84)",
+          margin:     closingNote ? "0 0 12px" : 0,
+          fontSize:   14.5,
+          lineHeight: 1.68,
+          color:      "rgba(226,232,240,0.86)",
           maxWidth:   "62ch",
         }}>{item.detail}</p>
       )}
       {closingNote && (
         <div style={{
-          fontSize:   12,
-          lineHeight: 1.65,
-          color:      MUTED_TEXT,
-          maxWidth:   "62ch",
+          fontSize:     12.5,
+          lineHeight:   1.65,
+          color:        MUTED_TEXT,
+          maxWidth:     "62ch",
+          paddingTop:   10,
+          borderTop:    `1px solid ${rgbaFromHex(toneColor, 0.14)}`,
         }}>
-          <span style={{ color: toneColor, fontWeight: 700, letterSpacing: "-0.005em" }}>For your picks —</span>{" "}
+          <span style={{
+            color:         toneColor,
+            fontWeight:    900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            fontSize:      10,
+            marginRight:   6,
+          }}>For your picks</span>
           {closingNote}
         </div>
       )}
@@ -1124,41 +1295,46 @@ function AngleCard({ item, index, isMobile }) {
 
 function Signal({ label, value, accent = TEXT_PRIMARY, caption }) {
   return (
-    <div className="nw-signal-row" style={{ padding: "14px 0", borderTop: `1px solid ${HAIRLINE}` }}>
+    <div
+      className="nw-signal-row f1-hoverable"
+      style={{
+        padding:      "14px 16px",
+        borderRadius: RADIUS_MD,
+        border:       `1px solid ${HAIRLINE}`,
+        background:   PANEL_BG_ALT,
+        minWidth:     0,
+      }}
+    >
       <div style={{
-        display:        "flex",
-        alignItems:     "baseline",
-        justifyContent: "space-between",
-        gap:            14,
-      }}>
-        <span style={{
-          fontSize:      10,
-          fontWeight:    900,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color:         SUBTLE_TEXT,
-          flexShrink:    0,
-        }}>{label}</span>
-        <span style={{
-          fontSize:           15,
-          fontWeight:         900,
-          letterSpacing:      "-0.02em",
-          color:              accent,
-          fontVariantNumeric: "tabular-nums",
-          textAlign:          "right",
-          overflow:           "hidden",
-          textOverflow:       "ellipsis",
-          whiteSpace:         "nowrap",
-          minWidth:           0,
-        }}>{value || "—"}</span>
-      </div>
+        fontSize:      10,
+        fontWeight:    900,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color:         SUBTLE_TEXT,
+        marginBottom:  6,
+      }}>{label}</div>
+      <div style={{
+        fontSize:           18,
+        fontWeight:         900,
+        letterSpacing:      "-0.025em",
+        color:              accent,
+        fontVariantNumeric: "tabular-nums",
+        fontFamily:         "var(--font-display)",
+        lineHeight:         1.08,
+        overflow:           "hidden",
+        textOverflow:       "ellipsis",
+        whiteSpace:         "nowrap",
+      }}>{value || "—"}</div>
       {caption && (
         <div style={{
           fontSize:      11,
+          fontWeight:    600,
           color:         SUBTLE_TEXT,
           marginTop:     4,
-          textAlign:     "right",
           letterSpacing: "-0.005em",
+          overflow:      "hidden",
+          textOverflow:  "ellipsis",
+          whiteSpace:    "nowrap",
         }}>{caption}</div>
       )}
     </div>
@@ -1180,11 +1356,21 @@ function TheAnglesAndSignals({ keyFactors, previousRace, historicalForm, seasonV
       display:             "grid",
       gridTemplateColumns: isMobile || isTablet ? "1fr" : "minmax(0, 1.55fr) minmax(220px, 0.9fr)",
       gap:                 isMobile || isTablet ? 32 : 48,
-      marginBottom:        isMobile ? 32 : 44,
+      marginBottom:        isMobile ? 36 : 52,
     }}>
       {showAngles && (
         <div>
-          <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 6 }}>The Angles</SectionLabel>
+          <header style={{ marginBottom: isMobile ? 16 : 22 }}>
+            <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 8 }}>The Angles</SectionLabel>
+            <h2 className="stint-section-title" style={{
+              margin: 0,
+              fontSize:      isMobile ? 22 : 28,
+              letterSpacing: "-0.035em",
+              lineHeight:    1.12,
+            }}>
+              Storylines worth a long look
+            </h2>
+          </header>
           <div>
             {angles.map((angle, idx) => (
               <AngleCard key={angle.title || idx} item={angle} index={idx} isMobile={isMobile} />
@@ -1194,8 +1380,18 @@ function TheAnglesAndSignals({ keyFactors, previousRace, historicalForm, seasonV
       )}
 
       {showSignals && (
-        <aside>
-          <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 6 }}>The Signals</SectionLabel>
+        <aside style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <header style={{ marginBottom: 6 }}>
+            <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 8 }}>The Signals</SectionLabel>
+            <h3 className="stint-section-title" style={{
+              margin: 0,
+              fontSize:      isMobile ? 18 : 22,
+              letterSpacing: "-0.03em",
+              lineHeight:    1.16,
+            }}>
+              Data the model is leaning on
+            </h3>
+          </header>
           {previousRace?.winner && (
             <Signal
               label="Last winner"
@@ -1246,89 +1442,100 @@ function WatchBeforeLock({ watchlist, isMobile }) {
   const items = (watchlist || []).slice(0, 4);
   if (!items.length) return null;
   return (
-    <section className="nw-watch" style={{ marginBottom: isMobile ? 32 : 44 }}>
-      <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 18 }}>Watch before lock</SectionLabel>
+    <section className="nw-watch" style={{ marginBottom: isMobile ? 36 : 52 }}>
+      <header style={{ marginBottom: isMobile ? 16 : 22 }}>
+        <SectionLabel color={INFO_SOFT} rule style={{ marginBottom: 8 }}>Watch before lock</SectionLabel>
+        <h2 className="stint-section-title" style={{
+          margin: 0,
+          fontSize:      isMobile ? 22 : 28,
+          letterSpacing: "-0.035em",
+          lineHeight:    1.12,
+        }}>
+          The triggers that change the call
+        </h2>
+      </header>
       <div style={{
         display:             "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap:                 10,
+        gap:                 isMobile ? 12 : 14,
       }}>
         {items.map((item, idx) => (
-          <div key={item.label || idx} style={{
-            borderRadius: CARD_RADIUS,
-            border:       `1px solid ${HAIRLINE}`,
-            background:   PANEL_BG_ALT,
-            padding:      "14px 16px",
-          }}>
+          <article
+            key={item.label || idx}
+            className="f1-hoverable"
+            style={{
+              position:     "relative",
+              overflow:     "hidden",
+              borderRadius: CARD_RADIUS,
+              border:       `1px solid ${rgbaFromHex(AI_BLUE_TEXT, 0.18)}`,
+              background:   `linear-gradient(135deg, ${rgbaFromHex(AI_BLUE_TEXT, 0.08)} 0%, ${rgbaFromHex(AI_BLUE_TEXT, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+              padding:      isMobile ? "18px 18px" : "22px 22px",
+              boxShadow:    CARD_SHADOW,
+            }}
+          >
+            <span aria-hidden="true" style={{
+              position:   "absolute",
+              top:        0,
+              bottom:     0,
+              left:       0,
+              width:      3,
+              background: AI_BLUE_TEXT,
+              opacity:    0.7,
+            }} />
             <div style={{
-              fontSize:      13,
+              fontSize:      10,
               fontWeight:    900,
-              letterSpacing: "-0.02em",
-              color:         TEXT_PRIMARY,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color:         AI_BLUE_TEXT,
               marginBottom:  6,
-            }}>{item.label}</div>
+              fontFamily:    "var(--font-mono)",
+            }}>Trigger {String(idx + 1).padStart(2, "0")}</div>
+            <h3 className="stint-card-title" style={{
+              margin:        "0 0 10px",
+              fontSize:      isMobile ? 17 : 19,
+              letterSpacing: "-0.028em",
+              lineHeight:    1.18,
+            }}>{item.label}</h3>
             {(item.trigger || item.reason) && (
               <div style={{
-                fontSize:   12,
-                lineHeight: 1.6,
-                color:      MUTED_TEXT,
-                marginBottom: item.how_to_react ? 8 : 0,
-              }}>{previewText(item.trigger || item.reason, 160)}</div>
+                fontSize:   13.5,
+                lineHeight: 1.62,
+                color:      "rgba(226,232,240,0.84)",
+                marginBottom: item.how_to_react ? 12 : 0,
+              }}>{previewText(item.trigger || item.reason, 180)}</div>
             )}
             {item.how_to_react && (
               <div style={{
-                fontSize:      11,
-                fontWeight:    700,
-                color:         "#9cd1ff",
-                lineHeight:    1.55,
-                display:       "inline-flex",
-                alignItems:    "baseline",
-                gap:           6,
+                paddingTop:    10,
+                borderTop:     `1px solid ${rgbaFromHex(AI_BLUE_TEXT, 0.16)}`,
+                fontSize:      12.5,
+                fontWeight:    600,
+                color:         MUTED_TEXT,
+                lineHeight:    1.6,
               }}>
-                <span aria-hidden="true">→</span>
-                <span>{previewText(item.how_to_react, 140)}</span>
+                <span style={{
+                  color:         AI_BLUE_TEXT,
+                  fontWeight:    900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  fontSize:      10,
+                  marginRight:   6,
+                }}>How to react</span>
+                {previewText(item.how_to_react, 150)}
               </div>
             )}
-          </div>
+          </article>
         ))}
       </div>
     </section>
   );
 }
 
-function AIInsightEmptyState({ state, currentRace, isMobile }) {
-  const isStale = state === "stale";
-  const title   = isStale ? "This brief is out of date" : "The next brief is being written";
-  const body    = isStale && currentRace
-    ? `The saved AI read does not match ${currentRace.n}. An admin needs to regenerate it from the Admin page for this round.`
-    : "Stint AI publishes one read per race week. Check back after qualifying — or open the Wire for the latest stories.";
-  return (
-    <section style={{
-      borderRadius: CARD_RADIUS,
-      border:       `1px solid ${HAIRLINE}`,
-      background:   PANEL_BG_ALT,
-      padding:      isMobile ? "22px 20px" : "28px 26px",
-      marginBottom: isMobile ? 32 : 44,
-    }}>
-      <SectionLabel color={isStale ? PRO_AMBER_TEXT : INFO_SOFT} rule style={{ marginBottom: 12 }}>
-        {isStale ? "Stale" : "No brief yet"}
-      </SectionLabel>
-      <h2 className="stint-section-title" style={{
-        margin:        "0 0 10px",
-        fontSize:      isMobile ? 20 : 24,
-        letterSpacing: "-0.035em",
-        lineHeight:    1.18,
-        maxWidth:      "28ch",
-      }}>{title}</h2>
-      <p className="stint-body" style={{ margin: 0, maxWidth: "52ch" }}>{body}</p>
-    </section>
-  );
-}
-
 // ─── Wire ────────────────────────────────────────────────────────────────────
-// Fast, kinetic, one-column. Featured article is the elevated first row of the
-// Today group — not a separate hero section. Everything else flows in
-// time-grouped rows with subtle dividers.
+// Fast, kinetic, one-column. Lead story is a real hero card above the
+// time-grouped feed; everything else flows as image-thumbnail rows with
+// stronger dividers between time groups.
 
 function TopStoryRow({ article, isMobile }) {
   return (
@@ -1336,22 +1543,38 @@ function TopStoryRow({ article, isMobile }) {
       href={article.url}
       target="_blank"
       rel="noreferrer"
-      className="nw-feed-row nw-feed-row--top"
+      className="nw-feed-row nw-feed-row--top f1-hoverable"
       style={{
+        position:        "relative",
+        overflow:        "hidden",
         display:         "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(260px, 320px)",
-        gap:             isMobile ? 14 : 28,
-        padding:         isMobile ? "18px 0 22px" : "22px 0 26px",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(280px, 340px)",
+        gap:             isMobile ? 16 : 32,
+        padding:         isMobile ? "22px 18px" : "26px 28px",
+        marginBottom:    isMobile ? 18 : 24,
         textDecoration:  "none",
         color:           "inherit",
-        borderTop:       `1px solid ${rgbaFromHex(ACCENT, 0.55)}`,
-        boxShadow:       `inset 0 1px 0 ${rgbaFromHex(ACCENT, 0.22)}`,
-        alignItems:      "start",
+        borderRadius:    CARD_RADIUS,
+        border:          `1px solid ${rgbaFromHex(ACCENT, 0.28)}`,
+        background:      `linear-gradient(135deg, ${rgbaFromHex(ACCENT, 0.14)} 0%, ${rgbaFromHex(ACCENT, 0.03)} 50%, ${PANEL_BG_ALT} 100%)`,
+        boxShadow:       CARD_SHADOW,
+        alignItems:      "center",
       }}
     >
+      {/* Tone rail */}
+      <span aria-hidden="true" style={{
+        position:   "absolute",
+        top:        0,
+        bottom:     0,
+        left:       0,
+        width:      3,
+        background: ACCENT,
+        opacity:    0.85,
+      }} />
+
       <div style={{ minWidth: 0 }}>
         <div style={{
-          marginBottom:   12,
+          marginBottom:   14,
           display:        "inline-flex",
           alignItems:     "center",
           gap:            10,
@@ -1360,49 +1583,47 @@ function TopStoryRow({ article, isMobile }) {
           <span style={{
             display:       "inline-flex",
             alignItems:    "center",
-            gap:           6,
+            gap:           7,
+            padding:       "5px 10px",
+            borderRadius:  RADIUS_PILL,
+            background:    rgbaFromHex(ACCENT, 0.14),
+            border:        `1px solid ${rgbaFromHex(ACCENT, 0.30)}`,
             fontSize:      10,
             fontWeight:    900,
-            letterSpacing: "0.18em",
+            letterSpacing: "0.16em",
             textTransform: "uppercase",
-            color: "var(--brand)",
+            color:         ACCENT,
           }}>
             <span
               className="nw-lead-dot"
               aria-hidden="true"
               style={{
                 display:      "inline-block",
-                width:        5,
-                height:       5,
+                width:        6,
+                height:       6,
                 borderRadius: "50%",
-                background: "var(--brand)",
+                background:   ACCENT,
               }}
             />
             Lead story
           </span>
-          <span aria-hidden="true" style={{
-            display:    "inline-block",
-            width:      12,
-            height:     1,
-            background: "rgba(148,163,184,0.22)",
-          }} />
-          <SourceChip source={article.source} publishedAt={article.published_at} tone="cool" />
+          <SourceChip source={article.source} publishedAt={article.published_at} tone="accent" />
         </div>
         <h2 className="stint-section-title" style={{
-          margin:        "0 0 12px",
-          fontSize:      isMobile ? 22 : 28,
+          margin:        "0 0 14px",
+          fontSize:      isMobile ? 24 : 32,
           letterSpacing: "-0.04em",
-          lineHeight:    1.1,
+          lineHeight:    1.06,
           maxWidth:      "22ch",
         }}>{article.title}</h2>
         {article.summary && (
           <p style={{
             margin:     0,
-            fontSize:   14,
+            fontSize:   14.5,
             lineHeight: 1.68,
-            color:      "rgba(226,232,240,0.78)",
+            color:      "rgba(226,232,240,0.82)",
             display:    "-webkit-box",
-            WebkitLineClamp: isMobile ? 3 : 2,
+            WebkitLineClamp: isMobile ? 3 : 3,
             WebkitBoxOrient: "vertical",
             overflow:   "hidden",
             maxWidth:   "60ch",
@@ -1424,25 +1645,26 @@ function FeedRow({ article, isMobile }) {
       style={{
         display:         "grid",
         gridTemplateColumns: isMobile
-          ? "minmax(0, 1fr)"
-          : "minmax(0, 1fr) 96px",
-        gap:             isMobile ? 10 : 18,
-        padding:         isMobile ? "14px 0" : "16px 0",
+          ? "minmax(0, 1fr) 72px"
+          : "minmax(0, 1fr) 104px",
+        gap:             isMobile ? 14 : 22,
+        padding:         isMobile ? "16px 6px" : "18px 6px",
         textDecoration:  "none",
         color:           "inherit",
         borderTop:       `1px solid ${HAIRLINE}`,
-        alignItems:      "start",
+        alignItems:      "center",
+        borderRadius:    8,
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ marginBottom: 6 }}>
+        <div style={{ marginBottom: 7 }}>
           <SourceChip source={article.source} publishedAt={article.published_at} tone="cool" />
         </div>
         <h3 className="stint-card-title" style={{
-          margin:        "0 0 4px",
-          fontSize:      isMobile ? 15 : 16,
-          letterSpacing: "-0.02em",
-          lineHeight:    1.28,
+          margin:        "0 0 5px",
+          fontSize:      isMobile ? 15.5 : 17,
+          letterSpacing: "-0.022em",
+          lineHeight:    1.24,
         }}>{article.title}</h3>
         {article.summary && (
           <p style={{
@@ -1458,9 +1680,7 @@ function FeedRow({ article, isMobile }) {
           }}>{article.summary}</p>
         )}
       </div>
-      {!isMobile && (
-        <Thumbnail src={article.image_url} size={96} aspect="square" source={article.source} />
-      )}
+      <Thumbnail src={article.image_url} size={isMobile ? 72 : 104} aspect="square" source={article.source} />
     </a>
   );
 }
@@ -1469,36 +1689,48 @@ function TimeGroupDivider({ label, date, count, first = false }) {
   return (
     <div style={{
       display:       "flex",
-      alignItems:    "baseline",
-      gap:           10,
-      padding:       first ? "4px 0 12px" : "24px 0 12px",
+      alignItems:    "center",
+      gap:           12,
+      padding:       first ? "8px 6px 14px" : "30px 6px 14px",
     }}>
+      <span aria-hidden="true" style={{
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: ACCENT,
+        boxShadow: `0 0 0 4px ${rgbaFromHex(ACCENT, 0.16)}`,
+        flexShrink: 0,
+      }} />
       <span style={{
-        fontSize:      11,
+        fontSize:      13,
         fontWeight:    900,
-        letterSpacing: "0.16em",
-        textTransform: "uppercase",
+        letterSpacing: "-0.025em",
         color:         TEXT_PRIMARY,
+        fontFamily:    "var(--font-display)",
       }}>{label}</span>
       {date && (
         <span style={{
           fontSize:           10,
-          fontWeight:         700,
-          letterSpacing:      "0.08em",
+          fontWeight:         800,
+          letterSpacing:      "0.12em",
           textTransform:      "uppercase",
           color:              SUBTLE_TEXT,
           fontVariantNumeric: "tabular-nums",
         }}>{date}</span>
       )}
-      <span aria-hidden="true" style={{ flex: 1, height: 1, background: HAIRLINE, alignSelf: "center" }} />
+      <span aria-hidden="true" style={{ flex: 1, height: 1, background: HAIRLINE }} />
       {typeof count === "number" && (
         <span style={{
           fontSize:           10,
-          fontWeight:         800,
-          letterSpacing:      "0.04em",
+          fontWeight:         900,
+          letterSpacing:      "0.06em",
           color:              SUBTLE_TEXT,
           fontVariantNumeric: "tabular-nums",
-        }}>{count}</span>
+          padding:            "3px 8px",
+          borderRadius:       RADIUS_PILL,
+          background:         "rgba(148,163,184,0.10)",
+          border:             `1px solid ${HAIRLINE}`,
+        }}>{count} {count === 1 ? "story" : "stories"}</span>
       )}
     </div>
   );
@@ -1508,10 +1740,12 @@ function SourcesDrawer({ isMobile }) {
   const [open, setOpen] = useState(false);
   return (
     <section style={{
-      borderTop:     `1px solid ${HAIRLINE}`,
-      borderBottom:  `1px solid ${HAIRLINE}`,
-      marginTop:     isMobile ? 24 : 32,
-      marginBottom:  isMobile ? 18 : 24,
+      marginTop:     isMobile ? 32 : 44,
+      marginBottom:  isMobile ? 24 : 32,
+      borderRadius:  CARD_RADIUS,
+      border:        `1px solid ${HAIRLINE}`,
+      background:    PANEL_BG_ALT,
+      overflow:      "hidden",
     }}>
       <button
         onClick={() => setOpen((v) => !v)}
@@ -1522,7 +1756,7 @@ function SourcesDrawer({ isMobile }) {
           justifyContent:  "space-between",
           gap:             12,
           width:           "100%",
-          padding:         "16px 0",
+          padding:         isMobile ? "18px 18px" : "22px 24px",
           background:      "transparent",
           border:          "none",
           color:           TEXT_PRIMARY,
@@ -1605,7 +1839,7 @@ function SourcesDrawer({ isMobile }) {
                   fontWeight:    800,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  color:         "#9cd1ff",
+                  color:         AI_BLUE_TEXT,
                   flexShrink:    0,
                 }}>{source.role}</span>
                 <span style={{
@@ -1626,30 +1860,64 @@ function SourcesDrawer({ isMobile }) {
 function WireEmptyState({ isMobile, query }) {
   if (query) {
     return (
-      <div style={{
-        padding:    "36px 0",
-        textAlign:  "center",
-        color:      MUTED_TEXT,
-        fontSize:   14,
-        lineHeight: 1.6,
+      <section style={{
+        padding:      isMobile ? "32px 22px" : "44px 28px",
+        borderRadius: CARD_RADIUS,
+        border:       `1px solid ${HAIRLINE}`,
+        background:   PANEL_BG_ALT,
+        marginBottom: isMobile ? 20 : 28,
+        textAlign:    "center",
       }}>
-        No stories match <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>&ldquo;{query}&rdquo;</span>
-      </div>
+        <div style={{
+          fontSize:      10,
+          fontWeight:    900,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color:         SUBTLE_TEXT,
+          marginBottom:  10,
+        }}>No matches</div>
+        <h2 className="stint-section-title" style={{
+          margin: 0,
+          fontSize:      isMobile ? 20 : 24,
+          letterSpacing: "-0.035em",
+          lineHeight:    1.18,
+        }}>
+          Nothing on the wire matches&nbsp;<span style={{ color: ACCENT }}>&ldquo;{query}&rdquo;</span>
+        </h2>
+      </section>
     );
   }
   return (
     <section style={{
-      borderRadius: CARD_RADIUS,
-      border:       `1px solid ${HAIRLINE}`,
-      background:   PANEL_BG_ALT,
-      padding:      isMobile ? "22px 20px" : "28px 26px",
+      position:     "relative",
+      overflow:     "hidden",
+      borderRadius: SECTION_RADIUS,
+      border:       PANEL_BORDER,
+      background:   `linear-gradient(135deg, ${rgbaFromHex(ACCENT, 0.10)} 0%, ${rgbaFromHex(ACCENT, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+      padding:      isMobile ? "26px 22px" : "34px 30px",
       marginBottom: isMobile ? 32 : 44,
+      boxShadow:    CARD_SHADOW,
     }}>
-      <SectionLabel color={INFO_SOFT} style={{ marginBottom: 10 }}>Wire</SectionLabel>
-      <h2 className="stint-section-title" style={{ margin: "0 0 10px", fontSize: isMobile ? 20 : 24, letterSpacing: "-0.035em" }}>
-        The wire is quiet right now
+      <span aria-hidden="true" style={{
+        position:   "absolute",
+        top:        0,
+        bottom:     0,
+        left:       0,
+        width:      3,
+        background: ACCENT,
+        opacity:    0.6,
+      }} />
+      <SectionLabel color={ACCENT} rule style={{ marginBottom: 10 }}>The wire is quiet</SectionLabel>
+      <h2 className="stint-section-title" style={{
+        margin: "0 0 12px",
+        fontSize:      isMobile ? 22 : 28,
+        letterSpacing: "-0.035em",
+        lineHeight:    1.15,
+        maxWidth:      "26ch",
+      }}>
+        No stories on the wire right now
       </h2>
-      <p className="stint-body" style={{ margin: 0, maxWidth: "52ch" }}>
+      <p className="stint-body" style={{ margin: 0, maxWidth: "52ch", lineHeight: 1.65 }}>
         Stories land as publishers file them. Check back after qualifying — or read this week&rsquo;s AI brief for the through-line.
       </p>
     </section>
@@ -1663,7 +1931,7 @@ function WireEmptyState({ isMobile, query }) {
 function CrossLinkFooter({ mode, insight, meta, isMobile }) {
   const isAi = mode === "ai";
   const href = isAi ? "/?page=news" : "/?page=ai-brief";
-  const linkTone = isAi ? ACCENT : "#9cd1ff";
+  const linkTone = isAi ? ACCENT : AI_BLUE_TEXT;
   const linkLabel = isAi ? "Open the Wire" : "Open AI Insight";
 
   const title = isAi
@@ -1679,43 +1947,73 @@ function CrossLinkFooter({ mode, insight, meta, isMobile }) {
   return (
     <a
       href={href}
-      className="nw-crosslink"
+      className="nw-crosslink f1-hoverable"
       style={{
+        position:           "relative",
+        overflow:           "hidden",
         display:            "flex",
         alignItems:         "center",
         justifyContent:     "space-between",
-        gap:                12,
-        padding:            isMobile ? "18px 0" : "22px 0",
-        borderTop:          `1px solid ${HAIRLINE}`,
-        borderBottom:       `1px solid ${HAIRLINE}`,
+        gap:                16,
+        padding:            isMobile ? "20px 22px" : "26px 28px",
+        borderRadius:       CARD_RADIUS,
+        border:             `1px solid ${rgbaFromHex(linkTone, 0.22)}`,
+        background:         `linear-gradient(135deg, ${rgbaFromHex(linkTone, 0.10)} 0%, ${rgbaFromHex(linkTone, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+        boxShadow:          CARD_SHADOW,
         textDecoration:     "none",
         color:              "inherit",
-        marginTop:          isAi ? (isMobile ? 12 : 18) : (isMobile ? 4 : 8),
+        marginTop:          isAi ? (isMobile ? 16 : 24) : (isMobile ? 8 : 16),
         viewTransitionName: "news-crosslink",
       }}
     >
-      <div>
-        <SectionLabel style={{ marginBottom: 6 }}>Related</SectionLabel>
+      <span aria-hidden="true" style={{
+        position:   "absolute",
+        top:        0,
+        bottom:     0,
+        left:       0,
+        width:      3,
+        background: linkTone,
+        opacity:    0.7,
+      }} />
+      <div style={{ minWidth: 0 }}>
         <div style={{
-          fontSize:      isMobile ? 15 : 17,
-          fontWeight:    800,
-          letterSpacing: "-0.025em",
+          fontSize:      10,
+          fontWeight:    900,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color:         linkTone,
+          marginBottom:  8,
+        }}>Cross-link · {isAi ? "Wire" : "AI Brief"}</div>
+        <div className="stint-card-title" style={{
+          fontSize:      isMobile ? 16 : 19,
+          fontWeight:    900,
+          letterSpacing: "-0.028em",
           color:         TEXT_PRIMARY,
-          lineHeight:    1.3,
+          lineHeight:    1.22,
           maxWidth:      "42ch",
+          marginBottom:  5,
         }}>
           {title}
         </div>
-        <div style={{ fontSize: 12, color: MUTED_TEXT, marginTop: 4, letterSpacing: "-0.005em" }}>
+        <div style={{
+          fontSize:      12.5,
+          color:         MUTED_TEXT,
+          letterSpacing: "-0.005em",
+          lineHeight:    1.5,
+        }}>
           {subtitle}
         </div>
       </div>
       <span style={{
         display:        "inline-flex",
         alignItems:     "center",
-        gap:            6,
+        gap:            8,
+        padding:        isMobile ? "9px 14px" : "10px 18px",
+        borderRadius:   RADIUS_PILL,
+        background:     rgbaFromHex(linkTone, 0.14),
+        border:         `1px solid ${rgbaFromHex(linkTone, 0.30)}`,
         fontSize:       12,
-        fontWeight:     800,
+        fontWeight:     900,
         letterSpacing:  "-0.005em",
         color:          linkTone,
         flexShrink:     0,
@@ -1884,16 +2182,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
-    <div
-      className="stint-page-enter"
-      style={{
-        maxWidth:  CONTENT_MAX,
-        margin:    "0 auto",
-        padding:   isMobile ? "22px 18px 72px" : isTablet ? "28px 22px 80px" : "32px 28px 88px",
-        position:  "relative",
-        zIndex:    1,
-      }}
-    >
+    <PageShell tone="editorial" ambient="subtle">
       <style>{`
         /* ── Page entry (per mode) ─────────────────────────────────────────
            AI Insight unfolds editorially — chapters fade in with paced stagger.
@@ -2100,7 +2389,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
         }
       `}</style>
 
-      <Masthead
+      <Hero
         mode={tab}
         state={tab === "ai" ? aiState : wireState}
         currentRace={currentRace}
@@ -2109,6 +2398,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
         search={searchQuery}
         onSearchChange={setSearchQuery}
         isMobile={isMobile}
+        isTablet={isTablet}
         loading={loading}
       />
 
@@ -2120,7 +2410,6 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
         // ─── AI Insight surface ─────────────────────────────────────────
         insight ? (
           <>
-            <TheRead insight={insight} isMobile={isMobile} />
             <TheCalls
               aiPredictions={aiPredictions}
               isPro={isPro}
@@ -2144,10 +2433,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
             <CrossLinkFooter mode="ai" insight={insight} isMobile={isMobile} />
           </>
         ) : (
-          <>
-            <AIInsightEmptyState state={insightStale ? "stale" : "empty"} currentRace={currentRace} isMobile={isMobile} />
-            <CrossLinkFooter mode="ai" insight={null} isMobile={isMobile} />
-          </>
+          <CrossLinkFooter mode="ai" insight={null} isMobile={isMobile} />
         )
       ) : (
         // ─── Wire surface ───────────────────────────────────────────────
@@ -2189,6 +2475,6 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
           </>
         )
       )}
-    </div>
+    </PageShell>
   );
 }

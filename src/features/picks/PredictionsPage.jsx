@@ -11,13 +11,16 @@ import {
   ACCENT,
   BG_BASE,
   CARD_RADIUS,
+  CARD_SHADOW,
   CONTENT_MAX,
   HAIRLINE,
   LIFTED_SHADOW,
   MUTED_TEXT,
   PANEL_BG,
   PANEL_BG_ALT,
+  PANEL_BORDER,
   RADIUS_MD,
+  RADIUS_PILL,
   SECTION_RADIUS,
   SOFT_SHADOW,
   SUBTLE_TEXT,
@@ -31,7 +34,9 @@ import {
   SUCCESS_BORDER,
   SUCCESS_TEXT,
   ERROR_TEXT,
+  rgbaFromHex,
 } from "@/src/constants/design";
+import useReveal from "@/src/lib/useReveal";
 import { requireActiveSession } from "@/src/shell/authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "@/src/lib/resultHelpers";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
@@ -771,14 +776,14 @@ function RoundSidebarItem({ item, active, onClick, status }) {
   return (
     <button
       onClick={onClick}
-      className="stint-pressable"
+      className="stint-pressable picks-sidebar-item"
+      data-active={active ? "true" : "false"}
       style={{
         width: "100%",
         display: "grid",
         gridTemplateColumns: "44px minmax(0,1fr)",
         gap: 12,
         alignItems: "center",
-        border: "none",
         borderRadius: CARD_RADIUS,
         background: active ? hexToRgba(status.accent, 0.18) : inactiveBackground,
         padding: "12px 14px",
@@ -787,9 +792,8 @@ function RoundSidebarItem({ item, active, onClick, status }) {
         border: active
           ? `1px solid ${hexToRgba(status.accent, 0.44)}`
           : `1px solid ${inactiveRing}`,
-        transition: "background 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
         boxShadow: active
-          ? `0 0 0 1px ${hexToRgba(status.accent, 0.14)}, 0 16px 36px ${hexToRgba(status.accent, 0.1)}`
+          ? `0 0 0 1px ${hexToRgba(status.accent, 0.14)}, 0 18px 36px ${hexToRgba(status.accent, 0.14)}`
           : "none",
         opacity: closed && !active ? 0.94 : 1,
       }}
@@ -861,13 +865,16 @@ function RoundSidebarItem({ item, active, onClick, status }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
+            fontFamily: "Sora, sans-serif",
             fontSize: 14,
-            fontWeight: active ? 700 : 600,
+            fontWeight: active ? 800 : 700,
+            letterSpacing: "-0.025em",
             color: closed && !active ? MUTED_TEXT : TEXT_PRIMARY,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
             marginBottom: 4,
+            lineHeight: 1.15,
           }}
         >
           {item.n}
@@ -879,19 +886,24 @@ function RoundSidebarItem({ item, active, onClick, status }) {
               height: 5,
               borderRadius: "50%",
               background: status.accent,
-              boxShadow: `0 0 10px ${hexToRgba(status.accent, 0.3)}`,
+              boxShadow: `0 0 10px ${hexToRgba(status.accent, 0.32)}`,
             }}
           />
-          <span style={{ fontSize: 12, color: status.text }}>{fmt(item.date)}</span>
+          <span style={{ fontSize: 12, color: status.text, fontFamily: "Manrope, sans-serif" }}>{fmt(item.date)}</span>
           {status.badge && (
             <span
               style={{
                 marginLeft: "auto",
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
+                fontSize: 9,
+                fontWeight: 900,
+                letterSpacing: "0.14em",
                 textTransform: "uppercase",
                 color: status.accent,
+                background: hexToRgba(status.accent, 0.12),
+                border: `1px solid ${hexToRgba(status.accent, 0.28)}`,
+                padding: "3px 7px",
+                borderRadius: RADIUS_PILL,
+                fontFamily: "Manrope, sans-serif",
               }}
             >
               {status.badge}
@@ -1036,58 +1048,130 @@ function PicksSummaryStrip({ prompts, picks, activeKey, onSelect }) {
 function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = false }) {
   const team = TEAMS[driver.t];
   const [hovered, setHovered] = useState(false);
+  const interactive = !disabled;
 
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseEnter={() => interactive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       disabled={disabled}
-      className="stint-option-press"
+      className="stint-option-press picks-driver-card"
+      data-selected={selected ? "true" : "false"}
       style={{
-        width: "100%",
-        minHeight: 52,
-        border: `1px solid ${selected ? hexToRgba(team.c, 0.52) : hovered ? hexToRgba(team.c, 0.22) : "var(--btn-secondary-bg)"}`,
-        borderRadius: RADIUS_MD,
-        background: selected
-          ? `linear-gradient(135deg,${hexToRgba(team.c, 0.18)},${hexToRgba(team.c, 0.06)})`
-          : hovered ? hexToRgba(team.c, 0.07) : BG_BASE,
-        boxShadow: selected ? `0 0 0 1px ${hexToRgba(team.c, 0.3)},0 8px 20px ${hexToRgba(team.c, 0.12)}` : "none",
-        padding: "9px 12px",
-        textAlign: "left",
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled && !selected ? 0.58 : 1,
-        transition: "border-color 120ms ease, background 120ms ease, box-shadow 120ms ease",
         position: "relative",
         overflow: "hidden",
+        width: "100%",
+        minHeight: 70,
+        border: `1px solid ${selected ? hexToRgba(team.c, 0.55) : hovered ? hexToRgba(team.c, 0.28) : HAIRLINE}`,
+        borderRadius: CARD_RADIUS,
+        background: selected
+          ? `linear-gradient(135deg, ${hexToRgba(team.c, 0.22)} 0%, ${hexToRgba(team.c, 0.06)} 60%, ${PANEL_BG_ALT} 100%)`
+          : hovered
+            ? `linear-gradient(135deg, ${hexToRgba(team.c, 0.10)} 0%, ${hexToRgba(team.c, 0.02)} 60%, ${BG_BASE} 100%)`
+            : BG_BASE,
+        boxShadow: selected
+          ? `0 10px 26px ${hexToRgba(team.c, 0.22)}, inset 0 1px 0 rgba(255,255,255,0.04)`
+          : hovered
+            ? `0 4px 14px ${hexToRgba(team.c, 0.14)}`
+            : "none",
+        padding: "12px 14px 12px 16px",
+        textAlign: "left",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled && !selected ? 0.55 : 1,
+        transition: "border-color 200ms cubic-bezier(0.16,1,0.3,1), background 200ms ease, box-shadow 220ms ease, transform 180ms cubic-bezier(0.23,1,0.32,1)",
+        transform: hovered && interactive ? "translateY(-1px)" : "translateY(0)",
       }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
+      {/* Left team-tone rail */}
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+        background: team.c,
+        opacity: selected ? 0.95 : hovered ? 0.55 : 0.30,
+        transition: "opacity 200ms ease",
+      }} />
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0,1fr) auto",
+        gap: 12,
+        alignItems: "center",
+      }}>
+        {/* Name + team + number */}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, lineHeight: 1.2, marginBottom: 3 }}>{driver.n}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{
+            fontSize: 15,
+            fontWeight: 900,
+            color: TEXT_PRIMARY,
+            lineHeight: 1.16,
+            letterSpacing: "-0.025em",
+            marginBottom: 4,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontFamily: "var(--font-display)",
+          }}>{driver.n}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "nowrap", overflow: "hidden" }}>
             {driver.nb && (
-              <span style={{ fontSize: 10, fontWeight: 800, color: selected ? team.c : SUBTLE_TEXT, letterSpacing: "-0.01em", opacity: selected ? 1 : 0.7 }}>
-                #{driver.nb}
-              </span>
+              <span style={{
+                fontSize: 10.5,
+                fontFamily: "var(--font-mono)",
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                color: selected ? team.c : SUBTLE_TEXT,
+                opacity: selected ? 1 : 0.78,
+                fontVariantNumeric: "tabular-nums",
+                flexShrink: 0,
+              }}>#{driver.nb}</span>
             )}
-            <span style={{ fontSize: 10, color: selected ? hexToRgba(team.c, 0.9) : SUBTLE_TEXT, fontWeight: selected ? 600 : 400 }}>{driver.t}</span>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.10em",
+              textTransform: "uppercase",
+              color: selected ? team.c : SUBTLE_TEXT,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}>{driver.t}</span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 5, alignItems: "center", flexShrink: 0 }}>
+
+        {/* Right: AI match pill OR animated check ring */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           {!selected && aiMatch && (
-            <span title="AI pick" style={{ width: 6, height: 6, borderRadius: "50%", background: "#60A5FA", boxShadow: "0 0 8px rgba(96,165,250,0.5)", flexShrink: 0 }} />
+            <span title="AI pick" style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "3px 8px 3px 6px",
+              borderRadius: RADIUS_PILL,
+              background: "rgba(96,165,250,0.14)",
+              border: "1px solid rgba(96,165,250,0.32)",
+            }}>
+              <span aria-hidden="true" style={{
+                width: 5, height: 5, borderRadius: "50%", background: "#60A5FA",
+                boxShadow: "0 0 6px rgba(96,165,250,0.62)",
+              }} />
+              <span style={{
+                fontSize: 9, fontWeight: 900,
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                color: "#93c5fd",
+              }}>AI</span>
+            </span>
           )}
           {selected && (
-            <div style={{
-              width: 18, height: 18, borderRadius: "50%",
+            <div className="picks-check-pop" style={{
+              width: 28, height: 28, borderRadius: "50%",
               background: team.c,
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: aiMatch
-                ? `0 0 12px ${hexToRgba(team.c, 0.4)}, 0 0 0 2px rgba(96,165,250,0.28)`
-                : `0 0 12px ${hexToRgba(team.c, 0.4)}`,
+                ? `0 0 18px ${hexToRgba(team.c, 0.62)}, 0 0 0 3px rgba(96,165,250,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`
+                : `0 0 18px ${hexToRgba(team.c, 0.62)}, inset 0 1px 0 rgba(255,255,255,0.24)`,
+              flexShrink: 0,
             }}>
-              <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+                <path d="M1.5 5L4.5 8L10.5 1.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
           )}
         </div>
@@ -1100,50 +1184,113 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
   const team = TEAMS[teamName];
   const teammates = DRV.filter((driver) => driver.t === teamName).map((driver) => driver.s).join(" · ");
   const [hovered, setHovered] = useState(false);
+  const interactive = !disabled;
 
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseEnter={() => interactive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       disabled={disabled}
-      className="stint-option-press"
+      className="stint-option-press picks-constructor-card"
+      data-selected={selected ? "true" : "false"}
       style={{
-        width: "100%",
-        minHeight: 64,
-        border: `1px solid ${selected ? hexToRgba(team.c, 0.52) : hovered ? hexToRgba(team.c, 0.22) : "var(--btn-secondary-bg)"}`,
-        borderRadius: RADIUS_MD,
-        background: selected
-          ? `linear-gradient(135deg,${hexToRgba(team.c, 0.18)},${hexToRgba(team.c, 0.06)})`
-          : hovered ? hexToRgba(team.c, 0.07) : BG_BASE,
-        boxShadow: selected ? `0 0 0 1px ${hexToRgba(team.c, 0.3)},0 8px 20px ${hexToRgba(team.c, 0.12)}` : "none",
-        padding: "10px 14px",
-        textAlign: "left",
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled && !selected ? 0.58 : 1,
-        transition: "border-color 120ms ease, background 120ms ease, box-shadow 120ms ease",
         position: "relative",
         overflow: "hidden",
+        width: "100%",
+        minHeight: 80,
+        border: `1px solid ${selected ? hexToRgba(team.c, 0.55) : hovered ? hexToRgba(team.c, 0.28) : HAIRLINE}`,
+        borderRadius: CARD_RADIUS,
+        background: selected
+          ? `linear-gradient(135deg, ${hexToRgba(team.c, 0.24)} 0%, ${hexToRgba(team.c, 0.06)} 60%, ${PANEL_BG_ALT} 100%)`
+          : hovered
+            ? `linear-gradient(135deg, ${hexToRgba(team.c, 0.10)} 0%, ${hexToRgba(team.c, 0.02)} 60%, ${BG_BASE} 100%)`
+            : BG_BASE,
+        boxShadow: selected
+          ? `0 10px 26px ${hexToRgba(team.c, 0.24)}, inset 0 1px 0 rgba(255,255,255,0.04)`
+          : hovered
+            ? `0 4px 14px ${hexToRgba(team.c, 0.14)}`
+            : "none",
+        padding: "14px 14px 14px 18px",
+        textAlign: "left",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled && !selected ? 0.55 : 1,
+        transition: "border-color 200ms cubic-bezier(0.16,1,0.3,1), background 200ms ease, box-shadow 220ms ease, transform 180ms cubic-bezier(0.23,1,0.32,1)",
+        transform: hovered && interactive ? "translateY(-1px)" : "translateY(0)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 2 }}>{teamName}</div>
-          <div style={{ fontSize: 10, color: selected ? hexToRgba(team.c, 0.9) : SUBTLE_TEXT, fontWeight: selected ? 700 : 400 }}>{teammates || "Lineup pending"}</div>
+      {/* Left team-tone rail (thicker on constructor) */}
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, bottom: 0, left: 0, width: 4,
+        background: team.c,
+        opacity: selected ? 0.95 : hovered ? 0.55 : 0.30,
+        transition: "opacity 200ms ease",
+      }} />
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            fontSize: 17,
+            fontWeight: 900,
+            color: TEXT_PRIMARY,
+            lineHeight: 1.12,
+            letterSpacing: "-0.028em",
+            marginBottom: 5,
+            fontFamily: "var(--font-display)",
+            textTransform: "uppercase",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>{teamName}</div>
+          <div style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: selected ? hexToRgba(team.c, 0.92) : SUBTLE_TEXT,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>{teammates || "Lineup pending"}</div>
         </div>
-        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           {!selected && aiMatch && (
-            <span title="AI pick" style={{ width: 6, height: 6, borderRadius: "50%", background: "#60A5FA", boxShadow: "0 0 8px rgba(96,165,250,0.5)", flexShrink: 0 }} />
+            <span title="AI pick" style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "3px 8px 3px 6px",
+              borderRadius: RADIUS_PILL,
+              background: "rgba(96,165,250,0.14)",
+              border: "1px solid rgba(96,165,250,0.32)",
+            }}>
+              <span aria-hidden="true" style={{
+                width: 5, height: 5, borderRadius: "50%", background: "#60A5FA",
+                boxShadow: "0 0 6px rgba(96,165,250,0.62)",
+              }} />
+              <span style={{
+                fontSize: 9, fontWeight: 900,
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                color: "#93c5fd",
+              }}>AI</span>
+            </span>
           )}
           {selected && (
-            <div style={{
-              width: 18, height: 18, borderRadius: "50%", background: team.c,
+            <div className="picks-check-pop" style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: team.c,
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: aiMatch
-                ? `0 0 12px ${hexToRgba(team.c, 0.4)}, 0 0 0 2px rgba(96,165,250,0.28)`
-                : `0 0 12px ${hexToRgba(team.c, 0.4)}`,
+                ? `0 0 18px ${hexToRgba(team.c, 0.62)}, 0 0 0 3px rgba(96,165,250,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`
+                : `0 0 18px ${hexToRgba(team.c, 0.62)}, inset 0 1px 0 rgba(255,255,255,0.24)`,
+              flexShrink: 0,
             }}>
-              <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+                <path d="M1.5 5L4.5 8L10.5 1.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
           )}
         </div>
@@ -1154,64 +1301,117 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
 
 function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false, disabled = false }) {
   const [hovered, setHovered] = useState(false);
+  const interactive = !disabled;
+  const isYes = label === "Yes";
 
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseEnter={() => interactive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       disabled={disabled}
-      className="stint-option-press"
+      className="stint-option-press picks-binary-card"
+      data-selected={selected ? "true" : "false"}
       style={{
+        position: "relative",
+        overflow: "hidden",
         width: "100%",
-        minHeight: 84,
-        border: `1px solid ${selected ? hexToRgba(color, 0.42) : hovered ? hexToRgba(color, 0.22) : "var(--btn-secondary-bg)"}`,
-        borderRadius: RADIUS_MD,
+        minHeight: 116,
+        border: `1px solid ${selected ? hexToRgba(color, 0.50) : hovered ? hexToRgba(color, 0.28) : HAIRLINE}`,
+        borderRadius: CARD_RADIUS,
         background: selected
-          ? `linear-gradient(160deg,${hexToRgba(color, 0.2)},${hexToRgba(color, 0.05)})`
-          : hovered ? hexToRgba(color, 0.06) : BG_BASE,
-        boxShadow: selected ? `0 8px 24px ${hexToRgba(color, 0.14)}` : "none",
-        padding: "16px",
+          ? `linear-gradient(160deg, ${hexToRgba(color, 0.24)} 0%, ${hexToRgba(color, 0.06)} 60%, ${PANEL_BG_ALT} 100%)`
+          : hovered
+            ? `linear-gradient(160deg, ${hexToRgba(color, 0.10)} 0%, ${hexToRgba(color, 0.02)} 60%, ${BG_BASE} 100%)`
+            : BG_BASE,
+        boxShadow: selected
+          ? `0 12px 28px ${hexToRgba(color, 0.20)}, inset 0 1px 0 rgba(255,255,255,0.04)`
+          : hovered
+            ? `0 4px 14px ${hexToRgba(color, 0.14)}`
+            : "none",
+        padding: "18px 18px 18px 20px",
         textAlign: "left",
         cursor: disabled ? "default" : "pointer",
-        opacity: disabled && !selected ? 0.58 : 1,
-        transition: "border-color 120ms ease, background 120ms ease, box-shadow 120ms ease",
+        opacity: disabled && !selected ? 0.55 : 1,
+        transition: "border-color 200ms cubic-bezier(0.16,1,0.3,1), background 200ms ease, box-shadow 220ms ease, transform 180ms cubic-bezier(0.23,1,0.32,1)",
+        transform: hovered && interactive ? "translateY(-1px)" : "translateY(0)",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 12,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: "50%",
-            background: hexToRgba(color, selected ? 0.26 : 0.1),
-            border: `1.5px solid ${selected ? color : hexToRgba(color, 0.3)}`,
+      {/* Top tone rail spanning the full card top */}
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
+        opacity: selected ? 0.85 : hovered ? 0.40 : 0.18,
+        transition: "opacity 200ms ease",
+      }} />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Big iconography ring */}
+          <div className={selected ? "picks-check-pop" : undefined} style={{
+            width: 44, height: 44, borderRadius: "50%",
+            background: selected ? color : hexToRgba(color, 0.12),
+            border: selected ? `2px solid ${color}` : `2px solid ${hexToRgba(color, 0.34)}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: selected && aiMatch ? "0 0 0 2px rgba(96,165,250,0.28)" : "none",
+            boxShadow: selected
+              ? aiMatch
+                ? `0 0 20px ${hexToRgba(color, 0.55)}, 0 0 0 3px rgba(96,165,250,0.32), inset 0 1px 0 rgba(255,255,255,0.20)`
+                : `0 0 20px ${hexToRgba(color, 0.55)}, inset 0 1px 0 rgba(255,255,255,0.20)`
+              : "none",
+            flexShrink: 0,
+            transition: "background 220ms ease, border-color 220ms ease, box-shadow 220ms ease",
           }}>
-            {selected ? (
-              <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                <path d="M1 4.5L4.5 8L11 1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            ) : label === "Yes" ? (
-              <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                <path d="M1 4.5L4.5 8L11 1" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+            {isYes ? (
+              <svg width="16" height="13" viewBox="0 0 16 13" fill="none">
+                <path d="M1.5 6.5L6 11L14.5 1.5" stroke={selected ? "white" : color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={selected ? 1 : 0.7} />
               </svg>
             ) : (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M2 2L8 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M8 2L2 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2L12 12M12 2L2 12" stroke={selected ? "white" : color} strokeWidth="2.2" strokeLinecap="round" opacity={selected ? 1 : 0.7} />
               </svg>
             )}
           </div>
-          <span style={{ fontSize: 16, fontWeight: 700, color: selected ? TEXT_PRIMARY : MUTED_TEXT }}>{label}</span>
+          <span style={{
+            fontSize: 22,
+            fontWeight: 900,
+            color: selected ? TEXT_PRIMARY : MUTED_TEXT,
+            letterSpacing: "-0.035em",
+            fontFamily: "var(--font-display)",
+            textTransform: "uppercase",
+            lineHeight: 1,
+          }}>{label}</span>
         </div>
         {!selected && aiMatch && (
-          <span title="AI pick" style={{ width: 6, height: 6, borderRadius: "50%", background: "#60A5FA", boxShadow: "0 0 8px rgba(96,165,250,0.5)", flexShrink: 0 }} />
+          <span title="AI pick" style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "3px 9px 3px 7px",
+            borderRadius: RADIUS_PILL,
+            background: "rgba(96,165,250,0.14)",
+            border: "1px solid rgba(96,165,250,0.32)",
+            flexShrink: 0,
+          }}>
+            <span aria-hidden="true" style={{
+              width: 5, height: 5, borderRadius: "50%", background: "#60A5FA",
+              boxShadow: "0 0 6px rgba(96,165,250,0.62)",
+            }} />
+            <span style={{
+              fontSize: 9, fontWeight: 900,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: "#93c5fd",
+            }}>AI</span>
+          </span>
         )}
       </div>
-      <div style={{ fontSize: 12, lineHeight: 1.5, color: selected ? MUTED_TEXT : SUBTLE_TEXT }}>{detail}</div>
+      <div style={{
+        fontSize: 13,
+        lineHeight: 1.55,
+        color: selected ? "rgba(214,223,239,0.82)" : SUBTLE_TEXT,
+        letterSpacing: "-0.005em",
+        fontWeight: 500,
+      }}>{detail}</div>
     </button>
   );
 }
@@ -1392,46 +1592,128 @@ function confPct(key, pick, rawConf) {
   return min + (h % (max - min + 1));
 }
 
+const AI_CAT_LABEL = {
+  pole: "Pole", winner: "Winner", p2: "P2", p3: "P3",
+  fl: "Fastest Lap", dotd: "Driver of the Day", dnf: "DNF",
+  ctor: "Constructor", sc: "Safety Car", rf: "Red Flag",
+};
+
 function AiIntelligencePanel({ aiPredictions, isPro, isMobile, picks, race, openAuth }) {
   const visiblePicks = isPro ? aiPredictions : aiPredictions.slice(0, 2);
   const hiddenCount = aiPredictions.length - visiblePicks.length;
+  const matchCount = visiblePicks.reduce((n, item) => n + (picks[item.key] === item.pick ? 1 : 0), 0);
 
   return (
     <section
+      className="picks-ai-panel"
       style={{
+        position: "relative",
         borderRadius: SECTION_RADIUS,
-        border: isPro ? "1px solid rgba(255,106,26,0.22)" : "1px solid rgba(148,163,184,0.12)",
+        border: isPro ? `1px solid ${rgbaFromHex(ACCENT, 0.24)}` : `1px solid ${HAIRLINE}`,
         background: isPro
-          ? "linear-gradient(160deg,rgba(255,106,26,0.06) 0%,rgba(14,22,38,0.98) 55%)"
+          ? `radial-gradient(120% 100% at 0% 0%, ${rgbaFromHex(ACCENT, 0.10)} 0%, transparent 55%), linear-gradient(180deg, ${PANEL_BG_ALT} 0%, ${PANEL_BG} 100%)`
           : PANEL_BG,
         overflow: "hidden",
+        boxShadow: isPro ? `0 14px 38px ${rgbaFromHex(ACCENT, 0.10)}` : SOFT_SHADOW,
       }}
     >
-      <div style={{ padding: isMobile ? "14px 16px 12px" : "16px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${HAIRLINE}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: isPro ? ACCENT : MUTED_TEXT, letterSpacing: "-0.01em" }}>
-              AI Pre-Race Intelligence
-            </span>
-            <span style={{ fontSize: 11, color: SUBTLE_TEXT, marginTop: 2 }}>
-              {isPro ? `${aiPredictions.length} category calls for ${race.n}` : "Category calls — Pro feature"}
-            </span>
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 4,
+          background: isPro
+            ? `linear-gradient(180deg, ${ACCENT} 0%, ${rgbaFromHex(ACCENT, 0.35)} 100%)`
+            : "rgba(148,163,184,0.18)",
+          zIndex: 2,
+        }}
+      />
+
+      {/* ── Header ────────────────────────────── */}
+      <div
+        style={{
+          padding: isMobile ? "16px 18px 14px 22px" : "20px 24px 16px 26px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+          borderBottom: `1px solid ${HAIRLINE}`,
+        }}
+      >
+        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+          <span
+            className="stint-kicker picks-ai-kicker"
+            style={{
+              display: "inline-flex",
+              width: "fit-content",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 10px",
+              borderRadius: RADIUS_PILL,
+              background: isPro ? rgbaFromHex(ACCENT, 0.12) : "rgba(148,163,184,0.10)",
+              border: isPro ? `1px solid ${rgbaFromHex(ACCENT, 0.34)}` : `1px solid rgba(148,163,184,0.18)`,
+              color: isPro ? ACCENT : SUBTLE_TEXT,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontFamily: "Manrope, sans-serif",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              className="picks-ai-spark"
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: isPro ? ACCENT : "#94a3b8",
+                boxShadow: isPro ? `0 0 0 4px ${rgbaFromHex(ACCENT, 0.18)}` : "none",
+              }}
+            />
+            AI Pre-race Intel
+          </span>
+          <h2
+            className="stint-section-title"
+            style={{
+              fontFamily: "Sora, sans-serif",
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: 800,
+              letterSpacing: "-0.035em",
+              color: TEXT_PRIMARY,
+              margin: 0,
+              lineHeight: 1.1,
+            }}
+          >
+            {isPro ? `Coach calls for ${race.n}` : "Coach calls"}
+          </h2>
+          <div style={{ fontSize: 12, color: MUTED_TEXT, lineHeight: 1.5, fontFamily: "Manrope, sans-serif" }}>
+            {isPro
+              ? matchCount > 0
+                ? `You match the AI on ${matchCount} of ${visiblePicks.length}`
+                : `${aiPredictions.length} category calls`
+              : "Unlock all category calls with Pro"}
           </div>
         </div>
         {!isPro && (
           <button
             onClick={() => openAuth ? openAuth("register") : null}
+            className="stint-pressable"
             style={{
-              background: "linear-gradient(135deg,#FF6A1A,#e05a12)",
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #e05a12 100%)`,
               border: "none",
-              borderRadius: 8,
+              borderRadius: RADIUS_PILL,
               color: "#fff",
               cursor: "pointer",
               fontSize: 11,
-              fontWeight: 800,
-              padding: "6px 12px",
-              letterSpacing: "-0.01em",
+              fontWeight: 900,
+              padding: "9px 16px",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
               flexShrink: 0,
+              boxShadow: `0 10px 24px ${rgbaFromHex(ACCENT, 0.32)}`,
+              fontFamily: "Manrope, sans-serif",
             }}
           >
             Unlock Pro
@@ -1439,74 +1721,184 @@ function AiIntelligencePanel({ aiPredictions, isPro, isMobile, picks, race, open
         )}
       </div>
 
-      <div style={{ padding: isMobile ? "12px 14px" : "14px 18px" }}>
+      {/* ── Cards ────────────────────────────── */}
+      <div style={{ padding: isMobile ? "14px" : "18px 22px" }}>
         <div
+          className="picks-ai-grid"
           style={{
             display: "grid",
             gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)",
-            gap: 8,
-            position: "relative",
+            gap: 10,
           }}
         >
-          {visiblePicks.map((item) => {
+          {visiblePicks.map((item, idx) => {
             const conf = (typeof item.confidence === "string" ? item.confidence.toLowerCase() : String(item.confidence || "medium").toLowerCase()) || "medium";
             const confColor = AI_CONF_COLOR[conf] || "#fde68a";
-            const confLabel = AI_CONF_LABEL[conf] || "Medium";
+            const confPercent = confPct(item.key, item.pick, item.confidence);
             const isSet = !!picks[item.key];
             const matchesPick = isSet && (picks[item.key] === item.pick);
             return (
               <div
                 key={item.key}
+                className="picks-ai-card"
                 style={{
-                  borderRadius: 10,
+                  "--ai-i": idx,
+                  position: "relative",
+                  borderRadius: CARD_RADIUS,
                   border: matchesPick
-                    ? "1px solid rgba(134,239,172,0.3)"
-                    : "1px solid rgba(148,163,184,0.12)",
+                    ? `1px solid ${rgbaFromHex(SUCCESS, 0.40)}`
+                    : `1px solid ${HAIRLINE}`,
                   background: matchesPick
-                    ? "rgba(134,239,172,0.06)"
+                    ? `linear-gradient(160deg, ${rgbaFromHex(SUCCESS, 0.12)} 0%, ${PANEL_BG_ALT} 100%)`
                     : PANEL_BG_ALT,
-                  padding: "10px 12px",
+                  padding: "14px 14px 12px",
+                  display: "grid",
+                  gap: 6,
+                  overflow: "hidden",
                 }}
               >
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 5 }}>
-                  {item.key === "p2" ? "P2" : item.key === "p3" ? "P3" : item.key === "fl" ? "Fastest Lap" : item.key === "dotd" ? "DOTD" : item.key === "dnf" ? "DNF" : item.key === "ctor" ? "Constructor" : item.key === "sc" ? "Safety Car" : item.key}
+                {matchesPick && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      right: 10,
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: rgbaFromHex(SUCCESS, 0.22),
+                      border: `1px solid ${rgbaFromHex(SUCCESS, 0.55)}`,
+                      color: SUCCESS,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 900,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✓
+                  </span>
+                )}
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: SUBTLE_TEXT,
+                    fontFamily: "Manrope, sans-serif",
+                  }}
+                >
+                  {AI_CAT_LABEL[item.key] || item.key}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 5, lineHeight: 1.2 }}>
+                <div
+                  style={{
+                    fontFamily: "Sora, sans-serif",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    letterSpacing: "-0.025em",
+                    lineHeight: 1.15,
+                    color: TEXT_PRIMARY,
+                    paddingRight: matchesPick ? 22 : 0,
+                  }}
+                >
                   {item.pick}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: confColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: confColor }}>{confPct(item.key, item.pick, item.confidence)}%</span>
-                  {matchesPick && <span style={{ fontSize: 10, fontWeight: 700, color: "#86efac", marginLeft: "auto" }}>✓</span>}
+                {/* Confidence bar */}
+                <div style={{ display: "grid", gap: 4, marginTop: 2 }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      height: 4,
+                      borderRadius: 999,
+                      background: "rgba(148,163,184,0.14)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      className="picks-ai-conf-fill"
+                      style={{
+                        position: "absolute",
+                        inset: "0 auto 0 0",
+                        width: `${Math.min(100, Math.max(4, confPercent))}%`,
+                        background: `linear-gradient(90deg, ${confColor} 0%, ${rgbaFromHex(confColor, 0.55)} 100%)`,
+                        borderRadius: 999,
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: confColor, letterSpacing: "0.04em", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>
+                      {confPercent}%
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: SUBTLE_TEXT, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "Manrope, sans-serif" }}>
+                      {AI_CONF_LABEL[conf] || "Medium"}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
           })}
 
           {!isPro && hiddenCount > 0 && (
-            <div
+            <button
+              onClick={() => openAuth ? openAuth("register") : null}
+              className="picks-ai-card stint-pressable"
               style={{
-                borderRadius: 10,
-                border: "1px solid rgba(255,106,26,0.2)",
-                background: "rgba(255,106,26,0.04)",
-                padding: "10px 12px",
+                "--ai-i": visiblePicks.length,
+                borderRadius: CARD_RADIUS,
+                border: `1px solid ${rgbaFromHex(ACCENT, 0.30)}`,
+                background: `linear-gradient(160deg, ${rgbaFromHex(ACCENT, 0.10)} 0%, ${PANEL_BG_ALT} 100%)`,
+                padding: "14px 12px",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 textAlign: "center",
-                gap: 4,
+                gap: 6,
                 gridColumn: isMobile ? "span 2" : "span 2",
+                cursor: "pointer",
+                color: ACCENT,
+                fontFamily: "Manrope, sans-serif",
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--brand)" }}>+{hiddenCount} more</div>
-              <div style={{ fontSize: 11, color: SUBTLE_TEXT, lineHeight: 1.4 }}>All category calls with Pro</div>
-            </div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: ACCENT, fontFamily: "Sora, sans-serif", letterSpacing: "-0.03em" }}>+{hiddenCount} more</div>
+              <div style={{ fontSize: 11, color: MUTED_TEXT, lineHeight: 1.4 }}>Unlock all calls with Pro</div>
+            </button>
           )}
         </div>
       </div>
     </section>
   );
+}
+
+function useCountUp(target, { duration = 900, enabled = true } = {}) {
+  const [value, setValue] = useState(enabled ? 0 : target);
+  useEffect(() => {
+    if (!enabled) {
+      setValue(target);
+      return undefined;
+    }
+    const reduced = typeof window !== "undefined"
+      && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || target <= 0) {
+      setValue(target);
+      return undefined;
+    }
+    const start = performance.now();
+    const startVal = 0;
+    let raf = 0;
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(Math.round(startVal + (target - startVal) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, enabled]);
+  return value;
 }
 
 function RoundReviewPanel({
@@ -1533,106 +1925,199 @@ function RoundReviewPanel({
         : "#f87171"
     : "#60A5FA";
 
+  const railColor = reviewReady ? scoreColor : "#60A5FA";
+  const railRgba = reviewReady
+    ? displayReviewScore >= 60
+      ? "rgba(134,239,172,"
+      : displayReviewScore >= 30
+        ? "rgba(250,204,21,"
+        : "rgba(248,113,113,"
+    : "rgba(96,165,250,";
+
+  const countedScore = useCountUp(displayReviewScore, { enabled: reviewReady, duration: 1100 });
+  const countedHits = useCountUp(hits, { enabled: reviewReady, duration: 900 });
+  const countedMisses = useCountUp(Math.max(misses, 0), { enabled: reviewReady, duration: 900 });
+
+  const kickerLabel = reviewReady ? "Round review" : raceHasPassed ? "Awaiting results" : "Picks locked";
+  const titleText = reviewReady
+    ? `${race.n}`
+    : hasSavedPickContent(selectedLeagueSubmission?.picks)
+      ? `${selectedLeague?.name || "League"} board locked`
+      : `${selectedLeague?.name || "League"} round`;
+  const subText = reviewReady
+    ? `${hits} correct · ${Math.max(misses, 0)} missed${tab === "sprint" ? " · Sprint" : ""}`
+    : hasSavedPickContent(selectedLeagueSubmission?.picks)
+      ? `${savedPickCount} pick${savedPickCount !== 1 ? "s" : ""} saved${raceHasPassed ? " · Results pending" : ""}`
+      : "No saved board";
+
   return (
     <section
-      className="stint-score-mount"
+      className="stint-score-mount picks-review-mount"
       style={{
+        position: "relative",
         borderRadius: SECTION_RADIUS,
         background: PANEL_BG,
         boxShadow: SOFT_SHADOW,
         overflow: "hidden",
-        border: reviewReady
-          ? `1px solid rgba(34,197,94,0.14)`
-          : `1px solid rgba(96,165,250,0.14)`,
+        border: `1px solid ${railRgba}0.18)`,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 4,
+          background: `linear-gradient(180deg, ${railRgba}0.95) 0%, ${railRgba}0.35) 100%)`,
+          zIndex: 2,
+        }}
+      />
+
       {/* ── Hero header ─────────────────────────────────── */}
       <div
         style={{
-          padding: isMobile ? "22px 16px 18px" : "24px 24px 20px",
+          padding: isMobile ? "22px 18px 20px 22px" : "26px 28px 22px 30px",
           borderBottom: `1px solid ${HAIRLINE}`,
           background: reviewReady
-            ? "linear-gradient(160deg, rgba(34,197,94,0.09) 0%, rgba(14,25,41,0.99) 60%)"
-            : "linear-gradient(160deg, rgba(96,165,250,0.08) 0%, rgba(14,25,41,0.99) 60%)",
+            ? `radial-gradient(120% 100% at 0% 0%, ${railRgba}0.13) 0%, transparent 55%), linear-gradient(180deg, ${PANEL_BG_ALT} 0%, ${PANEL_BG} 100%)`
+            : `radial-gradient(120% 100% at 0% 0%, ${railRgba}0.10) 0%, transparent 55%), linear-gradient(180deg, ${PANEL_BG_ALT} 0%, ${PANEL_BG} 100%)`,
           position: "relative",
           overflow: "hidden",
         }}
       >
-        <div style={{ position: "relative", zIndex: 1 }}>
-          {reviewReady && (
+        <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 8 }}>
+          <span
+            className="stint-kicker"
+            style={{
+              display: "inline-flex",
+              width: "fit-content",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 10px",
+              borderRadius: RADIUS_PILL,
+              background: `${railRgba}0.10)`,
+              border: `1px solid ${railRgba}0.32)`,
+              color: railColor,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+            }}
+          >
+            {reviewReady ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: railColor,
+                  boxShadow: `0 0 0 4px ${railRgba}0.18)`,
+                }}
+              />
+            ) : null}
+            {kickerLabel}
+          </span>
+
+          {reviewReady ? (
             <div
+              className="picks-review-score"
               style={{
                 display: "flex",
                 alignItems: "baseline",
-                gap: 8,
-                marginBottom: 8,
+                gap: 10,
+                marginTop: 4,
               }}
             >
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: isMobile ? 48 : 60,
+                  fontSize: isMobile ? 64 : 84,
                   fontWeight: 700,
-                  letterSpacing: "-0.04em",
-                  lineHeight: 0.95,
+                  letterSpacing: "-0.05em",
+                  lineHeight: 0.9,
                   color: scoreColor,
                   fontVariantNumeric: "tabular-nums",
+                  textShadow: `0 4px 36px ${railRgba}0.32)`,
                 }}
               >
-                {displayReviewScore}
+                {countedScore}
               </span>
               <span
                 style={{
-                  fontSize: 16,
-                  fontWeight: 700,
+                  fontSize: isMobile ? 16 : 18,
+                  fontWeight: 800,
                   color: MUTED_TEXT,
                   letterSpacing: "-0.02em",
-                  paddingBottom: 3,
+                  paddingBottom: 6,
+                  textTransform: "uppercase",
                 }}
               >
                 pts
               </span>
             </div>
-          )}
+          ) : null}
 
-          <div
+          <h2
+            className="stint-section-title picks-review-title"
             style={{
-              fontSize: isMobile ? 16 : 18,
+              fontFamily: "Sora, sans-serif",
+              fontSize: isMobile ? 22 : 28,
               fontWeight: 800,
-              letterSpacing: "-0.03em",
+              letterSpacing: "-0.035em",
               color: TEXT_PRIMARY,
-              marginBottom: 5,
+              margin: 0,
+              lineHeight: 1.1,
             }}
           >
-            {reviewReady
-              ? `${selectedLeague?.name || "League"} · ${race.n}`
-              : `${selectedLeague?.name || "League"} locked`}
+            {titleText}
+          </h2>
+
+          <div style={{ fontSize: 13, color: MUTED_TEXT, lineHeight: 1.55, fontFamily: "Manrope, sans-serif" }}>
+            {subText}
           </div>
 
-          <div style={{ fontSize: 13, color: MUTED_TEXT, lineHeight: 1.5 }}>
-            {reviewReady
-              ? `${hits} correct · ${Math.max(misses, 0)} missed${podiumBonus ? ` · Perfect podium +${podiumBonus.pts} pts` : ""}`
-              : hasSavedPickContent(selectedLeagueSubmission?.picks)
-                ? `${savedPickCount} pick${savedPickCount !== 1 ? "s" : ""} saved${raceHasPassed ? " · Results pending" : ""}`
-                : "No saved board"}
-          </div>
+          {reviewReady && podiumBonus ? (
+            <div
+              className="picks-review-bonus"
+              style={{
+                display: "inline-flex",
+                width: "fit-content",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 14px",
+                marginTop: 6,
+                borderRadius: RADIUS_PILL,
+                background: "linear-gradient(135deg, rgba(147,197,253,0.18) 0%, rgba(96,165,250,0.06) 100%)",
+                border: "1px solid rgba(147,197,253,0.32)",
+                color: "#bfdbfe",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: "0.03em",
+              }}
+            >
+              <span aria-hidden="true" style={{ fontSize: 14 }}>★</span>
+              Perfect podium · +{podiumBonus.pts} pts
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* ── Scored body ─────────────────────────────────── */}
       {reviewReady ? (
-        <div style={{ padding: isMobile ? "16px" : "20px 24px", display: "grid", gap: 16 }}>
+        <div style={{ padding: isMobile ? "18px 16px 22px" : "22px 26px 26px", display: "grid", gap: 18 }}>
           {/* Metric row */}
           <div
+            className="picks-review-metrics"
             style={{
               display: "grid",
               gridTemplateColumns: isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))",
               gap: 10,
             }}
           >
-            <ReviewMetric label="Score" value={`${displayReviewScore}`} detail="points" accent="#facc15" />
-            <ReviewMetric label="Correct" value={String(hits)} detail={tab === "sprint" ? "Sprint" : "Race"} accent={SUCCESS} />
-            <ReviewMetric label="Misses" value={String(Math.max(misses, 0))} accent="#f87171" />
+            <ReviewMetric label="Score" value={`${countedScore}`} detail="points" accent="#facc15" />
+            <ReviewMetric label="Correct" value={String(countedHits)} detail={tab === "sprint" ? "Sprint" : "Race"} accent={SUCCESS} />
+            <ReviewMetric label="Misses" value={String(countedMisses)} accent="#f87171" />
             <ReviewMetric
               label="Podium bonus"
               value={podiumBonus ? `+${podiumBonus.pts}` : "—"}
@@ -1641,28 +2126,48 @@ function RoundReviewPanel({
             />
           </div>
 
+          {/* Section divider with kicker */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+            <span
+              className="stint-kicker"
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: SUBTLE_TEXT,
+                fontFamily: "Manrope, sans-serif",
+              }}
+            >
+              Pick-by-pick
+            </span>
+            <span style={{ flex: 1, height: 1, background: HAIRLINE }} />
+          </div>
+
           {/* Review table */}
           <div style={{ borderRadius: CARD_RADIUS, border: `1px solid ${HAIRLINE}`, overflow: "hidden" }}>
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: isMobile
-                  ? "minmax(0,1fr) 72px"
-                  : "minmax(160px,1fr) minmax(140px,1fr) minmax(140px,1fr) 80px",
+                  ? "28px minmax(0,1fr) 72px"
+                  : "28px minmax(150px,1fr) minmax(140px,1fr) minmax(140px,1fr) 80px",
                 background: PANEL_BG_ALT,
                 borderBottom: `1px solid ${HAIRLINE}`,
               }}
             >
+              <div />
               {(isMobile ? ["Category", "Pts"] : ["Category", "Your pick", "Result", "Pts"]).map((heading, i) => (
                 <div
                   key={heading}
                   style={{
-                    padding: "9px 14px",
+                    padding: "10px 14px",
                     fontSize: 10,
                     fontWeight: 800,
-                    letterSpacing: "0.1em",
+                    letterSpacing: "0.12em",
                     textTransform: "uppercase",
                     color: SUBTLE_TEXT,
+                    fontFamily: "Manrope, sans-serif",
                     textAlign: i === (isMobile ? 1 : 3) ? "right" : "left",
                   }}
                 >
@@ -1670,161 +2175,235 @@ function RoundReviewPanel({
                 </div>
               ))}
             </div>
-            {reviewRows.map((row, i) => (
-              <div
-                key={row.key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile
-                    ? "minmax(0,1fr) 72px"
-                    : "minmax(160px,1fr) minmax(140px,1fr) minmax(140px,1fr) 80px",
-                  alignItems: "center",
-                  borderBottom: i < reviewRows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
-                  background: row.hit
-                    ? "rgba(34,197,94,0.03)"
-                    : i % 2 === 0 ? PANEL_BG : PANEL_BG_ALT,
-                }}
-              >
-                <div style={{ padding: "11px 14px" }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: TEXT_PRIMARY,
-                      marginBottom: 2,
-                    }}
-                  >
-                    {row.label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: row.hit ? SUCCESS : SUBTLE_TEXT,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    {row.hit ? "Hit" : row.pick ? "Miss" : "—"}
-                  </div>
-                  {isMobile && (
-                    <div style={{ marginTop: 6, display: "grid", gap: 2, fontSize: 11, color: MUTED_TEXT }}>
-                      <div>Pick: <span style={{ color: TEXT_PRIMARY }}>{row.pick || "—"}</span></div>
-                      <div>Result: <span style={{ color: TEXT_PRIMARY }}>{row.actual || "Pending"}</span></div>
-                    </div>
-                  )}
-                </div>
-                {!isMobile && (
-                  <div style={{ padding: "11px 14px", fontSize: 12, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
-                    {row.pick || "—"}
-                  </div>
-                )}
-                {!isMobile && (
-                  <div style={{ padding: "11px 14px", fontSize: 12, color: row.actual ? TEXT_PRIMARY : MUTED_TEXT }}>
-                    {row.actual || "Pending"}
-                  </div>
-                )}
-                <div
-                  style={{
-                    padding: "11px 14px",
-                    textAlign: "right",
-                    fontSize: 16,
-                    fontWeight: 900,
-                    color: row.hit ? "#facc15" : SUBTLE_TEXT,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {row.hit ? row.points : "0"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        /* ── Locked (not yet scored) ─── */
-        <div style={{ padding: isMobile ? "14px" : "18px 22px", display: "grid", gap: 14 }}>
-          {hasSavedPickContent(selectedLeagueSubmission?.picks) ? (
-            <div
-              style={{
-                borderRadius: CARD_RADIUS,
-                border: `1px solid ${HAIRLINE}`,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "minmax(0,1fr) 120px" : "minmax(160px,1fr) minmax(160px,1fr) 120px",
-                  background: PANEL_BG_ALT,
-                  borderBottom: `1px solid ${HAIRLINE}`,
-                }}
-              >
-                {(isMobile ? ["Category", "Status"] : ["Category", "Your pick", "Status"]).map((heading, i) => (
-                  <div
-                    key={heading}
-                    style={{
-                      padding: "9px 14px",
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      color: SUBTLE_TEXT,
-                      textAlign: i === (isMobile ? 1 : 2) ? "right" : "left",
-                    }}
-                  >
-                    {heading}
-                  </div>
-                ))}
-              </div>
-              {summaryRows.map((row, i) => (
+            {reviewRows.map((row, i) => {
+              const rowTint = row.hit
+                ? "rgba(34,197,94,0.06)"
+                : row.pick
+                  ? i % 2 === 0 ? PANEL_BG : PANEL_BG_ALT
+                  : i % 2 === 0 ? PANEL_BG : PANEL_BG_ALT;
+              return (
                 <div
                   key={row.key}
+                  className="picks-review-row"
                   style={{
+                    "--row-i": i,
                     display: "grid",
-                    gridTemplateColumns: isMobile ? "minmax(0,1fr) 120px" : "minmax(160px,1fr) minmax(160px,1fr) 120px",
+                    gridTemplateColumns: isMobile
+                      ? "28px minmax(0,1fr) 72px"
+                      : "28px minmax(150px,1fr) minmax(140px,1fr) minmax(140px,1fr) 80px",
                     alignItems: "center",
-                    borderBottom: i < summaryRows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
-                    background: i % 2 === 0 ? PANEL_BG : PANEL_BG_ALT,
+                    borderBottom: i < reviewRows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
+                    background: rowTint,
+                    position: "relative",
                   }}
                 >
-                  <div style={{ padding: "11px 14px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: isMobile ? 3 : 0 }}>
+                  {/* Hit / miss indicator column */}
+                  <div style={{ display: "flex", justifyContent: "center", paddingLeft: 6 }}>
+                    {row.hit ? (
+                      <span
+                        className="picks-review-tick"
+                        aria-hidden="true"
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          background: "rgba(34,197,94,0.18)",
+                          border: "1px solid rgba(34,197,94,0.45)",
+                          color: SUCCESS,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10,
+                          fontWeight: 900,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ✓
+                      </span>
+                    ) : row.pick ? (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          background: "transparent",
+                          border: "1px solid rgba(148,163,184,0.28)",
+                        }}
+                      />
+                    ) : (
+                      <span aria-hidden="true" style={{ width: 16, height: 1, background: "rgba(148,163,184,0.28)" }} />
+                    )}
+                  </div>
+                  <div style={{ padding: "12px 14px" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: TEXT_PRIMARY,
+                        marginBottom: 2,
+                        fontFamily: "Manrope, sans-serif",
+                      }}
+                    >
                       {row.label}
                     </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: row.hit ? SUCCESS : SUBTLE_TEXT,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {row.hit ? "Hit" : row.pick ? "Miss" : "—"}
+                    </div>
                     {isMobile && (
-                      <div style={{ fontSize: 11, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
-                        {row.pick || "No pick"}
+                      <div style={{ marginTop: 6, display: "grid", gap: 2, fontSize: 11, color: MUTED_TEXT }}>
+                        <div>Pick: <span style={{ color: TEXT_PRIMARY }}>{row.pick || "—"}</span></div>
+                        <div>Result: <span style={{ color: TEXT_PRIMARY }}>{row.actual || "Pending"}</span></div>
                       </div>
                     )}
                   </div>
                   {!isMobile && (
-                    <div style={{ padding: "11px 14px", fontSize: 12, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
+                    <div style={{ padding: "12px 14px", fontSize: 12, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
                       {row.pick || "—"}
+                    </div>
+                  )}
+                  {!isMobile && (
+                    <div style={{ padding: "12px 14px", fontSize: 12, color: row.actual ? TEXT_PRIMARY : MUTED_TEXT }}>
+                      {row.actual || "Pending"}
                     </div>
                   )}
                   <div
                     style={{
-                      padding: "11px 14px",
+                      padding: "12px 14px",
                       textAlign: "right",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: row.actual ? "#93c5fd" : SUBTLE_TEXT,
+                      fontSize: 18,
+                      fontWeight: 900,
+                      color: row.hit ? "#facc15" : SUBTLE_TEXT,
+                      fontFamily: "var(--font-mono)",
+                      fontVariantNumeric: "tabular-nums",
+                      letterSpacing: "-0.02em",
                     }}
                   >
-                    {row.actual || (raceHasPassed ? "Awaiting scoring" : "Locked")}
+                    {row.hit ? row.points : "0"}
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* ── Locked (not yet scored) ─── */
+        <div style={{ padding: isMobile ? "16px" : "22px 26px 24px", display: "grid", gap: 14 }}>
+          {hasSavedPickContent(selectedLeagueSubmission?.picks) ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span
+                  className="stint-kicker"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: SUBTLE_TEXT,
+                    fontFamily: "Manrope, sans-serif",
+                  }}
+                >
+                  Saved board
+                </span>
+                <span style={{ flex: 1, height: 1, background: HAIRLINE }} />
+              </div>
+              <div
+                style={{
+                  borderRadius: CARD_RADIUS,
+                  border: `1px solid ${HAIRLINE}`,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "minmax(0,1fr) 120px" : "minmax(160px,1fr) minmax(160px,1fr) 120px",
+                    background: PANEL_BG_ALT,
+                    borderBottom: `1px solid ${HAIRLINE}`,
+                  }}
+                >
+                  {(isMobile ? ["Category", "Status"] : ["Category", "Your pick", "Status"]).map((heading, i) => (
+                    <div
+                      key={heading}
+                      style={{
+                        padding: "10px 14px",
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: SUBTLE_TEXT,
+                        fontFamily: "Manrope, sans-serif",
+                        textAlign: i === (isMobile ? 1 : 2) ? "right" : "left",
+                      }}
+                    >
+                      {heading}
+                    </div>
+                  ))}
+                </div>
+                {summaryRows.map((row, i) => (
+                  <div
+                    key={row.key}
+                    className="picks-review-row"
+                    style={{
+                      "--row-i": i,
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "minmax(0,1fr) 120px" : "minmax(160px,1fr) minmax(160px,1fr) 120px",
+                      alignItems: "center",
+                      borderBottom: i < summaryRows.length - 1 ? `1px solid ${HAIRLINE}` : "none",
+                      background: i % 2 === 0 ? PANEL_BG : PANEL_BG_ALT,
+                    }}
+                  >
+                    <div style={{ padding: "12px 14px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: isMobile ? 3 : 0, fontFamily: "Manrope, sans-serif" }}>
+                        {row.label}
+                      </div>
+                      {isMobile && (
+                        <div style={{ fontSize: 11, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
+                          {row.pick || "No pick"}
+                        </div>
+                      )}
+                    </div>
+                    {!isMobile && (
+                      <div style={{ padding: "12px 14px", fontSize: 12, color: row.pick ? TEXT_PRIMARY : MUTED_TEXT }}>
+                        {row.pick || "—"}
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        textAlign: "right",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: row.actual ? "#93c5fd" : SUBTLE_TEXT,
+                      }}
+                    >
+                      {row.actual || (raceHasPassed ? "Awaiting" : "Locked")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div
               style={{
                 borderRadius: CARD_RADIUS,
                 border: `1px solid ${HAIRLINE}`,
                 background: PANEL_BG_ALT,
-                padding: "14px 16px",
+                padding: "16px 18px",
                 fontSize: 13,
                 color: MUTED_TEXT,
                 lineHeight: 1.6,
+                fontFamily: "Manrope, sans-serif",
               }}
             >
               No picks were saved for this round.
@@ -1842,31 +2421,48 @@ function RoundRailItem({ item, active, onClick, status }) {
   return (
     <button
       onClick={onClick}
-      className="stint-pressable"
+      className="stint-pressable picks-rail-item"
+      data-active={active ? "true" : "false"}
       style={{
+        position: "relative",
         width: "100%",
         display: "flex",
         alignItems: "center",
-        gap: 9,
-        padding: "8px 12px",
+        gap: 10,
+        padding: "9px 12px 9px 14px",
         background: active
-          ? hexToRgba(status.accent, 0.1)
+          ? hexToRgba(status.accent, 0.12)
           : "transparent",
         border: "none",
-        outline: active ? `1px solid ${hexToRgba(status.accent, 0.24)}` : "none",
+        outline: active ? `1px solid ${hexToRgba(status.accent, 0.30)}` : "1px solid transparent",
         outlineOffset: -1,
+        borderRadius: RADIUS_MD,
         cursor: "pointer",
         textAlign: "left",
-        transition: "background 140ms ease, outline-color 140ms ease",
       }}
     >
+      {active && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 3,
+            borderRadius: 999,
+            background: status.accent,
+            boxShadow: `0 0 12px ${hexToRgba(status.accent, 0.5)}`,
+          }}
+        />
+      )}
       <div
         style={{
           width: 28,
           height: 28,
           borderRadius: "50%",
           flexShrink: 0,
-          background: active ? hexToRgba(status.accent, 0.18) : BG_BASE,
+          background: active ? hexToRgba(status.accent, 0.20) : BG_BASE,
           border: `1.5px solid ${active ? status.accent : "rgba(255,255,255,0.12)"}`,
           display: "flex",
           alignItems: "center",
@@ -1874,7 +2470,9 @@ function RoundRailItem({ item, active, onClick, status }) {
           fontSize: 10,
           fontWeight: 800,
           color: active ? TEXT_PRIMARY : MUTED_TEXT,
-          boxShadow: active ? `0 0 10px ${hexToRgba(status.accent, 0.28)}` : "none",
+          boxShadow: active ? `0 0 12px ${hexToRgba(status.accent, 0.32)}` : "none",
+          fontFamily: "var(--font-mono)",
+          letterSpacing: "-0.02em",
         }}
       >
         {getRaceDisplayRound(item) || item.r}
@@ -1882,19 +2480,21 @@ function RoundRailItem({ item, active, onClick, status }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <div
           style={{
+            fontFamily: "Sora, sans-serif",
             fontSize: 13,
-            fontWeight: active ? 700 : 500,
+            fontWeight: active ? 800 : 600,
             color: active ? TEXT_PRIMARY : MUTED_TEXT,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
             lineHeight: 1.2,
             marginBottom: 1,
+            letterSpacing: "-0.02em",
           }}
         >
           {item.n}
         </div>
-        <div style={{ fontSize: 11, color: status.text, lineHeight: 1 }}>{fmt(item.date)}</div>
+        <div style={{ fontSize: 11, color: status.text, lineHeight: 1, fontFamily: "Manrope, sans-serif" }}>{fmt(item.date)}</div>
       </div>
       <span
         style={{
@@ -1903,7 +2503,7 @@ function RoundRailItem({ item, active, onClick, status }) {
           borderRadius: "50%",
           background: status.accent,
           flexShrink: 0,
-          boxShadow: `0 0 6px ${hexToRgba(status.accent, 0.4)}`,
+          boxShadow: `0 0 6px ${hexToRgba(status.accent, 0.45)}`,
         }}
       />
     </button>
@@ -1913,25 +2513,37 @@ function RoundRailItem({ item, active, onClick, status }) {
 function AiCompactPanel({ aiPredictions, isPro, picks, openAuth }) {
   const visiblePicks = isPro ? aiPredictions : aiPredictions.slice(0, 3);
   const hiddenCount = aiPredictions.length - visiblePicks.length;
-  const KEY_LABELS = {
-    pole: "Pole", winner: "Winner", p2: "P2", p3: "P3",
-    dnf: "DNF", fl: "Fastest Lap", dotd: "DOTD",
-    ctor: "Constructor", sc: "Safety Car", rf: "Red Flag",
-  };
+  const matchCount = visiblePicks.reduce((n, item) => n + (picks[item.key] === item.pick ? 1 : 0), 0);
 
   return (
     <div
+      className="picks-ai-compact"
       style={{
+        position: "relative",
         borderRadius: CARD_RADIUS,
-        background: PANEL_BG,
-        border: `1px solid ${HAIRLINE}`,
+        background: isPro
+          ? `radial-gradient(120% 100% at 0% 0%, ${rgbaFromHex(ACCENT, 0.07)} 0%, transparent 60%), ${PANEL_BG}`
+          : PANEL_BG,
+        border: isPro ? `1px solid ${rgbaFromHex(ACCENT, 0.20)}` : `1px solid ${HAIRLINE}`,
         overflow: "hidden",
         flexShrink: 0,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          background: isPro
+            ? `linear-gradient(180deg, ${ACCENT} 0%, ${rgbaFromHex(ACCENT, 0.30)} 100%)`
+            : "rgba(148,163,184,0.18)",
+          zIndex: 2,
+        }}
+      />
       <div
         style={{
-          padding: "7px 12px 5px",
+          padding: "10px 12px 8px 14px",
           borderBottom: `1px solid ${HAIRLINE}`,
           background: PANEL_BG_ALT,
           display: "flex",
@@ -1939,105 +2551,182 @@ function AiCompactPanel({ aiPredictions, isPro, picks, openAuth }) {
           alignItems: "center",
         }}
       >
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: isPro ? ACCENT : SUBTLE_TEXT,
-          }}
-        >
-          AI Calls
-        </span>
-        {!isPro && (
-          <button
-            onClick={() => openAuth?.("register")}
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: isPro ? ACCENT : "#94a3b8",
+              boxShadow: isPro ? `0 0 0 3px ${rgbaFromHex(ACCENT, 0.16)}` : "none",
+            }}
+          />
+          <span
             style={{
               fontSize: 10,
               fontWeight: 800,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "var(--brand)",
-              background: "none",
+              color: isPro ? ACCENT : SUBTLE_TEXT,
+              fontFamily: "Manrope, sans-serif",
+            }}
+          >
+            AI Calls
+          </span>
+          {isPro && matchCount > 0 && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                color: SUCCESS,
+                background: rgbaFromHex(SUCCESS, 0.14),
+                border: `1px solid ${rgbaFromHex(SUCCESS, 0.32)}`,
+                padding: "2px 6px",
+                borderRadius: RADIUS_PILL,
+                fontFamily: "Manrope, sans-serif",
+              }}
+            >
+              {matchCount}✓
+            </span>
+          )}
+        </div>
+        {!isPro && (
+          <button
+            onClick={() => openAuth?.("register")}
+            className="stint-pressable"
+            style={{
+              fontSize: 9,
+              fontWeight: 900,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#fff",
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #e05a12 100%)`,
               border: "none",
+              borderRadius: RADIUS_PILL,
               cursor: "pointer",
-              padding: 0,
+              padding: "4px 9px",
+              boxShadow: `0 6px 14px ${rgbaFromHex(ACCENT, 0.30)}`,
+              fontFamily: "Manrope, sans-serif",
             }}
           >
             Pro
           </button>
         )}
       </div>
-      <div style={{ padding: "4px 0" }}>
-        {visiblePicks.map((item) => {
+      <div style={{ padding: "6px 0" }}>
+        {visiblePicks.map((item, idx) => {
           const conf = (typeof item.confidence === "string" ? item.confidence.toLowerCase() : "medium") || "medium";
           const confColor = AI_CONF_COLOR[conf] || "#fde68a";
+          const confPercent = confPct(item.key, item.pick, item.confidence);
           const isMatched = picks[item.key] === item.pick;
           return (
             <div
               key={item.key}
+              className="picks-ai-compact-row"
               style={{
+                "--ai-i": idx,
+                position: "relative",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "5px 12px",
-                background: isMatched ? "rgba(134,239,172,0.04)" : "transparent",
+                padding: "7px 12px 7px 14px",
+                background: isMatched ? rgbaFromHex(SUCCESS, 0.06) : "transparent",
+                borderLeft: isMatched ? `2px solid ${rgbaFromHex(SUCCESS, 0.55)}` : "2px solid transparent",
               }}
             >
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 800,
-                  letterSpacing: "0.06em",
+                  letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   color: SUBTLE_TEXT,
                   flexShrink: 0,
-                  width: 58,
+                  width: 60,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  fontFamily: "Manrope, sans-serif",
                 }}
               >
-                {KEY_LABELS[item.key] || item.key}
+                {AI_CAT_LABEL[item.key] || item.key}
               </span>
               <span
                 style={{
                   fontSize: 11,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   color: isMatched ? "#86efac" : TEXT_PRIMARY,
                   flex: 1,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  fontFamily: "Sora, sans-serif",
+                  letterSpacing: "-0.015em",
                 }}
               >
                 {item.pick}
               </span>
               <span
                 style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: confColor,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
                   flexShrink: 0,
-                  fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {confPct(item.key, item.pick, item.confidence)}%
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: "50%",
+                    background: confColor,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: confColor,
+                    fontFamily: "var(--font-mono)",
+                    fontVariantNumeric: "tabular-nums",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {confPercent}%
+                </span>
               </span>
             </div>
           );
         })}
         {!isPro && hiddenCount > 0 && (
-          <div
+          <button
+            onClick={() => openAuth?.("register")}
+            className="stint-pressable"
             style={{
-              padding: "5px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              width: "100%",
+              padding: "8px 12px 8px 14px",
               fontSize: 10,
-              color: SUBTLE_TEXT,
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: ACCENT,
+              background: "transparent",
+              border: "none",
+              borderTop: `1px solid ${HAIRLINE}`,
+              cursor: "pointer",
+              fontFamily: "Manrope, sans-serif",
+              textAlign: "left",
             }}
           >
-            +{hiddenCount} more with Pro
-          </div>
+            <span style={{ flex: 1 }}>+{hiddenCount} more with Pro</span>
+            <span aria-hidden="true" style={{ fontSize: 12 }}>→</span>
+          </button>
         )}
       </div>
     </div>
@@ -2472,13 +3161,21 @@ function BoardCommandBar({
     (editingLocked && !selectedLeagueBlocked) ||
     (demoPreview && !selectedLeagueBlocked);
 
-  const saveBg = reviewReady
-    ? "linear-gradient(135deg,#0f766e,#14b8a6)"
+  const allFilled = totalPrompts > 0 && done === totalPrompts;
+
+  // Save button visual state — derived from the save flow status
+  const buttonTone = reviewReady
+    ? { bg: "linear-gradient(135deg,#0f766e,#14b8a6)", glow: "rgba(20,184,166,0.32)", label: "Scored" }
     : resultsEntered || (editingLocked && !selectedLeagueBlocked)
-      ? "linear-gradient(135deg,#334155,#475569)"
+      ? { bg: "linear-gradient(135deg,#334155,#475569)", glow: "none", label: "Locked" }
       : saved
-        ? "linear-gradient(135deg,#22C55E,#16A34A)"
-        : "linear-gradient(135deg,#F97316,#EA580C)";
+        ? { bg: "linear-gradient(135deg,#22C55E,#16A34A)", glow: "0 10px 28px rgba(34,197,94,0.36)", label: "Saved" }
+        : allFilled
+          ? { bg: "linear-gradient(135deg,#F97316,#EA580C)", glow: "0 14px 38px rgba(249,115,22,0.48)", label: "Ready" }
+          : { bg: "linear-gradient(135deg,#F97316,#EA580C)", glow: "0 10px 24px rgba(249,115,22,0.26)", label: "Pending" };
+
+  // Progress percent for the inline bar
+  const pct = totalPrompts > 0 ? Math.round((done / totalPrompts) * 100) : 0;
 
   return (
     <div
@@ -2486,35 +3183,99 @@ function BoardCommandBar({
         position: "sticky",
         bottom: 0,
         zIndex: 20,
-        paddingTop: 24,
+        paddingTop: 26,
         paddingBottom: 16,
         background: `linear-gradient(180deg, transparent 0%, ${BG_BASE} 22%)`,
         pointerEvents: "none",
       }}
     >
       <div
+        className={allFilled && !saved ? "picks-cmd-ready" : undefined}
         style={{
+          position: "relative",
+          overflow: "hidden",
           borderRadius: CARD_RADIUS,
-          background: PANEL_BG_ALT,
-          border: "1px solid rgba(214,223,239,0.12)",
-          boxShadow: `${LIFTED_SHADOW}, inset 0 1px 0 rgba(255,255,255,0.04)`,
-          padding: isMobile ? "14px 14px" : "14px 20px",
+          background: allFilled && !saved
+            ? `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.10)} 0%, ${hexToRgba(ACCENT, 0.02)} 50%, ${PANEL_BG_ALT} 100%)`
+            : PANEL_BG_ALT,
+          border: allFilled && !saved
+            ? `1px solid ${hexToRgba(ACCENT, 0.34)}`
+            : "1px solid rgba(214,223,239,0.12)",
+          boxShadow: allFilled && !saved
+            ? `${LIFTED_SHADOW}, 0 0 0 1px ${hexToRgba(ACCENT, 0.16)}, inset 0 1px 0 rgba(255,255,255,0.06)`
+            : `${LIFTED_SHADOW}, inset 0 1px 0 rgba(255,255,255,0.04)`,
+          padding: isMobile ? "14px 14px 12px" : "16px 22px 14px",
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) auto",
-          gap: 14,
+          gap: isMobile ? 14 : 18,
           alignItems: "center",
           pointerEvents: "all",
+          transition: "background 240ms ease, border-color 240ms ease, box-shadow 240ms ease",
         }}
       >
-        <div style={{ display: "grid", gap: 9 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: done === totalPrompts && totalPrompts > 0 ? SUCCESS : TEXT_PRIMARY, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>
-              {done}/{totalPrompts}
-            </span>
-            <span style={{ color: "rgba(214,223,239,0.22)", fontSize: 12 }}>·</span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: MUTED_TEXT, letterSpacing: "-0.01em" }}>{selectedLeague?.name || "Board"}</span>
+        {/* Top tone rail when ready */}
+        {allFilled && !saved && (
+          <span aria-hidden="true" style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 2,
+            background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+            opacity: 0.78,
+          }} />
+        )}
+
+        <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+          {/* Headline: progress + league */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <span style={{
+              fontSize: 11, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: allFilled ? SUCCESS : ACCENT,
+            }}>{allFilled ? "Board ready" : "Your board"}</span>
+            <span aria-hidden="true" style={{ color: "rgba(214,223,239,0.22)", fontSize: 11 }}>·</span>
+            <span style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 16,
+              fontWeight: 700,
+              color: allFilled ? SUCCESS : TEXT_PRIMARY,
+              letterSpacing: "-0.04em",
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1,
+            }}>{done}/{totalPrompts}</span>
+            <span aria-hidden="true" style={{ color: "rgba(214,223,239,0.22)", fontSize: 11 }}>·</span>
+            <span style={{
+              fontSize: 11.5, fontWeight: 700,
+              color: MUTED_TEXT,
+              letterSpacing: "-0.005em",
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>{selectedLeague?.name || "Board"}</span>
           </div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+
+          {/* Progress bar — replaces dot pattern with cleaner narrative */}
+          <div style={{
+            position: "relative",
+            height: 5,
+            borderRadius: 999,
+            background: "rgba(148,163,184,0.10)",
+            overflow: "hidden",
+          }}>
+            <div className="picks-cmd-fill" style={{
+              width: `${pct}%`,
+              height: "100%",
+              background: allFilled
+                ? `linear-gradient(90deg, ${SUCCESS}, #4ade80)`
+                : `linear-gradient(90deg, ${ACCENT}, #fbbf24)`,
+              borderRadius: 999,
+              boxShadow: allFilled
+                ? `0 0 12px ${hexToRgba(SUCCESS, 0.46)}`
+                : `0 0 12px ${hexToRgba(ACCENT, 0.36)}`,
+              transition: "width 360ms cubic-bezier(0.16,1,0.3,1), background 240ms ease, box-shadow 240ms ease",
+            }} />
+          </div>
+
+          {/* Inline category jump pills — compact, scrollable, animated active */}
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
             {allPrompts.map((prompt) => {
               const isActive = activePromptKey === prompt.key;
               const meta = selectionMeta(prompt, picks[prompt.key]);
@@ -2522,27 +3283,28 @@ function BoardCommandBar({
                 ? meta.accent || SUCCESS
                 : isActive
                   ? ACCENT
-                  : "rgba(255,255,255,0.12)";
+                  : "rgba(148,163,184,0.30)";
               return (
                 <button
                   key={`cmd-${prompt.key}`}
                   onClick={() => onSelectPrompt(prompt.key)}
                   title={prompt.label + (meta ? `: ${meta.label}` : "")}
+                  className="picks-cmd-dot"
                   style={{
-                    width: isActive ? 30 : meta ? 14 : 10,
-                    height: 10,
+                    width: isActive ? 34 : meta ? 16 : 12,
+                    height: meta || isActive ? 10 : 8,
                     borderRadius: 999,
                     background: accent,
                     border: "none",
                     padding: 0,
                     cursor: "pointer",
                     flexShrink: 0,
-                    transition: "width 240ms cubic-bezier(0.22,1,0.36,1), background 180ms ease",
                     boxShadow: isActive
-                      ? `0 0 14px ${hexToRgba(ACCENT, 0.55)}`
+                      ? `0 0 14px ${hexToRgba(ACCENT, 0.62)}`
                       : meta
-                        ? `0 0 6px ${hexToRgba(accent, 0.25)}`
+                        ? `0 0 8px ${hexToRgba(accent, 0.36)}`
                         : "none",
+                    transition: "width 280ms cubic-bezier(0.22,1,0.36,1), height 240ms cubic-bezier(0.22,1,0.36,1), background 200ms ease, box-shadow 220ms ease",
                   }}
                 />
               );
@@ -2550,34 +3312,1075 @@ function BoardCommandBar({
           </div>
         </div>
 
+        {/* Save button */}
         <button
-          className={["stint-pressable", savePop ? "stint-success-pop" : null].filter(Boolean).join(" ")}
+          className={["stint-pressable", savePop ? "stint-success-pop" : null, allFilled && !saved ? "picks-cmd-pulse" : null].filter(Boolean).join(" ")}
           onClick={save}
           disabled={saveDisabled}
           style={{
-            minHeight: isMobile ? 48 : 52,
-            minWidth: isMobile ? "100%" : 172,
-            padding: "0 24px",
-            borderRadius: RADIUS_MD,
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            minHeight: isMobile ? 52 : 56,
+            minWidth: isMobile ? "100%" : 188,
+            padding: "0 26px",
+            borderRadius: RADIUS_PILL,
             border: "none",
-            background: saveBg,
-            color: TEXT_PRIMARY,
+            background: buttonTone.bg,
+            color: "#fff",
             fontSize: 14,
-            fontWeight: 700,
+            fontWeight: 900,
             cursor: saveDisabled ? "default" : "pointer",
-            opacity: saveDisabled ? 0.75 : 1,
-            boxShadow: saved
-              ? "0 10px 24px rgba(34,197,94,0.22)"
-              : !saveDisabled
-                ? "0 10px 24px rgba(249,115,22,0.26)"
-                : "none",
-            letterSpacing: "-0.02em",
-            transition: "background 260ms ease, box-shadow 260ms ease, opacity 120ms ease",
+            opacity: saveDisabled ? 0.78 : 1,
+            boxShadow: buttonTone.glow === "none" ? "none" : buttonTone.glow,
+            letterSpacing: "-0.005em",
+            fontFamily: "inherit",
+            transition: "background 260ms ease, box-shadow 260ms ease, opacity 120ms ease, transform 160ms cubic-bezier(0.23,1,0.32,1)",
           }}
         >
-          {saveLabel}
+          {saved && (
+            <svg width="14" height="11" viewBox="0 0 12 10" fill="none" aria-hidden="true">
+              <path d="M1.5 5L4.5 8L10.5 1.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+          <span>{saveLabel}</span>
+          {!saved && !saveDisabled && (
+            <span aria-hidden="true" style={{ fontSize: 13, marginLeft: 2 }}>→</span>
+          )}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── NEW visual components (rebuild) ──────────────────────────────────────────
+// These replace the previous RaceCommandStrip + inline league strip + section
+// chrome. They wrap the existing data shape — every prop comes from state
+// already computed inside PredictionsPage. The original sub-components above
+// (RaceCommandStrip, PickNavigatorPanel, RoundSidebarItem, RoundRailItem,
+// AiCompactPanel, AiIntelligencePanel) are kept in place for revertibility:
+// `git checkout HEAD -- src/features/picks/` restores the previous render.
+
+// Cinematic race hero — replaces RaceCommandStrip.
+// Hero-Main.png backdrop, top accent rail, kicker, big uppercase race title
+// with letter-by-letter reveal, live lock countdown that ramps up urgency.
+function PicksRaceHero({ race, lockCountdown, stateTone, aiInsight, isMobile, isTablet, selectedLeague, roundSummary }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Lock countdown — derive d/h/m for the protagonist display.
+  const cd = lockCountdown?.delta ? (() => {
+    const ms = lockCountdown.delta;
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor((ms % 86400000) / 3600000);
+    const mins = Math.floor((ms % 3600000) / 60000);
+    return { d: days, h: hours, m: mins, total: ms };
+  })() : null;
+
+  const urgency = cd ? (cd.total < 3600000 ? "critical" : cd.total < 86400000 ? "warning" : "calm") : null;
+  const urgencyColor = urgency === "critical" ? "#f87171" : urgency === "warning" ? "#fbbf24" : ACCENT;
+
+  // Header title — letter-by-letter typing reveal, ACCENT-tinted last word
+  const titleText = (race?.n || "").replace(/grand prix/i, "").trim() || "Race week";
+  const titleChars = titleText.split("");
+
+  // Mini progress strip — count the user's filled picks across leagues
+  const totalEntries = roundSummary?.entries?.length || 0;
+  const filledLeagues = roundSummary?.entries?.filter((e) => e.progress?.isComplete).length || 0;
+
+  return (
+    <section
+      style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       PANEL_BORDER,
+        background:   `
+          linear-gradient(140deg, ${hexToRgba(urgencyColor, 0.30)} 0%, ${hexToRgba(urgencyColor, 0.08)} 38%, rgba(6,16,27,0.96) 100%),
+          url("/images/Hero-Main.png") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow:    LIFTED_SHADOW,
+        marginBottom: isMobile ? 18 : 22,
+        padding:      isMobile ? "22px 20px 22px" : isTablet ? "28px 28px 28px" : "34px 36px 32px",
+        viewTransitionName: "picks-race-hero",
+      }}
+    >
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${urgencyColor} 30%, ${urgencyColor} 70%, transparent)`,
+        opacity: 0.92,
+      }} />
+
+      {/* Row 1: kicker + lock countdown chip */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, flexWrap: "wrap", marginBottom: isMobile ? 14 : 18,
+      }}>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 9,
+          padding: "5px 12px", borderRadius: RADIUS_PILL,
+          background: hexToRgba(urgencyColor, 0.14),
+          border: `1px solid ${hexToRgba(urgencyColor, 0.32)}`,
+        }}>
+          <span aria-hidden="true" style={{
+            width: 6, height: 6, borderRadius: "50%", background: urgencyColor,
+            boxShadow: `0 0 0 4px ${hexToRgba(urgencyColor, 0.22)}`,
+          }} />
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: urgencyColor,
+            fontVariantNumeric: "tabular-nums",
+          }}>
+            Race week · R{String(race?.r || "—").padStart(2, "0")}{race?.date ? ` · ${fmtFull(race.date)}` : ""}
+          </span>
+        </div>
+
+        {/* Lock countdown chip */}
+        {cd && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "6px 12px", borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.46)",
+            border: `1px solid ${hexToRgba(urgencyColor, 0.30)}`,
+          }}>
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: urgencyColor,
+            }}>{urgency === "critical" ? "Locks in" : "Picks lock in"}</span>
+            <span style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 14,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.96)",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "-0.02em",
+            }}>
+              {cd.d > 0 ? `${cd.d}d ${cd.h}h` : cd.h > 0 ? `${cd.h}h ${cd.m}m` : `${cd.m}m`}
+            </span>
+          </span>
+        )}
+        {!cd && stateTone?.label && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "5px 12px", borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.46)",
+            border: `1px solid ${hexToRgba(stateTone.accent || ACCENT, 0.30)}`,
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: stateTone.accent || "rgba(255,255,255,0.84)",
+          }}>{stateTone.label}</span>
+        )}
+      </div>
+
+      {/* Row 2: BIG title with letter-by-letter reveal */}
+      <h1 className="stint-page-title picks-title" style={{
+        margin: 0,
+        fontSize: isMobile ? "clamp(34px, 9.5vw, 56px)" : "clamp(54px, 7.2vw, 84px)",
+        letterSpacing: "-0.05em",
+        lineHeight: 0.92,
+        color: "rgba(255,255,255,0.98)",
+        textShadow: "0 2px 18px rgba(0,0,0,0.32)",
+        textTransform: "uppercase",
+        maxWidth: "18ch",
+      }}>
+        {titleChars.map((ch, i) => (
+          <span
+            key={`${ch}-${i}-${race?.r}`}
+            className="picks-title-char"
+            style={{ animationDelay: `${80 + i * 36}ms` }}
+          >{ch === " " ? " " : ch}</span>
+        ))}
+      </h1>
+
+      {/* Sub-line: circuit + city */}
+      {(race?.circuit || race?.city) && (
+        <div className="picks-hero-sub" style={{
+          marginTop: 10,
+          display: "inline-flex", alignItems: "baseline", gap: 10,
+          fontSize: isMobile ? 13 : 15,
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.78)",
+          letterSpacing: "-0.005em",
+        }}>
+          {race?.circuit && <span>{race.circuit}</span>}
+          {race?.city && (
+            <>
+              <span style={{ color: "rgba(255,255,255,0.38)" }}>·</span>
+              <span>{race.city}{race?.cc ? `, ${race.cc}` : ""}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Row 4: AI insight inline + filled-leagues progress */}
+      <div className="picks-hero-meta" style={{
+        marginTop: isMobile ? 22 : 26,
+        paddingTop: isMobile ? 16 : 20,
+        borderTop: "1px solid rgba(255,255,255,0.10)",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 14, flexWrap: "wrap",
+      }}>
+        {/* AI brief (left) */}
+        {aiInsight?.headline ? (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 10,
+            minWidth: 0, flex: 1,
+          }}>
+            <span aria-hidden="true" style={{
+              width: 6, height: 6, borderRadius: "50%", background: "#60a5fa",
+              boxShadow: "0 0 0 4px rgba(96,165,250,0.18)",
+              flexShrink: 0,
+            }} />
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: "#93c5fd",
+              flexShrink: 0,
+            }}>AI Brief</span>
+            <span style={{
+              fontSize: isMobile ? 12 : 13,
+              fontWeight: 600,
+              color: "rgba(226,232,240,0.78)",
+              letterSpacing: "-0.005em",
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>{previewText(aiInsight.headline, isMobile ? 60 : 120)}</span>
+          </div>
+        ) : (
+          <span style={{
+            fontSize: 11, fontWeight: 700,
+            color: "rgba(255,255,255,0.56)",
+            letterSpacing: "-0.005em",
+          }}>{race?.len ? `${race.len} km · ${race.laps} laps · ${race.turns} turns` : "Race details loading"}</span>
+        )}
+
+        {/* Leagues progress (right) */}
+        {totalEntries > 0 && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "5px 11px", borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.42)",
+            border: `1px solid ${filledLeagues === totalEntries ? hexToRgba(SUCCESS, 0.36) : "rgba(255,255,255,0.14)"}`,
+          }}>
+            <span aria-hidden="true" style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: filledLeagues === totalEntries ? SUCCESS : "rgba(148,163,184,0.6)",
+            }} />
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: filledLeagues === totalEntries ? "rgba(187,247,208,0.92)" : "rgba(255,255,255,0.72)",
+              fontVariantNumeric: "tabular-nums",
+            }}>{filledLeagues} / {totalEntries} {totalEntries === 1 ? "league filled" : "leagues filled"}</span>
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// League switcher pills — canonical filter-pill pattern with view-transition
+// morph + progress badge per league. Replaces inline league tab strip.
+function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, reviewReady, onSelect, isMobile }) {
+  if (!roundSummary?.entries?.length) return null;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: isMobile ? 8 : 10,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          paddingRight: 56,
+          paddingBottom: 4,
+        }}
+      >
+        {roundSummary.entries.map((entry) => {
+          const isActive = entry.league.id === selectedLeague?.id;
+          const isComplete = entry.progress.isComplete;
+          const tone = entry.blocked ? "#f97316" : isComplete ? SUCCESS : ACCENT;
+          return (
+            <button
+              key={entry.league.id}
+              onClick={() => onSelect(entry.league.id)}
+              className="picks-league-pill"
+              style={{
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 9,
+                padding: isMobile ? "10px 16px" : "10px 18px",
+                minHeight: isMobile ? 42 : 40,
+                borderRadius: RADIUS_PILL,
+                background: isActive ? hexToRgba(tone, 0.13) : "rgba(148,163,184,0.04)",
+                border: isActive ? `1px solid ${hexToRgba(tone, 0.34)}` : `1px solid ${HAIRLINE}`,
+                color: isActive ? tone : TEXT_PRIMARY,
+                cursor: "pointer",
+                fontWeight: 800,
+                fontSize: isMobile ? 12.5 : 13.5,
+                letterSpacing: "-0.005em",
+                fontFamily: "inherit",
+                whiteSpace: "nowrap",
+                viewTransitionName: isActive ? "picks-active-league" : undefined,
+                boxShadow: isActive ? `0 4px 14px ${hexToRgba(tone, 0.18)}` : "none",
+                transition: "background 200ms ease, border-color 200ms ease, color 200ms ease, transform 160ms cubic-bezier(0.23,1,0.32,1)",
+              }}
+            >
+              <span>{entry.league.name}</span>
+              {entry.blocked && (
+                <span style={{
+                  fontSize: 9, fontWeight: 900,
+                  letterSpacing: "0.10em", textTransform: "uppercase",
+                  color: "#f97316",
+                  background: hexToRgba("#f97316", 0.12),
+                  border: `1px solid ${hexToRgba("#f97316", 0.28)}`,
+                  borderRadius: 999,
+                  padding: "2px 7px",
+                }}>Pro</span>
+              )}
+              {entry.progress.total > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 900,
+                  letterSpacing: "0.06em",
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: isComplete
+                    ? hexToRgba(SUCCESS, 0.18)
+                    : isActive ? hexToRgba(tone, 0.18) : "rgba(148,163,184,0.10)",
+                  color: isComplete ? SUCCESS : isActive ? tone : SUBTLE_TEXT,
+                  border: isComplete
+                    ? `1px solid ${hexToRgba(SUCCESS, 0.32)}`
+                    : isActive ? `1px solid ${hexToRgba(tone, 0.30)}` : `1px solid ${HAIRLINE}`,
+                  minWidth: 26, textAlign: "center",
+                }}>{entry.progress.filled}/{entry.progress.total}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0, right: 0, bottom: 4,
+          width: 56,
+          background: `linear-gradient(to right, transparent, ${BG_BASE})`,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
+// Rounds list — sidebar/scroller of all 24 calendar rounds. Wraps the
+// existing RoundRailItem (desktop) / RoundSidebarItem (tablet) components so
+// the data flow stays identical, but the container chrome is cleaner.
+function PicksRoundsList({ calendar, race, liveRaces, resultsByRound, now, roundSummariesByRound, activeRoundRef, onSelect, isMobile, isTablet }) {
+  // Tablet: horizontal snap-scroller (mobile-ish)
+  if (isTablet) {
+    return (
+      <section style={{ position: "relative" }}>
+        <div
+          style={{
+            display: "grid",
+            gridAutoFlow: "column",
+            gridAutoColumns: isMobile ? "minmax(190px, 1fr)" : "minmax(210px, 1fr)",
+            gap: isMobile ? 8 : 10,
+            overflowX: "auto",
+            paddingBottom: 4,
+            paddingRight: 48,
+            scrollSnapType: "x mandatory",
+            scrollbarWidth: "none",
+          }}
+        >
+          {calendar.map((item) => {
+            const isActive = race.r === item.r;
+            return (
+              <div key={item.r} ref={isActive ? activeRoundRef : null} style={{ scrollSnapAlign: "start" }}>
+                <RoundSidebarItem
+                  item={item}
+                  active={isActive}
+                  status={roundSidebarStatus(
+                    item,
+                    liveRaces[item.r] || null,
+                    resultsByRound[item.r] || null,
+                    now,
+                    roundSummariesByRound[item.r] || null
+                  )}
+                  onClick={() => onSelect(item)}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", top: 0, right: 0, bottom: 4,
+            width: 56,
+            background: `linear-gradient(to right, transparent, ${BG_BASE})`,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+      </section>
+    );
+  }
+
+  // Desktop: vertical rail in a polished card
+  const scoredCount = calendar.reduce((n, item) => {
+    const s = roundSidebarStatus(
+      item,
+      liveRaces[item.r] || null,
+      resultsByRound[item.r] || null,
+      now,
+      roundSummariesByRound[item.r] || null
+    );
+    return n + (s.kind === "scored" ? 1 : 0);
+  }, 0);
+  const activeRoundNumber = getRaceDisplayRound(race) || race.r;
+  return (
+    <div
+      className="picks-rounds-list"
+      style={{
+        position: "relative",
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: CARD_RADIUS,
+        background: PANEL_BG,
+        border: `1px solid ${HAIRLINE}`,
+        overflow: "hidden",
+        boxShadow: CARD_SHADOW,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          background: `linear-gradient(180deg, ${ACCENT} 0%, ${rgbaFromHex(ACCENT, 0.30)} 100%)`,
+          zIndex: 2,
+        }}
+      />
+      <div
+        style={{
+          padding: "14px 16px 12px 18px",
+          borderBottom: `1px solid ${HAIRLINE}`,
+          background: `radial-gradient(120% 100% at 0% 0%, ${rgbaFromHex(ACCENT, 0.10)} 0%, transparent 55%), ${PANEL_BG_ALT}`,
+          flexShrink: 0,
+          display: "grid",
+          gap: 6,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            width: "fit-content",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 9px",
+            borderRadius: RADIUS_PILL,
+            background: rgbaFromHex(ACCENT, 0.12),
+            border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+            color: ACCENT,
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        >
+          <span aria-hidden="true" style={{
+            width: 5, height: 5, borderRadius: "50%", background: ACCENT,
+            boxShadow: `0 0 0 3px ${rgbaFromHex(ACCENT, 0.18)}`,
+          }} />
+          Season
+        </span>
+        <h3
+          style={{
+            margin: 0,
+            fontFamily: "Sora, sans-serif",
+            fontSize: 18,
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            color: TEXT_PRIMARY,
+            lineHeight: 1.1,
+          }}
+        >
+          2026 Calendar
+        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: MUTED_TEXT, fontFamily: "Manrope, sans-serif" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", color: TEXT_PRIMARY, fontWeight: 800 }}>
+            R{activeRoundNumber}
+          </span>
+          <span>·</span>
+          <span><span style={{ color: SUCCESS, fontWeight: 800, fontFamily: "var(--font-mono)" }}>{scoredCount}</span> scored</span>
+          <span>·</span>
+          <span><span style={{ color: TEXT_PRIMARY, fontWeight: 800, fontFamily: "var(--font-mono)" }}>{Math.max(0, calendar.length - scoredCount)}</span> to go</span>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "6px 0" }}>
+        {calendar.map((item) => {
+          const isActive = race.r === item.r;
+          return (
+            <div key={item.r} ref={isActive ? activeRoundRef : null}>
+              <RoundRailItem
+                item={item}
+                active={isActive}
+                status={roundSidebarStatus(
+                  item,
+                  liveRaces[item.r] || null,
+                  resultsByRound[item.r] || null,
+                  now,
+                  roundSummariesByRound[item.r] || null
+                )}
+                onClick={() => onSelect(item)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Progress navigator — desktop left rail showing category sections + fill
+// state. Replaces the original PickNavigatorPanel. Cleaner chrome, polished
+// section pills, animated progress arc per section.
+function PicksProgressNavigator({ promptSections, picks, activePromptKey, aiByKey, onSelect, selectedLeague, budgetAmounts, doubleDownKey }) {
+  // Total filled count for the headline counter
+  const allPrompts = promptSections.flatMap((s) => s.prompts);
+  const total = allPrompts.length;
+  const filled = allPrompts.filter((p) => !!picks[p.key]).length;
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+
+  return (
+    <aside
+      style={{
+        position: "sticky",
+        top: 20,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxHeight: "calc(100vh - 44px)",
+      }}
+    >
+      {/* Header card with progress ring style */}
+      <div style={{
+        borderRadius: CARD_RADIUS,
+        background: PANEL_BG,
+        border: `1px solid ${HAIRLINE}`,
+        padding: "14px 16px 12px",
+        boxShadow: CARD_SHADOW,
+      }}>
+        <div style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: ACCENT, marginBottom: 6,
+        }}>Your board</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 }}>
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 28,
+            fontWeight: 700,
+            color: TEXT_PRIMARY,
+            letterSpacing: "-0.04em",
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 0.92,
+          }}>{filled}</span>
+          <span style={{
+            fontSize: 12, fontWeight: 700,
+            color: MUTED_TEXT,
+            letterSpacing: "-0.005em",
+          }}>of {total} picks in</span>
+        </div>
+        <div style={{
+          height: 5,
+          borderRadius: 999,
+          background: "rgba(148,163,184,0.10)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: pct === 100
+              ? `linear-gradient(90deg, ${SUCCESS}, #4ade80)`
+              : `linear-gradient(90deg, ${ACCENT}, #fbbf24)`,
+            borderRadius: 999,
+            transition: "width 360ms cubic-bezier(0.16,1,0.3,1), background 200ms ease",
+            boxShadow: `0 0 12px ${hexToRgba(pct === 100 ? SUCCESS : ACCENT, 0.32)}`,
+          }} />
+        </div>
+      </div>
+
+      {/* Sections */}
+      <div style={{
+        borderRadius: CARD_RADIUS,
+        background: PANEL_BG,
+        border: `1px solid ${HAIRLINE}`,
+        overflow: "hidden",
+        flex: 1, minHeight: 0,
+        display: "flex", flexDirection: "column",
+        boxShadow: CARD_SHADOW,
+      }}>
+        <div style={{
+          padding: "10px 14px 8px",
+          borderBottom: `1px solid ${HAIRLINE}`,
+          background: PANEL_BG_ALT,
+          flexShrink: 0,
+        }}>
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.16em", textTransform: "uppercase",
+            color: SUBTLE_TEXT,
+          }}>Categories</span>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "8px 8px 12px" }}>
+          {promptSections.map((section) => {
+            const sectionDone = section.prompts.filter((p) => !!picks[p.key]).length;
+            const sectionComplete = sectionDone === section.prompts.length && section.prompts.length > 0;
+            return (
+              <div key={section.title} style={{ marginBottom: 10 }}>
+                <div style={{
+                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                  gap: 8, padding: "6px 8px 4px",
+                }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 900,
+                    letterSpacing: "0.14em", textTransform: "uppercase",
+                    color: sectionComplete ? SUCCESS : SUBTLE_TEXT,
+                  }}>{section.title}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 900,
+                    color: sectionComplete ? SUCCESS : SUBTLE_TEXT,
+                    fontVariantNumeric: "tabular-nums",
+                  }}>{sectionDone}/{section.prompts.length}</span>
+                </div>
+                <div style={{ display: "grid", gap: 4 }}>
+                  {section.prompts.map((prompt) => {
+                    const value = picks[prompt.key];
+                    const meta = selectionMeta(prompt, value);
+                    const isActive = activePromptKey === prompt.key;
+                    const isDoubleDown = doubleDownKey === prompt.key;
+                    const budgetAmt = budgetAmounts?.[prompt.key];
+                    const hasAi = !!aiByKey?.[prompt.key];
+
+                    return (
+                      <button
+                        key={prompt.key}
+                        onClick={() => onSelect(prompt.key)}
+                        className="picks-nav-row"
+                        style={{
+                          width: "100%",
+                          display: "grid",
+                          gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                          alignItems: "center",
+                          gap: 9,
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          border: isActive
+                            ? `1px solid ${hexToRgba(ACCENT, 0.36)}`
+                            : meta
+                              ? `1px solid ${hexToRgba(meta.accent || SUCCESS, 0.20)}`
+                              : `1px solid ${HAIRLINE}`,
+                          background: isActive
+                            ? hexToRgba(ACCENT, 0.10)
+                            : meta
+                              ? hexToRgba(meta.accent || SUCCESS, 0.05)
+                              : "rgba(148,163,184,0.03)",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textAlign: "left",
+                          minHeight: 38,
+                        }}
+                      >
+                        {/* Status dot */}
+                        <span aria-hidden="true" style={{
+                          width: 7, height: 7, borderRadius: "50%",
+                          background: meta
+                            ? (meta.accent || SUCCESS)
+                            : isActive ? ACCENT : "rgba(148,163,184,0.32)",
+                          boxShadow: meta
+                            ? `0 0 8px ${hexToRgba(meta.accent || SUCCESS, 0.42)}`
+                            : "none",
+                          flexShrink: 0,
+                        }} />
+                        {/* Label */}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12, fontWeight: 800,
+                            color: isActive ? ACCENT : TEXT_PRIMARY,
+                            letterSpacing: "-0.005em",
+                            lineHeight: 1.2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}>{prompt.label}</div>
+                          {meta && (
+                            <div style={{
+                              fontSize: 10.5,
+                              color: meta.accent || SUBTLE_TEXT,
+                              fontWeight: 600,
+                              marginTop: 2,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}>{meta.label}</div>
+                          )}
+                        </div>
+                        {/* Right side: pts / AI / 3x / budget */}
+                        <div style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          flexShrink: 0,
+                        }}>
+                          {isDoubleDown && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 900,
+                              color: "#f97316",
+                              background: "rgba(249,115,22,0.16)",
+                              border: "1px solid rgba(249,115,22,0.30)",
+                              borderRadius: 999,
+                              padding: "1px 6px",
+                              letterSpacing: "0.05em",
+                            }}>3×</span>
+                          )}
+                          {selectedLeague?.gameMode === "budget_picks" && typeof budgetAmt === "number" && budgetAmt > 0 && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 900,
+                              color: ACCENT,
+                              background: hexToRgba(ACCENT, 0.10),
+                              border: `1px solid ${hexToRgba(ACCENT, 0.24)}`,
+                              borderRadius: 999,
+                              padding: "1px 6px",
+                              letterSpacing: "-0.005em",
+                              fontVariantNumeric: "tabular-nums",
+                            }}>{budgetAmt}c</span>
+                          )}
+                          {hasAi && !meta && (
+                            <span title="AI suggestion" aria-hidden="true" style={{
+                              width: 5, height: 5, borderRadius: "50%",
+                              background: "#60a5fa",
+                              boxShadow: "0 0 6px rgba(96,165,250,0.5)",
+                            }} />
+                          )}
+                          <span style={{
+                            fontSize: 9, fontWeight: 900,
+                            color: SUBTLE_TEXT,
+                            fontVariantNumeric: "tabular-nums",
+                            letterSpacing: "0.02em",
+                          }}>{prompt.pts || 0}p</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// Focus header — cinematic category header inside the focus panel. Replaces
+// the in-line eyebrow + title + selection-declaration + nav row above.
+function PickFocusHeader({
+  activeSection,
+  activePrompt,
+  activePromptKey,
+  activeIndex,
+  totalPrompts,
+  currentMeta,
+  interactionLocked,
+  emptyLabel,
+  onClear,
+  onPrev,
+  onNext,
+  previousPrompt,
+  nextPromptItem,
+  activeAi,
+  isProSubscriber,
+  AI_CONF_COLOR,
+  confPctOf,
+  isMobile,
+}) {
+  // Section eyebrow + category title + pts
+  return (
+    <div
+      key={`header-${activePromptKey}`}
+      className="picks-focus-enter"
+      style={{
+        padding: isMobile ? "22px 18px 20px" : "28px 30px 24px",
+        borderBottom: `1px solid ${HAIRLINE}`,
+        background: currentMeta
+          ? `linear-gradient(180deg, ${hexToRgba(currentMeta.accent, 0.10)} 0%, ${hexToRgba(currentMeta.accent, 0.02)} 50%, ${PANEL_BG} 100%)`
+          : `linear-gradient(180deg, ${hexToRgba(ACCENT, 0.06)} 0%, ${PANEL_BG} 50%)`,
+        display: "grid",
+        gap: 16,
+        position: "relative",
+        transition: "background 300ms cubic-bezier(0.16,1,0.3,1)",
+      }}
+    >
+      {/* Top tone rail */}
+      {currentMeta && (
+        <span aria-hidden="true" style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent, ${currentMeta.accent} 30%, ${currentMeta.accent} 70%, transparent)`,
+          opacity: 0.78,
+        }} />
+      )}
+
+      {/* Eyebrow row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: currentMeta?.accent || ACCENT,
+        }}>{activeSection?.title}</span>
+        <span aria-hidden="true" style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(214,223,239,0.20)" }} />
+        <span style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.12em", textTransform: "uppercase",
+          color: ACCENT,
+          fontVariantNumeric: "tabular-nums",
+        }}>{activePrompt?.pts || 0} pts</span>
+        <span style={{
+          marginLeft: "auto",
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "4px 10px",
+          borderRadius: RADIUS_PILL,
+          background: "rgba(148,163,184,0.08)",
+          border: `1px solid ${HAIRLINE}`,
+          fontSize: 10.5, fontWeight: 800,
+          color: SUBTLE_TEXT,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.005em",
+        }}>
+          <span style={{ color: TEXT_PRIMARY }}>{activeIndex + 1}</span>
+          <span style={{ color: "rgba(148,163,184,0.4)" }}>/</span>
+          <span>{totalPrompts}</span>
+        </span>
+      </div>
+
+      {/* Category headline */}
+      <div>
+        <div className="picks-cat-title" style={{
+          fontSize: isMobile ? 30 : 42,
+          fontWeight: 900,
+          letterSpacing: "-0.045em",
+          lineHeight: 0.96,
+          color: TEXT_PRIMARY,
+          marginBottom: 10,
+          textTransform: "uppercase",
+        }}>
+          {activePrompt?.label}
+        </div>
+        <div style={{ fontSize: 14.5, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: 620, letterSpacing: "-0.005em" }}>
+          {activePrompt?.hint}
+        </div>
+      </div>
+
+      {/* Current selection declaration */}
+      <div>
+        {currentMeta ? (
+          <div
+            className="picks-selection-card"
+            style={{
+              position: "relative",
+              borderRadius: CARD_RADIUS,
+              background: `linear-gradient(135deg, ${hexToRgba(currentMeta.accent, 0.16)} 0%, ${hexToRgba(currentMeta.accent, 0.04)} 60%, ${PANEL_BG_ALT} 100%)`,
+              border: `1px solid ${hexToRgba(currentMeta.accent, 0.40)}`,
+              minHeight: 56,
+              padding: !interactionLocked ? "12px 44px 12px 16px" : "12px 16px",
+              boxShadow: `0 6px 18px ${hexToRgba(currentMeta.accent, 0.18)}`,
+            }}
+          >
+            <span aria-hidden="true" style={{
+              position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+              background: currentMeta.accent,
+              opacity: 0.85,
+            }} />
+            <div style={{
+              fontSize: 17,
+              fontWeight: 900,
+              color: TEXT_PRIMARY,
+              letterSpacing: "-0.025em",
+              lineHeight: 1.16,
+            }}>{currentMeta.label}</div>
+            {currentMeta.secondary && (
+              <div style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: currentMeta.accent,
+                marginTop: 3,
+                opacity: 0.92,
+                letterSpacing: "-0.005em",
+              }}>{currentMeta.secondary}</div>
+            )}
+            {!interactionLocked && (
+              <button
+                onClick={onClear}
+                title="Clear pick"
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  right: 12,
+                  transform: "translateY(-50%)",
+                  width: 26, height: 26,
+                  borderRadius: "50%",
+                  border: "1px solid rgba(214,223,239,0.14)",
+                  background: "var(--btn-secondary-bg)",
+                  color: SUBTLE_TEXT,
+                  cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: 0,
+                }}
+              >
+                <svg width="9" height="9" viewBox="0 0 8 8" fill="none">
+                  <path d="M1.5 1.5L6.5 6.5M6.5 1.5L1.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              minHeight: 56,
+              borderRadius: CARD_RADIUS,
+              border: "1px dashed rgba(214,223,239,0.14)",
+              display: "flex", alignItems: "center",
+              padding: "0 16px",
+              fontSize: 13, color: SUBTLE_TEXT, fontWeight: 600,
+              letterSpacing: "-0.005em",
+            }}
+          >
+            {emptyLabel}
+          </div>
+        )}
+      </div>
+
+      {/* Nav row */}
+      <div style={{
+        display: "flex", gap: 10,
+        justifyContent: "flex-end",
+        flexWrap: isMobile ? "wrap" : "nowrap",
+      }}>
+        <button
+          onClick={onPrev}
+          disabled={!previousPrompt}
+          style={{
+            minHeight: isMobile ? 44 : 38,
+            flex: isMobile ? 1 : undefined,
+            padding: "0 18px",
+            borderRadius: RADIUS_PILL,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: previousPrompt ? "rgba(148,163,184,0.06)" : "transparent",
+            color: previousPrompt ? TEXT_PRIMARY : SUBTLE_TEXT,
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: previousPrompt ? "pointer" : "default",
+            fontFamily: "inherit",
+            letterSpacing: "-0.005em",
+          }}
+        >← Prev</button>
+        <button
+          onClick={onNext}
+          disabled={!nextPromptItem}
+          style={{
+            minHeight: isMobile ? 44 : 38,
+            flex: isMobile ? 1 : undefined,
+            padding: "0 18px",
+            borderRadius: RADIUS_PILL,
+            border: nextPromptItem
+              ? `1px solid ${hexToRgba(ACCENT, 0.34)}`
+              : "1px solid rgba(255,255,255,0.10)",
+            background: nextPromptItem ? hexToRgba(ACCENT, 0.10) : "transparent",
+            color: nextPromptItem ? ACCENT : SUBTLE_TEXT,
+            fontSize: 12.5,
+            fontWeight: 900,
+            cursor: nextPromptItem ? "pointer" : "default",
+            fontFamily: "inherit",
+            letterSpacing: "-0.005em",
+            boxShadow: nextPromptItem ? `0 4px 14px ${hexToRgba(ACCENT, 0.20)}` : "none",
+          }}
+        >Next →</button>
+      </div>
+
+      {/* AI hint inline */}
+      {activeAi && (
+        <div style={{
+          paddingTop: 14,
+          borderTop: "1px solid rgba(96,165,250,0.12)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <span aria-hidden="true" style={{
+              width: 5, height: 5, borderRadius: "50%", background: "#60a5fa",
+            }} />
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: "#93c5fd",
+            }}>AI Insight</span>
+            {(() => {
+              const conf = (typeof activeAi.confidence === "string" ? activeAi.confidence.toLowerCase() : "medium") || "medium";
+              const confColor = AI_CONF_COLOR[conf] || "#fde68a";
+              const pct = confPctOf(activeAi.key, activeAi.pick, activeAi.confidence);
+              return (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  fontSize: 10, fontWeight: 900,
+                  letterSpacing: "0.10em", textTransform: "uppercase",
+                  color: confColor,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "2px 8px", borderRadius: 999,
+                  background: hexToRgba(confColor, 0.10),
+                  border: `1px solid ${hexToRgba(confColor, 0.24)}`,
+                }}>
+                  <span aria-hidden="true" style={{ width: 4, height: 4, borderRadius: "50%", background: confColor }} />
+                  {pct}%
+                </span>
+              );
+            })()}
+            {!isProSubscriber && (
+              <span style={{
+                fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase",
+                color: "var(--brand)",
+                background: hexToRgba(ACCENT, 0.12),
+                borderRadius: 999, padding: "2px 7px",
+                border: `1px solid ${hexToRgba(ACCENT, 0.26)}`,
+              }}>Pro</span>
+            )}
+          </div>
+          <div style={{
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "rgba(214,223,239,0.78)",
+            fontWeight: 500,
+            letterSpacing: "-0.005em",
+          }}>
+            <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>{activeAi.pick}.</span>{" "}
+            {isProSubscriber
+              ? previewText(activeAi.reason, 160)
+              : <>{previewText(activeAi.reason, 70)}… <span style={{ color: ACCENT, fontWeight: 700 }}>Unlock with Pro.</span></>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3335,52 +5138,273 @@ export default function PredictionsPage({
       }}
     >
       <style>{`
-        /* Picks page motion — race header cross-fades between rounds via the View
-           Transition API. Transform-only so the sticky aside doesn't jump. */
+        /* ─── Picks page — new motion system ───────────────────────────── */
+
         @keyframes picks-page-in {
           from { opacity: 0; transform: translateY(4px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .stint-page-enter { animation: picks-page-in 320ms cubic-bezier(0.16,1,0.3,1) both; }
 
-        /* Under the race-header transition, the rest of the page cross-fades on
-           the same curve so the header and main content move together. */
-        [data-vt-name="race-header"]::view-transition-old(root),
-        [data-vt-name="race-header"]::view-transition-new(root),
-        [data-vt-name="race-header"]::view-transition-old(picks-race-header),
-        [data-vt-name="race-header"]::view-transition-new(picks-race-header) {
-          animation-duration: 280ms;
+        /* Hero title — letter-by-letter typing reveal */
+        @keyframes picks-char-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .picks-title-char {
+          display: inline-block;
+          opacity: 0;
+          transform: translateY(8px);
+          animation: picks-char-in 360ms cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+
+        @keyframes picks-fade-up {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .picks-hero-sub, .picks-hero-meta {
+          opacity: 0;
+          animation: picks-fade-up 460ms cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .picks-hero-sub  { animation-delay: 460ms; }
+        .picks-hero-meta { animation-delay: 620ms; }
+
+        /* View Transition — race header cross-fades when switching rounds */
+        ::view-transition-old(picks-race-hero),
+        ::view-transition-new(picks-race-hero) {
+          animation-duration: 320ms;
+          animation-timing-function: cubic-bezier(0.16,1,0.3,1);
+        }
+        ::view-transition-old(picks-active-league),
+        ::view-transition-new(picks-active-league) {
+          animation-duration: 240ms;
           animation-timing-function: cubic-bezier(0.16,1,0.3,1);
         }
 
-        .picks-race-header {
-          transition: border-color 200ms cubic-bezier(0.16,1,0.3,1),
-                      background   200ms cubic-bezier(0.16,1,0.3,1);
+        /* Pick focus panel — header morphs between categories */
+        @keyframes picks-focus-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        .picks-race-header button {
+        .picks-focus-enter { animation: picks-focus-in 320ms cubic-bezier(0.16,1,0.3,1) both; }
+
+        /* Selection card — gentle scale-in when a pick lands */
+        @keyframes picks-selection-pop {
+          from { transform: scale(0.97); opacity: 0; }
+          to   { transform: scale(1); opacity: 1; }
+        }
+        .picks-selection-card { animation: picks-selection-pop 280ms cubic-bezier(0.23,1,0.32,1) both; }
+
+        /* Category title — subtle bloom each time it changes */
+        @keyframes picks-cat-bloom {
+          from { opacity: 0; transform: translateY(4px); letter-spacing: -0.030em; }
+          to   { opacity: 1; transform: translateY(0); letter-spacing: -0.045em; }
+        }
+        .picks-cat-title { animation: picks-cat-bloom 360ms cubic-bezier(0.16,1,0.3,1) both; }
+
+        /* League pill press feedback */
+        .picks-league-pill:active { transform: scale(0.97); }
+
+        /* Nav row press feedback (inside ProgressNavigator) */
+        .picks-nav-row {
+          transition: background 180ms ease, border-color 180ms ease, transform 140ms cubic-bezier(0.23,1,0.32,1);
           -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .picks-nav-row:hover { background: rgba(255,255,255,0.025) !important; }
+        }
+        .picks-nav-row:active { transform: scale(0.98); }
+
+        /* Pick option check pop — when a selection lands, the colored ring scales in */
+        @keyframes picks-check-pop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          60%  { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .picks-check-pop { animation: picks-check-pop 380ms cubic-bezier(0.16,1,0.3,1) both; }
+
+        /* BoardCommandBar progress fill bloom on intersection */
+        .picks-cmd-fill { will-change: width, background; }
+
+        /* Command bar dots — slight hover scale */
+        .picks-cmd-dot {
+          transition: width 280ms cubic-bezier(0.22,1,0.36,1),
+                      height 240ms cubic-bezier(0.22,1,0.36,1),
+                      background 200ms ease,
+                      box-shadow 220ms ease,
+                      transform 160ms cubic-bezier(0.23,1,0.32,1);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .picks-cmd-dot:hover { transform: scale(1.18); }
+        }
+        .picks-cmd-dot:active { transform: scale(0.94); }
+
+        /* "Ready to save" pulse — the save bar glows when the board is full and unsaved */
+        @keyframes picks-cmd-ready-pulse {
+          0%, 100% {
+            box-shadow: 0 14px 38px rgba(249,115,22,0.32), 0 0 0 0 rgba(249,115,22,0);
+          }
+          50% {
+            box-shadow: 0 14px 38px rgba(249,115,22,0.46), 0 0 0 12px rgba(249,115,22,0);
+          }
+        }
+        .picks-cmd-pulse { animation: picks-cmd-ready-pulse 2200ms cubic-bezier(0.16,1,0.3,1) infinite; }
+
+        /* Round review — celebratory mount cascade */
+        @keyframes picks-review-rise {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .picks-review-mount { animation: picks-review-rise 480ms cubic-bezier(0.16,1,0.3,1) both; }
+        @keyframes picks-review-score-in {
+          0%   { opacity: 0; transform: scale(0.82); letter-spacing: -0.02em; }
+          70%  { opacity: 1; transform: scale(1.03); letter-spacing: -0.05em; }
+          100% { opacity: 1; transform: scale(1); letter-spacing: -0.05em; }
+        }
+        .picks-review-score { animation: picks-review-score-in 720ms cubic-bezier(0.16,1,0.3,1) 120ms both; transform-origin: left center; }
+        @keyframes picks-review-title-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .picks-review-title { animation: picks-review-title-in 460ms cubic-bezier(0.16,1,0.3,1) 280ms both; }
+        @keyframes picks-review-bonus-in {
+          from { opacity: 0; transform: translateY(4px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .picks-review-bonus { animation: picks-review-bonus-in 420ms cubic-bezier(0.16,1,0.3,1) 460ms both; }
+        @keyframes picks-review-row-in {
+          from { opacity: 0; transform: translateX(-6px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .picks-review-row {
+          opacity: 0;
+          animation: picks-review-row-in 360ms cubic-bezier(0.16,1,0.3,1) forwards;
+          animation-delay: calc(420ms + var(--row-i, 0) * 60ms);
+        }
+        @keyframes picks-review-tick-in {
+          0%   { transform: scale(0); opacity: 0; }
+          60%  { transform: scale(1.25); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .picks-review-tick {
+          animation: picks-review-tick-in 380ms cubic-bezier(0.16,1,0.3,1) forwards;
+          animation-delay: calc(540ms + var(--row-i, 0) * 60ms);
+        }
+        .picks-review-metrics > * {
+          opacity: 0;
+          animation: picks-review-row-in 380ms cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .picks-review-metrics > *:nth-child(1) { animation-delay: 320ms; }
+        .picks-review-metrics > *:nth-child(2) { animation-delay: 380ms; }
+        .picks-review-metrics > *:nth-child(3) { animation-delay: 440ms; }
+        .picks-review-metrics > *:nth-child(4) { animation-delay: 500ms; }
+
+        /* Round rail / sidebar — hover affordance */
+        .picks-rail-item, .picks-sidebar-item {
+          transition: background 180ms ease, outline-color 180ms ease, border-color 180ms ease,
+                      box-shadow 220ms ease, transform 160ms cubic-bezier(0.23,1,0.32,1);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .picks-rail-item[data-active="false"]:hover {
+            background: rgba(255,255,255,0.035);
+            outline-color: rgba(255,255,255,0.10);
+          }
+          .picks-sidebar-item[data-active="false"]:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255,255,255,0.18);
+            box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+          }
+        }
+        .picks-rail-item:active, .picks-sidebar-item:active { transform: scale(0.99); }
+
+        /* AI panel — spark pulse on Pro */
+        @keyframes picks-ai-spark-pulse {
+          0%, 100% { box-shadow: 0 0 0 4px rgba(249,115,22,0.18); }
+          50%      { box-shadow: 0 0 0 6px rgba(249,115,22,0.10); }
+        }
+        .picks-ai-kicker .picks-ai-spark { animation: picks-ai-spark-pulse 2400ms cubic-bezier(0.16,1,0.3,1) infinite; }
+
+        /* AI card stagger reveal */
+        @keyframes picks-ai-card-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .picks-ai-card {
+          opacity: 0;
+          animation: picks-ai-card-in 420ms cubic-bezier(0.16,1,0.3,1) forwards;
+          animation-delay: calc(140ms + var(--ai-i, 0) * 70ms);
+          transition: transform 200ms cubic-bezier(0.23,1,0.32,1), box-shadow 220ms ease, border-color 200ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .picks-ai-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.30);
+          }
+        }
+
+        /* AI confidence fill — width grows in */
+        @keyframes picks-ai-conf-grow {
+          from { transform: scaleX(0); }
+          to   { transform: scaleX(1); }
+        }
+        .picks-ai-conf-fill {
+          transform-origin: left center;
+          animation: picks-ai-conf-grow 720ms cubic-bezier(0.16,1,0.3,1) 240ms both;
+        }
+
+        /* Compact AI row stagger */
+        @keyframes picks-ai-compact-in {
+          from { opacity: 0; transform: translateX(-4px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .picks-ai-compact-row {
+          opacity: 0;
+          animation: picks-ai-compact-in 340ms cubic-bezier(0.16,1,0.3,1) forwards;
+          animation-delay: calc(120ms + var(--ai-i, 0) * 50ms);
+        }
+
+        /* Ready-state container highlight — gentle backdrop breathing */
+        @keyframes picks-cmd-ready-bg {
+          0%, 100% { background-position: 0% 50%; }
+          50%      { background-position: 100% 50%; }
+        }
+        .picks-cmd-ready {
+          background-size: 200% 100%;
+          animation: picks-cmd-ready-bg 5600ms ease-in-out infinite alternate;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .stint-page-enter, .picks-race-header { animation: none !important; transition: none !important; }
+          .stint-page-enter,
+          .picks-title-char, .picks-hero-sub, .picks-hero-meta,
+          .picks-focus-enter, .picks-selection-card, .picks-cat-title,
+          .picks-league-pill, .picks-nav-row,
+          .picks-check-pop, .picks-cmd-fill, .picks-cmd-dot, .picks-cmd-pulse, .picks-cmd-ready,
+          .picks-review-mount, .picks-review-score, .picks-review-title, .picks-review-bonus,
+          .picks-review-row, .picks-review-tick, .picks-review-metrics > *,
+          .picks-ai-kicker .picks-ai-spark, .picks-ai-card, .picks-ai-conf-fill, .picks-ai-compact-row,
+          .picks-rail-item, .picks-sidebar-item {
+            animation: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+            letter-spacing: -0.045em !important;
+          }
           ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
         }
       `}</style>
 
-      {/* Full-width race header — every breakpoint. The page starts with the race,
-           not with the sidebar. */}
-      <RaceCommandStrip
+      {/* ── 1. Cinematic race hero (replaces RaceCommandStrip) ── */}
+      <PicksRaceHero
         race={race}
         lockCountdown={lockCountdown}
         stateTone={stateTone}
         aiInsight={aiTargetsRace ? aiInsight : null}
         isMobile={isMobile}
-        tab={tab}
-        setTab={setTab}
+        isTablet={isTablet}
         selectedLeague={selectedLeague}
         roundSummary={roundSummary}
       />
+
 
       <div
         style={{
@@ -3390,58 +5414,21 @@ export default function PredictionsPage({
           alignItems: "start",
         }}
       >
-        {/* ── Left column ──────────────────────────────────── */}
+        {/* ── 2. Left column: round list + (desktop) AI compact ── */}
         {isTablet ? (
-          /* Tablet: horizontal round scroller */
-          <section style={{ position: "relative" }}>
-            <div
-              style={{
-                display: "grid",
-                gridAutoFlow: "column",
-                gridAutoColumns: isMobile ? "minmax(190px,1fr)" : "minmax(210px,1fr)",
-                gap: isMobile ? 8 : 10,
-                overflowX: "auto",
-                paddingBottom: 4,
-                paddingRight: 48,
-                scrollSnapType: "x mandatory",
-                scrollbarWidth: "none",
-              }}
-            >
-              {calendar.map((item) => {
-                const isActive = race.r === item.r;
-                return (
-                  <div key={item.r} ref={isActive ? activeRoundRef : null} style={{ scrollSnapAlign: "start" }}>
-                    <RoundSidebarItem
-                      item={item}
-                      active={isActive}
-                      status={roundSidebarStatus(
-                        item,
-                        liveRaces[item.r] || null,
-                        resultsByRound[item.r] || null,
-                        now,
-                        roundSummariesByRound[item.r] || null
-                      )}
-                      onClick={() => selectRace(item)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                bottom: 4,
-                width: 56,
-                background: `linear-gradient(to right, transparent, ${BG_BASE})`,
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            />
-          </section>
+          <PicksRoundsList
+            calendar={calendar}
+            race={race}
+            liveRaces={liveRaces}
+            resultsByRound={resultsByRound}
+            now={now}
+            roundSummariesByRound={roundSummariesByRound}
+            activeRoundRef={activeRoundRef}
+            onSelect={selectRace}
+            isMobile={isMobile}
+            isTablet={isTablet}
+          />
         ) : (
-          /* Desktop: unified left panel (race card + rail + AI) */
           <aside
             style={{
               position: "sticky",
@@ -3453,72 +5440,20 @@ export default function PredictionsPage({
               overflow: "hidden",
             }}
           >
-            {/* Round rail — compact, scrollable. The race header has been
-                 promoted to a page-wide module above the grid, so the sidebar
-                 is now purely navigational. */}
-            <div
-              style={{
-                flex: 1,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                borderRadius: CARD_RADIUS,
-                background: PANEL_BG,
-                border: `1px solid ${HAIRLINE}`,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  padding: "8px 12px 6px",
-                  borderBottom: `1px solid ${HAIRLINE}`,
-                  background: PANEL_BG_ALT,
-                  flexShrink: 0,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: SUBTLE_TEXT,
-                  }}
-                >
-                  2026 Season
-                </span>
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  overflowY: "auto",
-                  scrollbarWidth: "none",
-                  padding: "4px 0",
-                }}
-              >
-                {calendar.map((item) => {
-                  const isActive = race.r === item.r;
-                  return (
-                    <div key={item.r} ref={isActive ? activeRoundRef : null}>
-                      <RoundRailItem
-                        item={item}
-                        active={isActive}
-                        status={roundSidebarStatus(
-                          item,
-                          liveRaces[item.r] || null,
-                          resultsByRound[item.r] || null,
-                          now,
-                          roundSummariesByRound[item.r] || null
-                        )}
-                        onClick={() => selectRace(item)}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PicksRoundsList
+              calendar={calendar}
+              race={race}
+              liveRaces={liveRaces}
+              resultsByRound={resultsByRound}
+              now={now}
+              roundSummariesByRound={roundSummariesByRound}
+              activeRoundRef={activeRoundRef}
+              onSelect={selectRace}
+              isMobile={isMobile}
+              isTablet={isTablet}
+            />
 
-            {/* AI compact strip (desktop only) */}
+            {/* AI compact strip (desktop only) — kept */}
             {aiPredictions.length > 0 && (
               <AiCompactPanel
                 aiPredictions={aiPredictions}
@@ -3533,8 +5468,18 @@ export default function PredictionsPage({
         {/* ── Right column / main ──────────────────────────── */}
         <main style={{ minHeight: "60vh", display: "grid", gap: 14, alignContent: "start" }}>
 
-          {/* League context row */}
-          <div style={{ position: "relative" }}>
+          {/* ── 3. League switcher pills (replaces inline league strip) ── */}
+          <LeagueSwitcherPills
+            roundSummary={roundSummary}
+            selectedLeague={selectedLeague}
+            editingLocked={editingLocked}
+            reviewReady={reviewReady}
+            onSelect={selectLeagueContext}
+            isMobile={isMobile}
+          />
+
+          {/* Hidden — preserved as dead code for revertibility */}
+          {false && (<div style={{ position: "relative" }}>
             <div
               style={{
                 display: "flex",
@@ -3637,7 +5582,7 @@ export default function PredictionsPage({
                 zIndex: 1,
               }}
             />
-          </div>
+          </div>)}
 
           {/* AI Intelligence Panel — tablet + mobile only (desktop: left sidebar) */}
           {(isMobile || isTablet) && aiPredictions.length > 0 && (
@@ -3671,109 +5616,136 @@ export default function PredictionsPage({
             />
           )}
 
-          {/* Status banners */}
-          {!showReviewOnly && editingLocked && (
-            <div
-              style={{
-                padding: "13px 16px",
+          {/* ── Status banners — tone rail + cinematic typography ── */}
+          {!showReviewOnly && editingLocked && (() => {
+            const tone = resultsEntered
+              ? { color: "#4ade80", bg: SUCCESS_BG, border: SUCCESS_BORDER, kicker: "Scored", title: "Picks scored", body: "Results are in — check your score below.", textColor: SUCCESS_TEXT, glow: "rgba(34,197,94,0.5)" }
+              : raceHasPassed
+                ? { color: "#60a5fa", bg: "rgba(59,130,246,0.06)", border: "rgba(59,130,246,0.22)", kicker: "Awaiting", title: "Awaiting results", body: "Race weekend ended. Scores coming soon.", textColor: "#93c5fd", glow: "rgba(59,130,246,0.5)" }
+                : { color: "#fcd34d", bg: WARN_BG, border: WARN_BORDER, kicker: "Locked", title: "Picks locked", body: lockLabel ? `Locked at ${lockLabel} · no more changes accepted` : "No more changes accepted.", textColor: WARN_TEXT, glow: "rgba(252,211,77,0.5)" };
+
+            return (
+              <div style={{
+                position: "relative",
+                overflow: "hidden",
+                padding: "16px 20px",
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                gap: 14,
                 borderRadius: CARD_RADIUS,
-                background: resultsEntered ? SUCCESS_BG : raceHasPassed ? "rgba(59,130,246,0.06)" : WARN_BG,
-                border: `1px solid ${resultsEntered ? SUCCESS_BORDER : raceHasPassed ? "rgba(59,130,246,0.18)" : WARN_BORDER}`,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
+                background: `linear-gradient(135deg, ${hexToRgba(tone.color, 0.08)} 0%, ${hexToRgba(tone.color, 0.02)} 60%, ${PANEL_BG} 100%)`,
+                border: `1px solid ${tone.border}`,
+                boxShadow: CARD_SHADOW,
+              }}>
+                <span aria-hidden="true" style={{
+                  position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+                  background: tone.color,
+                  opacity: 0.72,
+                }} />
+                <span aria-hidden="true" style={{
+                  width: 9, height: 9, borderRadius: "50%",
+                  background: tone.color,
+                  boxShadow: `0 0 0 4px ${hexToRgba(tone.color, 0.16)}, 0 0 12px ${tone.glow}`,
                   flexShrink: 0,
-                  background: resultsEntered ? "#22c55e" : raceHasPassed ? "#3b82f6" : "#fcd34d",
-                  boxShadow: `0 0 10px ${resultsEntered ? "rgba(34,197,94,0.5)" : raceHasPassed ? "rgba(59,130,246,0.5)" : "rgba(252,211,77,0.5)"}`,
-                }}
-              />
-              <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: resultsEntered ? SUCCESS_TEXT : raceHasPassed ? "#93c5fd" : WARN_TEXT,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {resultsEntered ? "Picks scored" : raceHasPassed ? "Awaiting results" : "Picks locked"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: resultsEntered ? "rgba(134,239,172,0.6)" : raceHasPassed ? "rgba(147,197,253,0.55)" : "rgba(252,211,77,0.55)",
-                    marginTop: 2,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {resultsEntered
-                    ? "Results are in. Check your score below."
-                    : raceHasPassed
-                      ? "Race weekend ended. Scores coming soon."
-                      : lockLabel
-                        ? `Locked at ${lockLabel}`
-                        : "No more changes accepted."}
+                }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 900,
+                    letterSpacing: "0.16em", textTransform: "uppercase",
+                    color: tone.textColor,
+                    marginBottom: 4,
+                  }}>{tone.kicker}</div>
+                  <div className="stint-card-title" style={{
+                    fontSize: 17, fontWeight: 900,
+                    letterSpacing: "-0.025em", lineHeight: 1.16,
+                    color: TEXT_PRIMARY,
+                    marginBottom: 2,
+                  }}>{tone.title}</div>
+                  <div style={{
+                    fontSize: 12.5, fontWeight: 600,
+                    color: MUTED_TEXT,
+                    letterSpacing: "-0.005em",
+                    lineHeight: 1.5,
+                  }}>{tone.body}</div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
+          {/* ── Pro League blocking banner — matches Pro page design language ── */}
           {!showReviewOnly && selectedLeagueBlocked && (
-            <div
-              style={{
-                borderRadius: CARD_RADIUS,
-                border: "1px solid rgba(249,115,22,0.2)",
-                background: "rgba(249,115,22,0.06)",
-                padding: "16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--brand)",
-                    marginBottom: 5,
-                  }}
-                >
-                  Pro league
+            <div style={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: SECTION_RADIUS,
+              border: `1px solid ${hexToRgba(ACCENT, 0.32)}`,
+              background: `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.18)} 0%, ${hexToRgba(ACCENT, 0.04)} 50%, ${PANEL_BG} 100%)`,
+              padding: "20px 22px",
+              boxShadow: LIFTED_SHADOW,
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              flexWrap: "wrap",
+            }}>
+              <span aria-hidden="true" style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 3,
+                background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+                opacity: 0.92,
+              }} />
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 7,
+                  padding: "4px 11px", borderRadius: RADIUS_PILL,
+                  background: hexToRgba(ACCENT, 0.14),
+                  border: `1px solid ${hexToRgba(ACCENT, 0.32)}`,
+                  marginBottom: 10,
+                }}>
+                  <span aria-hidden="true" style={{
+                    width: 5, height: 5, borderRadius: "50%", background: ACCENT,
+                    boxShadow: `0 0 0 3px ${hexToRgba(ACCENT, 0.20)}`,
+                  }} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 900,
+                    letterSpacing: "0.16em", textTransform: "uppercase",
+                    color: ACCENT,
+                  }}>Pro League</span>
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.55, color: MUTED_TEXT }}>
-                  Making picks in this league requires a Pro membership.
-                </div>
+                <div className="stint-card-title" style={{
+                  fontSize: 17, fontWeight: 900,
+                  letterSpacing: "-0.025em", lineHeight: 1.16,
+                  color: TEXT_PRIMARY,
+                  marginBottom: 4,
+                }}>This league is Pro-only</div>
+                <div style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: MUTED_TEXT,
+                  letterSpacing: "-0.005em",
+                  lineHeight: 1.55,
+                  maxWidth: "52ch",
+                }}>Unlock Stint Pro to make picks here, automatic Pro Community League entry, and the AI Coach.</div>
               </div>
               <button
                 onClick={() => (openAuth ? openAuth("register") : null)}
+                className="stint-pressable"
                 style={{
-                  minHeight: 40,
-                  padding: "0 18px",
-                  borderRadius: 999,
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  minHeight: 48,
+                  padding: "0 24px",
+                  borderRadius: RADIUS_PILL,
                   border: "none",
                   background: "linear-gradient(135deg,#F97316,#EA580C)",
                   color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 800,
+                  fontSize: 14,
+                  fontWeight: 900,
                   cursor: "pointer",
                   flexShrink: 0,
-                  letterSpacing: "-0.01em",
+                  letterSpacing: "-0.005em",
+                  fontFamily: "inherit",
+                  boxShadow: `0 10px 28px ${hexToRgba(ACCENT, 0.38)}`,
                 }}
               >
                 Unlock Pro
+                <span aria-hidden="true" style={{ fontSize: 13 }}>→</span>
               </button>
             </div>
           )}
@@ -3790,11 +5762,10 @@ export default function PredictionsPage({
                 scrollMarginTop: 96,
               }}
             >
-              {/* Pick Navigator — desktop only */}
+              {/* ── 5. Pick Progress Navigator (desktop only) — replaces PickNavigatorPanel ── */}
               {!isMobile && !isTablet && (
-                <PickNavigatorPanel
+                <PicksProgressNavigator
                   promptSections={promptSections}
-                  allPrompts={allPrompts}
                   picks={picks}
                   activePromptKey={activePromptKey}
                   aiByKey={aiByKey}
@@ -3892,8 +5863,30 @@ export default function PredictionsPage({
                   </div>
                 )}
 
-                {/* Focus header */}
-                <div
+                {/* ── 4. Focus header (replaces inline eyebrow + title + selection + nav + AI) ── */}
+                <PickFocusHeader
+                  activeSection={activeSection}
+                  activePrompt={activePrompt}
+                  activePromptKey={activePromptKey}
+                  activeIndex={activeIndex}
+                  totalPrompts={totalPrompts}
+                  currentMeta={currentMeta}
+                  interactionLocked={interactionLocked}
+                  emptyLabel={emptySelectionLabel(activePrompt, aiByKey)}
+                  onClear={() => setPick(activePromptKey, null)}
+                  onPrev={() => previousPrompt && setActivePromptKey(previousPrompt.key)}
+                  onNext={() => nextPromptItem && setActivePromptKey(nextPromptItem.key)}
+                  previousPrompt={previousPrompt}
+                  nextPromptItem={nextPromptItem}
+                  activeAi={activeAi}
+                  isProSubscriber={isProSubscriber}
+                  AI_CONF_COLOR={AI_CONF_COLOR}
+                  confPctOf={confPct}
+                  isMobile={isMobile}
+                />
+
+                {/* Hidden — preserved as dead code for revertibility */}
+                {false && (<div
                   key={`header-${activePromptKey}`}
                   className="stint-focus-enter"
                   style={{
@@ -4184,197 +6177,235 @@ export default function PredictionsPage({
                       </button>
                     </div>
                   )}
-                </div>
+                </div>)}
 
                 {/* Options area */}
                 <div key={`options-${activePromptKey}`} className="stint-focus-enter" style={{ padding: isMobile ? 14 : 20, display: "grid", gap: 14 }}>
-                  {/* Double Down controls */}
+                  {/* ── Double Down controls — Home-level card ── */}
                   {selectedLeague?.gameMode === "double_down" && (
-                    <div
-                      style={{
-                        borderRadius: CARD_RADIUS,
-                        border: "1px solid rgba(249,115,22,0.18)",
-                        background: "rgba(249,115,22,0.06)",
-                        padding: "14px 15px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                          color: "var(--brand)",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Double Down
+                    <div style={{
+                      position: "relative",
+                      overflow: "hidden",
+                      borderRadius: CARD_RADIUS,
+                      border: `1px solid ${hexToRgba(ACCENT, 0.28)}`,
+                      background: `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.12)} 0%, ${hexToRgba(ACCENT, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+                      padding: "16px 18px",
+                      boxShadow: CARD_SHADOW,
+                    }}>
+                      <span aria-hidden="true" style={{
+                        position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+                        background: ACCENT, opacity: 0.78,
+                      }} />
+                      <div style={{
+                        display: "inline-flex", alignItems: "center", gap: 7,
+                        padding: "3px 10px", borderRadius: RADIUS_PILL,
+                        background: hexToRgba(ACCENT, 0.14),
+                        border: `1px solid ${hexToRgba(ACCENT, 0.32)}`,
+                        marginBottom: 10,
+                      }}>
+                        <span aria-hidden="true" style={{ fontSize: 13, fontWeight: 900, color: ACCENT, fontFamily: "var(--font-mono)", letterSpacing: "-0.04em", lineHeight: 1 }}>3×</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 900,
+                          letterSpacing: "0.16em", textTransform: "uppercase",
+                          color: ACCENT,
+                        }}>Double Down</span>
                       </div>
-                      <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT, marginBottom: 12 }}>
-                        Pick one category to score 3× if you get it right. Miss it and that slot scores −1 instead.
+                      <div style={{
+                        fontSize: 13.5, lineHeight: 1.6, color: MUTED_TEXT,
+                        marginBottom: 14,
+                        letterSpacing: "-0.005em",
+                        fontWeight: 500,
+                        maxWidth: "60ch",
+                      }}>
+                        Pick one category to score 3× if you get it right. Miss it and that slot scores <span style={{ color: "#f87171", fontWeight: 800 }}>−1</span> instead.
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {allPrompts.filter((prompt) => picks[prompt.key]).map((prompt) => (
-                          <button
-                            key={`dd-${prompt.key}`}
-                            onClick={() => toggleDoubleDown(prompt.key)}
-                            style={{
-                              minHeight: 34,
-                              padding: "0 12px",
-                              borderRadius: 999,
-                              border:
-                                doubleDownKey === prompt.key
-                                  ? "1px solid rgba(249,115,22,0.38)"
-                                  : "1px solid rgba(255,255,255,0.08)",
-                              background:
-                                doubleDownKey === prompt.key ? "rgba(249,115,22,0.16)" : BG_BASE,
-                              color: doubleDownKey === prompt.key ? ACCENT : TEXT_PRIMARY,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: interactionLocked ? "default" : "pointer",
-                            }}
-                            disabled={interactionLocked}
-                          >
-                            {doubleDownKey === prompt.key ? "3x " : ""}
-                            {prompt.label}
-                          </button>
-                        ))}
+                        {allPrompts.filter((prompt) => picks[prompt.key]).length === 0 ? (
+                          <span style={{
+                            fontSize: 12, fontWeight: 600,
+                            color: SUBTLE_TEXT,
+                            fontStyle: "italic",
+                            letterSpacing: "-0.005em",
+                          }}>Pick a category first, then come back to arm it.</span>
+                        ) : (
+                          allPrompts.filter((prompt) => picks[prompt.key]).map((prompt) => {
+                            const isArmed = doubleDownKey === prompt.key;
+                            return (
+                              <button
+                                key={`dd-${prompt.key}`}
+                                onClick={() => toggleDoubleDown(prompt.key)}
+                                className="stint-pressable"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 7,
+                                  minHeight: 38,
+                                  padding: "0 14px",
+                                  borderRadius: RADIUS_PILL,
+                                  border: isArmed
+                                    ? `1px solid ${hexToRgba(ACCENT, 0.46)}`
+                                    : `1px solid ${HAIRLINE}`,
+                                  background: isArmed
+                                    ? `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.22)}, ${hexToRgba(ACCENT, 0.06)})`
+                                    : "rgba(148,163,184,0.05)",
+                                  color: isArmed ? ACCENT : TEXT_PRIMARY,
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  cursor: interactionLocked ? "default" : "pointer",
+                                  fontFamily: "inherit",
+                                  letterSpacing: "-0.005em",
+                                  boxShadow: isArmed ? `0 6px 16px ${hexToRgba(ACCENT, 0.20)}` : "none",
+                                  transition: "background 200ms ease, border-color 200ms ease, box-shadow 220ms ease",
+                                }}
+                                disabled={interactionLocked}
+                              >
+                                {isArmed && (
+                                  <span style={{
+                                    fontSize: 11, fontWeight: 900,
+                                    fontFamily: "var(--font-mono)",
+                                    letterSpacing: "-0.04em",
+                                    color: ACCENT,
+                                  }}>3×</span>
+                                )}
+                                {prompt.label}
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Budget Picks controls */}
-                  {selectedLeague?.gameMode === "budget_picks" && (
-                    <div
-                      style={{
+                  {/* ── Budget Picks controls — Home-level card with mono counter ── */}
+                  {selectedLeague?.gameMode === "budget_picks" && (() => {
+                    const isBalanced = budgetTotal === 50;
+                    const isOver = budgetTotal > 50;
+                    const counterColor = isBalanced ? SUCCESS : isOver ? "#f87171" : ACCENT;
+                    return (
+                      <div style={{
+                        position: "relative",
+                        overflow: "hidden",
                         borderRadius: CARD_RADIUS,
-                        border: "1px solid rgba(249,115,22,0.18)",
-                        background: "rgba(249,115,22,0.06)",
-                        padding: "14px 15px",
-                        display: "grid",
-                        gap: 12,
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: "var(--brand)",
-                            marginBottom: 8,
-                          }}
-                        >
-                          Budget Picks
-                        </div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT }}>
-                          Spread exactly 50 credits across the categories you believe in most. Every selected category needs between 1 and 20 credits.
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              borderRadius: 999,
-                              padding: "6px 12px",
-                              background: BG_BASE,
-                              border: `1px solid ${budgetTotal === 50 ? hexToRgba(SUCCESS, 0.3) : "var(--btn-secondary-bg)"}`,
-                              color: budgetTotal === 50 ? SUCCESS : ACCENT,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 800,
-                                letterSpacing: "0.06em",
-                                textTransform: "uppercase",
-                                fontVariantNumeric: "tabular-nums",
-                              }}
-                            >
-                              {budgetTotal}/50
-                            </span>
-                            <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7 }}>credits</span>
+                        border: `1px solid ${hexToRgba(ACCENT, 0.28)}`,
+                        background: `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.12)} 0%, ${hexToRgba(ACCENT, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+                        padding: "16px 18px",
+                        boxShadow: CARD_SHADOW,
+                        display: "grid", gap: 14,
+                      }}>
+                        <span aria-hidden="true" style={{
+                          position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+                          background: ACCENT, opacity: 0.78,
+                        }} />
+                        <div>
+                          <div style={{
+                            display: "inline-flex", alignItems: "center", gap: 7,
+                            padding: "3px 10px", borderRadius: RADIUS_PILL,
+                            background: hexToRgba(ACCENT, 0.14),
+                            border: `1px solid ${hexToRgba(ACCENT, 0.32)}`,
+                            marginBottom: 10,
+                          }}>
+                            <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1 }}>💰</span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 900,
+                              letterSpacing: "0.16em", textTransform: "uppercase",
+                              color: ACCENT,
+                            }}>Budget Picks</span>
                           </div>
-                          {!picks[activePrompt?.key] && (
-                            <span style={{ fontSize: 12, color: SUBTLE_TEXT }}>
-                              Pick this category first.
-                            </span>
-                          )}
+                          <div style={{
+                            fontSize: 13.5, lineHeight: 1.6, color: MUTED_TEXT,
+                            letterSpacing: "-0.005em",
+                            fontWeight: 500,
+                            maxWidth: "60ch",
+                          }}>
+                            Spread exactly <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>50 credits</span> across the categories you believe in most. Every selected category needs between <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>1 and 20</span> credits.
+                          </div>
                         </div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <button
-                            onClick={() => adjustBudgetAmount(activePrompt?.key, -1)}
-                            disabled={interactionLocked || !picks[activePrompt?.key]}
-                            className="stint-pressable"
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 999,
-                              border: `1px solid rgba(255,255,255,${picks[activePrompt?.key] ? "0.12" : "0.06"})`,
-                              background: BG_BASE,
-                              color: picks[activePrompt?.key] ? TEXT_PRIMARY : SUBTLE_TEXT,
-                              cursor: interactionLocked || !picks[activePrompt?.key] ? "default" : "pointer",
-                              fontSize: 20,
-                              fontWeight: 300,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              opacity: picks[activePrompt?.key] ? 1 : 0.45,
-                            }}
-                          >
-                            –
-                          </button>
-                          <span
-                            style={{
-                              minWidth: 44,
+                        <div style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          gap: 14, flexWrap: "wrap",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{
+                              display: "inline-flex", alignItems: "baseline", gap: 8,
+                              padding: "8px 14px", borderRadius: RADIUS_PILL,
+                              background: "rgba(6,16,27,0.50)",
+                              border: `1px solid ${hexToRgba(counterColor, 0.34)}`,
+                            }}>
+                              <span style={{
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 18, fontWeight: 700,
+                                color: counterColor,
+                                letterSpacing: "-0.04em",
+                                fontVariantNumeric: "tabular-nums",
+                                lineHeight: 1,
+                              }}>{budgetTotal}<span style={{ color: "rgba(148,163,184,0.45)", margin: "0 2px" }}>/</span>50</span>
+                              <span style={{
+                                fontSize: 9, fontWeight: 900,
+                                letterSpacing: "0.16em", textTransform: "uppercase",
+                                color: counterColor,
+                              }}>{isBalanced ? "balanced" : isOver ? "over" : "credits"}</span>
+                            </div>
+                            {!picks[activePrompt?.key] && (
+                              <span style={{
+                                fontSize: 12, fontWeight: 600,
+                                color: SUBTLE_TEXT,
+                                letterSpacing: "-0.005em",
+                                fontStyle: "italic",
+                              }}>Pick this category first.</span>
+                            )}
+                          </div>
+                          <div style={{
+                            display: "inline-flex", alignItems: "center", gap: 8,
+                            padding: 4,
+                            borderRadius: RADIUS_PILL,
+                            background: "rgba(6,16,27,0.42)",
+                            border: `1px solid ${HAIRLINE}`,
+                          }}>
+                            <button
+                              onClick={() => adjustBudgetAmount(activePrompt?.key, -1)}
+                              disabled={interactionLocked || !picks[activePrompt?.key]}
+                              className="stint-pressable"
+                              style={{
+                                width: 38, height: 38, borderRadius: "50%",
+                                border: "none",
+                                background: picks[activePrompt?.key] ? hexToRgba(ACCENT, 0.10) : "transparent",
+                                color: picks[activePrompt?.key] ? ACCENT : SUBTLE_TEXT,
+                                cursor: interactionLocked || !picks[activePrompt?.key] ? "default" : "pointer",
+                                fontSize: 20, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                opacity: picks[activePrompt?.key] ? 1 : 0.45,
+                                transition: "background 180ms ease",
+                              }}
+                            >−</button>
+                            <span style={{
+                              minWidth: 40,
                               textAlign: "center",
-                              fontSize: 16,
-                              fontWeight: 800,
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 20, fontWeight: 700,
                               color: activeBudgetAmount > 0 ? TEXT_PRIMARY : SUBTLE_TEXT,
+                              letterSpacing: "-0.04em",
                               fontVariantNumeric: "tabular-nums",
-                              letterSpacing: "-0.02em",
-                            }}
-                          >
-                            {activeBudgetAmount}
-                          </span>
-                          <button
-                            onClick={() => adjustBudgetAmount(activePrompt?.key, 1)}
-                            disabled={interactionLocked || !picks[activePrompt?.key]}
-                            className="stint-pressable"
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 999,
-                              border: `1px solid rgba(255,255,255,${picks[activePrompt?.key] ? "0.12" : "0.06"})`,
-                              background: BG_BASE,
-                              color: picks[activePrompt?.key] ? TEXT_PRIMARY : SUBTLE_TEXT,
-                              cursor: interactionLocked || !picks[activePrompt?.key] ? "default" : "pointer",
-                              fontSize: 20,
-                              fontWeight: 300,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              opacity: picks[activePrompt?.key] ? 1 : 0.45,
-                            }}
-                          >
-                            +
-                          </button>
+                              lineHeight: 1,
+                            }}>{activeBudgetAmount}</span>
+                            <button
+                              onClick={() => adjustBudgetAmount(activePrompt?.key, 1)}
+                              disabled={interactionLocked || !picks[activePrompt?.key]}
+                              className="stint-pressable"
+                              style={{
+                                width: 38, height: 38, borderRadius: "50%",
+                                border: "none",
+                                background: picks[activePrompt?.key] ? hexToRgba(ACCENT, 0.10) : "transparent",
+                                color: picks[activePrompt?.key] ? ACCENT : SUBTLE_TEXT,
+                                cursor: interactionLocked || !picks[activePrompt?.key] ? "default" : "pointer",
+                                fontSize: 20, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                opacity: picks[activePrompt?.key] ? 1 : 0.45,
+                                transition: "background 180ms ease",
+                              }}
+                            >+</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Driver options */}
                   {activePrompt?.type === "driver" && (
@@ -4464,27 +6495,52 @@ export default function PredictionsPage({
             </div>
           )}
 
-          {/* Partial save warning */}
+          {/* ── Partial save warning — Home-level card with tone rail ── */}
           {showPartialWarning && (
-            <div
-              style={{
-                padding: "14px 16px",
-                borderRadius: CARD_RADIUS,
-                background: WARN_BG,
-                border: `1px solid ${WARN_BORDER}`,
-                display: "grid",
-                gap: 12,
-              }}
-            >
+            <div style={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: CARD_RADIUS,
+              border: `1px solid ${WARN_BORDER}`,
+              background: `linear-gradient(135deg, ${hexToRgba("#fcd34d", 0.10)} 0%, ${hexToRgba("#fcd34d", 0.02)} 60%, ${PANEL_BG} 100%)`,
+              padding: "18px 22px",
+              boxShadow: CARD_SHADOW,
+              display: "grid", gap: 14,
+            }}>
+              <span aria-hidden="true" style={{
+                position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+                background: "#fcd34d", opacity: 0.78,
+              }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: WARN_TEXT, marginBottom: 3, lineHeight: 1.3 }}>
-                  Board incomplete
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  marginBottom: 8,
+                }}>
+                  <span aria-hidden="true" style={{
+                    width: 6, height: 6, borderRadius: "50%", background: "#fcd34d",
+                    boxShadow: "0 0 0 4px rgba(252,211,77,0.16)",
+                  }} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 900,
+                    letterSpacing: "0.16em", textTransform: "uppercase",
+                    color: WARN_TEXT,
+                  }}>Board incomplete</span>
                 </div>
-                <div style={{ fontSize: 12, color: "rgba(252,211,77,0.6)", lineHeight: 1.4 }}>
-                  {done}/{totalPrompts} picks filled in {selectedLeague?.name || "this league"}. You can save now or go back to complete it.
-                </div>
+                <div className="stint-card-title" style={{
+                  fontSize: 17, fontWeight: 900,
+                  letterSpacing: "-0.025em", lineHeight: 1.16,
+                  color: TEXT_PRIMARY,
+                  marginBottom: 5,
+                }}>{done} of {totalPrompts} picks filled</div>
+                <div style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: MUTED_TEXT,
+                  letterSpacing: "-0.005em",
+                  lineHeight: 1.55,
+                  maxWidth: "60ch",
+                }}>You can save partial in {selectedLeague?.name || "this league"}, or go back to complete it before locking in.</div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button
                   onClick={() => {
                     setShowPartialWarning(false);
@@ -4494,32 +6550,40 @@ export default function PredictionsPage({
                   }}
                   className="stint-pressable"
                   style={{
-                    minHeight: 36,
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    minHeight: 40,
                     border: `1px solid ${WARN_BORDER}`,
-                    borderRadius: 999,
-                    background: "transparent",
+                    borderRadius: RADIUS_PILL,
+                    background: hexToRgba("#fcd34d", 0.10),
                     color: WARN_TEXT,
                     cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    padding: "0 14px",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    padding: "0 18px",
+                    fontFamily: "inherit",
+                    letterSpacing: "-0.005em",
                   }}
                 >
                   Complete board
+                  <span aria-hidden="true" style={{ fontSize: 12 }}>→</span>
                 </button>
                 <button
                   onClick={save}
                   className="stint-pressable"
                   style={{
-                    minHeight: 36,
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    minHeight: 40,
                     border: "none",
-                    borderRadius: 999,
-                    background: WARN_BORDER,
-                    color: "#fff",
+                    borderRadius: RADIUS_PILL,
+                    background: "linear-gradient(135deg, #fcd34d, #f59e0b)",
+                    color: "#1a1a1a",
                     cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    padding: "0 14px",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    padding: "0 20px",
+                    fontFamily: "inherit",
+                    letterSpacing: "-0.005em",
+                    boxShadow: "0 8px 20px rgba(252,211,77,0.30)",
                   }}
                 >
                   Save anyway

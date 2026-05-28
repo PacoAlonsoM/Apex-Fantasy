@@ -5,7 +5,6 @@ import Navbar from "@/src/shell/Navbar";
 import AuthModal from "@/src/shell/AuthModal";
 import AuthOnboardingModal from "@/src/shell/AuthOnboardingModal";
 import HomePage from "@/src/features/home/HomePage";
-import CalendarPage from "@/src/features/calendar/CalendarPage";
 import PublicPicksPage from "@/src/features/picks/PublicPicksPage";
 import PredictionsPage from "@/src/features/picks/PredictionsPage";
 import NewsPage from "@/src/features/insight/NewsPage";
@@ -236,7 +235,6 @@ export default function StintApp() {
         )}
         <div key={page} className="stint-page-enter">
           {page === "home" && <HomePage user={user} setPage={navigateToPage} openAuth={openAuth} demoMode={demoMode} openPredictionsForRace={openPredictionsForRace} />}
-          {page === "calendar" && <CalendarPage user={user} openAuth={openAuth} openPredictionsForRace={openPredictionsForRace} />}
           {page === "public-picks" && (
             <PublicPicksPage
               user={user}

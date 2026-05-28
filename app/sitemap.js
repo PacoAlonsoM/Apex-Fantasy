@@ -10,7 +10,6 @@ export default function sitemap() {
     "/world-cup/bracket",
     "/world-cup/survivor",
     "/world-cup/leagues",
-    "/calendar",
     "/wire",
     "/leaderboard",
     "/picks",

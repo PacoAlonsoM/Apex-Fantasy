@@ -1707,3 +1707,255 @@ html[data-density="compact"] [data-density-row] {
     transform: none;
   }
 }
+
+/* ============================================================
+   F1 home polish layer. All classes f1- prefixed so the F1 home
+   motion can be isolated from the WC system. Reuses existing
+   keyframes (fadeUp) and EASE_OUT_EXPO curve.
+   ============================================================ */
+
+/* --- Stagger orchestration: children read --f1-i for cascade order. */
+.f1-stagger > * {
+  --f1-i: 0;
+  animation: fadeUp 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--f1-i) * 90ms + 80ms);
+}
+
+/* Timeline list uses a tighter cascade so 5–6 sessions feel like one
+   stroke down the rail rather than five separate beats. */
+.f1-timeline-list.f1-stagger > * {
+  animation: fadeUp 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--f1-i, 0) * 50ms + 220ms);
+}
+
+/* --- Live dot: opacity pulse + halo expansion in one keyframe. */
+.f1-live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.40);
+  animation: f1-live-pulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes f1-live-pulse {
+  0%   { opacity: 1;    box-shadow: 0 0 0 0   rgba(74, 222, 128, 0.32); }
+  50%  { opacity: 0.55; box-shadow: 0 0 0 8px rgba(74, 222, 128, 0.00); }
+  100% { opacity: 1;    box-shadow: 0 0 0 0   rgba(74, 222, 128, 0.32); }
+}
+
+/* --- Timeline dot: subtle scale-in when active. */
+.f1-timeline-dot {
+  transition: box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.f1-timeline-dot.is-active {
+  box-shadow: 0 0 0 7px rgba(255, 106, 26, 0.10);
+}
+
+/* --- Hero CTA row: lift + shadow halo on the primary CTAs. The base
+   .stint-button already does translateY(-1px) on hover globally; we
+   layer a 2px lift and an accent shadow only inside the hero scope. */
+.f1-hero-cta-row .stint-button {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .f1-hero-cta-row .stint-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 44px rgba(255, 106, 26, 0.32);
+  }
+}
+
+.f1-hero-cta-row .stint-button:active {
+  transform: translateY(0);
+}
+
+.f1-hero-cta-row .stint-button-secondary {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), background 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .f1-hero-cta-row .stint-button-secondary:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 106, 26, 0.32);
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.f1-hero-cta-row .stint-button-secondary:active {
+  transform: translateY(0);
+}
+
+/* --- Mobile sticky CTA: one-shot slide-rise on mount. */
+.f1-sticky-cta {
+  animation: f1-sticky-rise 420ms cubic-bezier(0.16, 1, 0.3, 1) 280ms both;
+}
+
+@keyframes f1-sticky-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Reduced motion: kill all F1 home keyframes; keep static states. */
+@media (prefers-reduced-motion: reduce) {
+  .f1-stagger > *,
+  .f1-timeline-list.f1-stagger > *,
+  .f1-live-dot,
+  .f1-sticky-cta {
+    animation: none !important;
+  }
+  .f1-hero-cta-row .stint-button:hover,
+  .f1-hero-cta-row .stint-button-secondary:hover {
+    transform: none;
+  }
+}
+
+/* --- .stint-tabular — tabular numerals utility for all numeric displays.
+   Per design system §3: numeric values must lock column width so changing
+   digits don't jitter. Used on countdowns, scores, points, leaderboards. */
+.stint-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   F1 PRODUCT SYSTEM
+   Shared CSS for the F1 side of the app. Every F1 page mounts
+   inside `.f1-page-shell` (PageShell). Picks and World Cup
+   intentionally do not adopt these classes.
+   ============================================================ */
+
+/* --- PageShell root: layout container + entrance + atmospheric layer. */
+.f1-page-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.f1-page-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 360ms cubic-bezier(0.23,1,0.32,1);
+  background:
+    radial-gradient(60% 50% at 8% 0%, var(--bg-glow-amber, rgba(255,194,71,0.05)) 0%, transparent 60%),
+    radial-gradient(60% 50% at 100% 100%, rgba(255,106,26,0.04) 0%, transparent 60%);
+  z-index: 0;
+}
+
+.f1-page-shell[data-ambient="subtle"]::before { opacity: 0.7; }
+.f1-page-shell[data-ambient="glow"]::before  { opacity: 1; animation: f1-ambient-drift 24s ease-in-out infinite alternate; }
+
+.f1-page-shell[data-tone="live"]::before {
+  background:
+    radial-gradient(56% 48% at 14% 0%, rgba(74,222,128,0.06) 0%, transparent 58%),
+    radial-gradient(60% 50% at 100% 100%, rgba(255,106,26,0.05) 0%, transparent 60%);
+}
+
+.f1-page-shell[data-tone="editorial"]::before {
+  background:
+    radial-gradient(58% 48% at 12% 0%, rgba(96,165,250,0.06) 0%, transparent 58%),
+    radial-gradient(60% 50% at 100% 100%, rgba(96,165,250,0.04) 0%, transparent 60%);
+}
+
+@keyframes f1-ambient-drift {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(2%, -1%); }
+}
+
+/* --- Page enter: opacity + small rise on first paint. The PageShell
+       carries this class on mount; children with `--f1-i` stagger after. */
+.f1-page-enter {
+  animation: f1-page-enter 520ms cubic-bezier(0.16,1,0.3,1) 60ms both;
+}
+
+@keyframes f1-page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Stronger stagger variant — more visible than the existing `.f1-stagger`.
+       Children read `--f1-i` (0..N) for cascade order. */
+.f1-stagger-strong > * {
+  --f1-i: 0;
+  animation: f1-rise-in 600ms cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--f1-i) * 90ms + 120ms);
+}
+
+@keyframes f1-rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Section reveal — IntersectionObserver-driven via `useReveal()`.
+       The hook toggles `.is-visible` once per section. */
+.f1-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 460ms cubic-bezier(0.16,1,0.3,1), transform 460ms cubic-bezier(0.16,1,0.3,1);
+  will-change: opacity, transform;
+}
+
+.f1-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- Shared hover lift for cards / CTAs across the F1 side. Adds a 2px rise
+       and a soft accent shadow halo. Inherits the EASE_OUT_EXPO curve. */
+.f1-hoverable {
+  transition: transform 200ms cubic-bezier(0.23,1,0.32,1),
+              box-shadow 200ms cubic-bezier(0.23,1,0.32,1),
+              border-color 200ms cubic-bezier(0.23,1,0.32,1);
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .f1-hoverable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 44px rgba(255,106,26,0.18);
+  }
+}
+
+.f1-hoverable:active { transform: translateY(0); }
+
+.f1-hoverable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- View Transition recipes for cross-tab pill morphs. Standings + Profile
+       + Community use a shared `viewTransitionName` on the active pill so
+       the bar slides between selections instead of cutting. */
+::view-transition-old(profile-active-tab),
+::view-transition-new(profile-active-tab),
+::view-transition-old(standings-active-tab),
+::view-transition-new(standings-active-tab),
+::view-transition-old(community-active-tab),
+::view-transition-new(community-active-tab) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.16,1,0.3,1);
+}
+
+/* --- Reduced motion: kill every F1 system animation. Keep states. */
+@media (prefers-reduced-motion: reduce) {
+  .f1-page-shell::before,
+  .f1-page-enter,
+  .f1-stagger-strong > *,
+  .f1-reveal {
+    animation: none !important;
+    transition: none !important;
+  }
+  .f1-reveal { opacity: 1; transform: none; }
+  .f1-hoverable:hover { transform: none; }
+  ::view-transition-old(profile-active-tab),
+  ::view-transition-new(profile-active-tab),
+  ::view-transition-old(standings-active-tab),
+  ::view-transition-new(standings-active-tab),
+  ::view-transition-old(community-active-tab),
+  ::view-transition-new(community-active-tab) {
+    animation: none !important;
+  }
+}

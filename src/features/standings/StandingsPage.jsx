@@ -4,7 +4,6 @@ import { TEAMS } from "@/src/constants/teams";
 import {
   ACCENT,
   CARD_RADIUS,
-  CONTENT_MAX,
   HAIRLINE,
   LIFTED_SHADOW,
   MUTED_TEXT,
@@ -22,6 +21,7 @@ import usePageMetadata from "@/src/lib/usePageMetadata";
 import useViewport from "@/src/lib/useViewport";
 import { hexToRgba } from "@/src/lib/colors";
 import PageMasthead from "@/src/ui/PageMasthead";
+import PageShell from "@/src/ui/PageShell";
 
 function teamAccent(teamName) {
   return TEAMS[teamName]?.c || "#94a3b8";
@@ -332,17 +332,10 @@ export default function StandingsPage({ compact = false }) {
   const lastRaceDate = standings?.lastRace?.date ? formatRoundDate(standings.lastRace.date) : "No completed race yet";
   const currentRows = tab === "drivers" ? (standings?.drivers || []) : (standings?.constructors || []);
 
-  return (
-    <div
-      data-page-density="dense"
-      style={{
-        maxWidth: CONTENT_MAX,
-        margin: "0 auto",
-        padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px",
-        position: "relative",
-        zIndex: 1,
-      }}
-    >
+  const content = (
+    // Width + padding owned by PageShell (or by the parent in `compact` mode).
+    // No inline maxWidth here — that's the system rule.
+    <div data-page-density="dense" style={{ position: "relative", zIndex: 1 }}>
       <style>{`
         .stnt-tab,.stnt-vtab{white-space:nowrap;transition:background 110ms ease,border-color 110ms ease,color 100ms ease,transform 90ms cubic-bezier(0.23,1,0.32,1)!important}
         .stnt-tab:active,.stnt-vtab:active{transform:scale(0.97)!important}
@@ -385,7 +378,7 @@ export default function StandingsPage({ compact = false }) {
           eyebrow={loading ? "Loading standings" : `${seasonYear} championship standings`}
           title={<>Real championship standings.<br />Drivers and constructors.</>}
           description="Live F1 season standings from completed OpenF1 race and sprint sessions. Fantasy scoring lives in your picks history and leagues."
-          image={compact ? null : { src: "/images/hero-glow.png" }}
+          image={compact ? null : { src: "/images/Car%20queue.png" }}
           tone={compact ? "flat" : "ambient"}
           minHeight={compact ? 0 : (isMobile ? 0 : isTablet ? 240 : 280)}
           style={{ padding: isMobile ? "24px 20px" : "28px 30px 24px" }}
@@ -593,5 +586,14 @@ export default function StandingsPage({ compact = false }) {
         )}
       </section>
     </div>
+  );
+
+  // When compact (rendered inside Community), skip PageShell — the parent
+  // owns the page chrome. Standalone use (`/leaderboard`) wraps in PageShell.
+  if (compact) return content;
+  return (
+    <PageShell tone="ambient" ambient="glow" density="dense">
+      {content}
+    </PageShell>
   );
 }

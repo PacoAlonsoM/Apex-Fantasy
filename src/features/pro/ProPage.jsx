@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ACCENT,
   AI_BLUE,
@@ -11,11 +11,13 @@ import {
   BG_SURFACE,
   BRAND_GRADIENT,
   CARD_RADIUS,
+  CARD_SHADOW,
   CONTENT_MAX,
   ERROR_BG,
   ERROR_BORDER,
   ERROR_TEXT,
   HAIRLINE,
+  LIFTED_SHADOW,
   LIVE_GREEN,
   LIVE_GREEN_GLOW,
   MUTED_TEXT,
@@ -42,7 +44,8 @@ import {
 } from "@/src/constants/design";
 import useViewport from "@/src/lib/useViewport";
 import usePageMetadata from "@/src/lib/usePageMetadata";
-import { withViewTransition } from "@/src/lib/viewTransition";
+import useReveal from "@/src/lib/useReveal";
+import { animateNumber, withViewTransition } from "@/src/lib/viewTransition";
 import { requireActiveSession } from "@/src/shell/authProfile";
 import { pageToHref } from "@/src/shell/routing";
 import RankBadge from "@/src/ui/RankBadge";
@@ -478,11 +481,21 @@ function CoachArchetypeProofCard({ isMobile }) {
 function FaqItem({ item, isOpen, onToggle }) {
   return (
     <div style={{
-      borderRadius: RADIUS_MD,
-      border:       PANEL_BORDER,
-      background:   isOpen ? PANEL_BG_ALT : PANEL_BG,
+      position:     "relative",
       overflow:     "hidden",
+      borderRadius: CARD_RADIUS,
+      border:       isOpen ? `1px solid ${rgbaFromHex(ACCENT, 0.24)}` : PANEL_BORDER,
+      background:   isOpen
+        ? `linear-gradient(135deg, ${rgbaFromHex(ACCENT, 0.06)} 0%, ${rgbaFromHex(ACCENT, 0.01)} 60%, ${PANEL_BG_ALT} 100%)`
+        : PANEL_BG,
+      transition:   "border-color 220ms cubic-bezier(0.16,1,0.3,1), background 220ms cubic-bezier(0.16,1,0.3,1)",
     }}>
+      {isOpen && (
+        <span aria-hidden="true" style={{
+          position: "absolute", top: 0, bottom: 0, left: 0, width: 3,
+          background: ACCENT, opacity: 0.7,
+        }} />
+      )}
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
@@ -492,48 +505,1304 @@ function FaqItem({ item, isOpen, onToggle }) {
           alignItems:     "center",
           justifyContent: "space-between",
           gap:            12,
-          padding:        "14px 16px",
+          padding:        "16px 20px",
           background:     "transparent",
           border:         "none",
           color:          TEXT_PRIMARY,
           cursor:         "pointer",
           fontFamily:     "inherit",
           textAlign:      "left",
+          minHeight:      52,
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.01em" }}>{item.q}</span>
-        <svg
+        <span style={{
+          fontSize: 14,
+          fontWeight: 900,
+          letterSpacing: "-0.018em",
+          color: isOpen ? ACCENT : TEXT_PRIMARY,
+          transition: "color 200ms ease",
+        }}>{item.q}</span>
+        <span
           aria-hidden="true"
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
           style={{
             flexShrink: 0,
-            color:      MUTED_TEXT,
-            transform:  isOpen ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 220ms cubic-bezier(0.16,1,0.3,1)",
+            width: 26, height: 26,
+            borderRadius: "50%",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            background: isOpen ? rgbaFromHex(ACCENT, 0.16) : "rgba(148,163,184,0.10)",
+            border: isOpen ? `1px solid ${rgbaFromHex(ACCENT, 0.30)}` : `1px solid ${HAIRLINE}`,
+            transition: "background 220ms ease, border-color 220ms ease, transform 220ms cubic-bezier(0.16,1,0.3,1)",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            color: isOpen ? ACCENT : MUTED_TEXT,
           }}
         >
-          <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </button>
       <div
         aria-hidden={!isOpen}
         style={{
           display:          "grid",
           gridTemplateRows: isOpen ? "1fr" : "0fr",
-          transition:       "grid-template-rows 260ms cubic-bezier(0.23,1,0.32,1), opacity 200ms ease",
+          transition:       "grid-template-rows 320ms cubic-bezier(0.23,1,0.32,1), opacity 240ms ease",
           opacity:          isOpen ? 1 : 0,
         }}
       >
         <div style={{ overflow: "hidden" }}>
-          <div style={{ padding: "0 16px 14px", fontSize: 13, lineHeight: 1.7, color: MUTED_TEXT }}>
+          <div style={{
+            padding: "0 20px 18px",
+            fontSize: 13.5,
+            lineHeight: 1.68,
+            color: "rgba(226,232,240,0.82)",
+            letterSpacing: "-0.005em",
+            maxWidth: "60ch",
+          }}>
             {item.a}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── New cinematic hero (Free view) ──────────────────────────────────────────
+// Side-by-side racing backdrop, ACCENT-tinted gradient, letter-typing title
+// reveal, live counters strip, inline pricing + unlock CTA. Replaces the old
+// PageMasthead-centered composition.
+
+function ProHero({
+  user, isMobile, isTablet,
+  isPro, statusTone, subscriptionEndsLabel, scheduledToCancel,
+  plan, onPlanChange,
+  priceValue, priceUnit,
+  onUnlock, checkoutLoading,
+  onManage, portalLoading,
+  error, note,
+  proLeagueCount,
+}) {
+  // Count-up for the live Pro manager count
+  const [displayCount, setDisplayCount] = useState(0);
+  useEffect(() => {
+    if (proLeagueCount == null) return undefined;
+    const stop = animateNumber({
+      from: 0,
+      to: Number(proLeagueCount) || 0,
+      duration: 1200,
+      onUpdate: (v) => setDisplayCount(v),
+    });
+    return stop;
+  }, [proLeagueCount]);
+
+  const titleText = "Your season, sharper.";
+  // Split title letter-by-letter, but keep the trailing word ("sharper.") in
+  // ACCENT so the reveal lands on the brand word.
+  const titleChars = titleText.split("");
+
+  return (
+    <section
+      style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       PANEL_BORDER,
+        background:   `
+          linear-gradient(140deg, ${rgbaFromHex(ACCENT, 0.34)} 0%, ${rgbaFromHex(ACCENT, 0.10)} 38%, rgba(6,16,27,0.96) 100%),
+          url("/images/Track.png") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow:    LIFTED_SHADOW,
+        marginBottom: isMobile ? 22 : 28,
+        padding:      isMobile ? "32px 22px 30px" : isTablet ? "44px 36px 38px" : "56px 56px 48px",
+      }}
+    >
+      {/* Top accent rail */}
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+        opacity: 0.92,
+      }} />
+
+      {/* Row 1: kicker + (Pro only) subscription status pill */}
+      <div className="pro-hero-kicker" style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, flexWrap: "wrap",
+        marginBottom: isMobile ? 18 : 24,
+      }}>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "5px 12px", borderRadius: RADIUS_PILL,
+          background: rgbaFromHex(ACCENT, 0.14),
+          border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+        }}>
+          <span aria-hidden="true" style={{
+            width: 5, height: 5, borderRadius: "50%", background: ACCENT,
+            boxShadow: `0 0 0 4px ${rgbaFromHex(ACCENT, 0.22)}`,
+          }} />
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: ACCENT,
+          }}>
+            {isPro ? "Stint Pro · Member" : "Stint Pro · From $4/month"}
+          </span>
+        </div>
+        {isPro && statusTone && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "5px 12px", borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.42)",
+            border: `1px solid ${rgbaFromHex(statusTone.dot, 0.32)}`,
+            flexShrink: 0,
+          }}>
+            <span aria-hidden="true" style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: statusTone.dot,
+              boxShadow: statusTone.glow,
+            }} />
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: statusTone.text,
+            }}>Subscription {statusTone.label.toLowerCase()}</span>
+          </span>
+        )}
+      </div>
+
+      {/* BIG title — letter-by-letter reveal */}
+      <h1 className="stint-page-title" style={{
+        margin: 0,
+        fontSize: isMobile ? "clamp(34px, 9vw, 48px)" : "clamp(56px, 7.4vw, 88px)",
+        letterSpacing: "-0.05em",
+        lineHeight: 0.94,
+        color: "rgba(255,255,255,0.98)",
+        textShadow: "0 2px 18px rgba(0,0,0,0.32)",
+        textTransform: "uppercase",
+        maxWidth: "18ch",
+      }}>
+        {titleChars.map((ch, i) => {
+          // Last word "sharper." gets ACCENT color
+          const charIndex = titleText.indexOf("sharper");
+          const isAccent = charIndex >= 0 && i >= charIndex;
+          return (
+            <span
+              key={`${ch}-${i}`}
+              className="pro-hero-char"
+              style={{
+                animationDelay: `${120 + i * 38}ms`,
+                color: isAccent ? ACCENT : "inherit",
+              }}
+            >{ch === " " ? " " : ch}</span>
+          );
+        })}
+      </h1>
+
+      {/* Lede */}
+      <p className="pro-hero-deck" style={{
+        margin: isMobile ? "16px 0 0" : "22px 0 0",
+        fontSize: isMobile ? 14.5 : 17,
+        fontWeight: 500,
+        color: "rgba(226,232,240,0.86)",
+        lineHeight: 1.55,
+        maxWidth: "52ch",
+        letterSpacing: "-0.005em",
+      }}>
+        {isPro
+          ? "Every Pro surface is unlocked. Pro game modes, AI Coach + Debriefs, unlimited leagues — your Pro Community League rank moves on its own each scored weekend."
+          : "Pro game modes, AI-powered insights, unlimited leagues, and the full Coach read. Everything you need to compete seriously."}
+      </p>
+
+      {(error || note) && (
+        <div className="pro-hero-deck" style={{ display: "grid", gap: 8, marginTop: 16 }}>
+          {error && <div style={{ padding: "10px 14px", borderRadius: 10, background: ERROR_BG, border: `1px solid ${ERROR_BORDER}`, color: ERROR_TEXT, fontSize: 13 }}>{error}</div>}
+          {note && <div style={{ padding: "10px 14px", borderRadius: 10, background: NOTE_BG, border: `1px solid ${NOTE_BORDER}`, color: NOTE_TEXT, fontSize: 13 }}>{note}</div>}
+        </div>
+      )}
+
+      {/* Live counters strip */}
+      <div className="pro-hero-counters" style={{
+        marginTop: isMobile ? 22 : 30,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: isMobile ? 14 : 22,
+        padding: isMobile ? "10px 16px" : "12px 20px",
+        borderRadius: RADIUS_PILL,
+        background: "rgba(6,16,27,0.50)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        flexWrap: "wrap",
+      }}>
+        <span className="pro-counter-num" style={{ display: "inline-flex", alignItems: "baseline", gap: 7 }}>
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: isMobile ? 22 : 26,
+            fontWeight: 700, color: "#fff",
+            letterSpacing: "-0.04em",
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 0.94,
+          }}>{Math.round(displayCount) || (proLeagueCount === 0 ? 1 : "—")}</span>
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.62)",
+          }}>{proLeagueCount === 0 ? "founding seat" : "Pro managers"}</span>
+        </span>
+        <span aria-hidden="true" style={{ width: 1, height: 22, background: "rgba(255,255,255,0.16)" }} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <span aria-hidden="true" style={{
+            width: 7, height: 7, borderRadius: "50%",
+            background: LIVE_GREEN,
+            boxShadow: LIVE_GREEN_GLOW,
+          }} />
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.78)",
+          }}>Pro League · Live</span>
+        </span>
+      </div>
+
+      {/* Pricing + CTA inline — Free vs Pro variants */}
+      {isPro ? (
+        <div className="pro-hero-price" style={{
+          marginTop: isMobile ? 26 : 32,
+          display: "flex",
+          alignItems: isMobile ? "stretch" : "center",
+          gap: isMobile ? 14 : 20,
+          flexDirection: isMobile ? "column" : "row",
+          flexWrap: "wrap",
+        }}>
+          {/* Renews / Access ends pill */}
+          <div style={{
+            display: "inline-flex",
+            flexDirection: "column",
+            gap: 4,
+            padding: "10px 16px",
+            borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.50)",
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}>
+            <span style={{
+              fontSize: 9, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.58)",
+            }}>{scheduledToCancel ? "Access ends" : "Renews"}</span>
+            <span style={{
+              fontSize: 13, fontWeight: 800,
+              color: "rgba(255,255,255,0.96)",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "-0.005em",
+            }}>{subscriptionEndsLabel || "On subscription anniversary"}</span>
+          </div>
+
+          <div className="pro-hero-cta" style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            flex: isMobile ? "1 1 100%" : "0 0 auto",
+          }}>
+            <button
+              onClick={onManage}
+              disabled={portalLoading}
+              className="pro-cta-btn"
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                gap: 10,
+                height: isMobile ? 48 : 52,
+                padding: isMobile ? "0 24px" : "0 30px",
+                borderRadius: 999,
+                background: BRAND_GRADIENT,
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 900,
+                letterSpacing: "-0.005em",
+                border: "none",
+                cursor: portalLoading ? "wait" : "pointer",
+                boxShadow: `0 12px 32px ${rgbaFromHex(ACCENT, 0.40)}`,
+                fontFamily: "inherit",
+              }}
+            >
+              {portalLoading ? "Opening…" : "Manage subscription"}
+              <span aria-hidden="true" style={{ fontSize: 13 }}>↗</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="pro-hero-price" style={{
+          marginTop: isMobile ? 26 : 36,
+          display: "flex",
+          alignItems: isMobile ? "stretch" : "center",
+          gap: isMobile ? 18 : 24,
+          flexDirection: isMobile ? "column" : "row",
+          flexWrap: "wrap",
+        }}>
+          <div>
+            <PriceToggle
+              plan={plan}
+              isMobile={isMobile}
+              onChange={onPlanChange}
+            />
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span
+                key={plan}
+                className="pro-price-num"
+                style={{
+                  display: "inline-block",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: isMobile ? 44 : 56,
+                  fontWeight: 700,
+                  letterSpacing: "-0.04em",
+                  color: "rgba(255,255,255,0.98)",
+                  fontVariantNumeric: "tabular-nums",
+                  viewTransitionName: "pro-price-value",
+                  textShadow: "0 2px 14px rgba(0,0,0,0.42)",
+                }}
+              >{priceValue}</span>
+              <span style={{
+                fontSize: 14,
+                color: "rgba(255,255,255,0.66)",
+                marginLeft: 4,
+                viewTransitionName: "pro-price-unit",
+                fontWeight: 600,
+              }}>{priceUnit}</span>
+            </div>
+          </div>
+
+          <div className="pro-hero-cta" style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            flex: isMobile ? "1 1 100%" : "0 0 auto",
+          }}>
+            <button
+              onClick={onUnlock}
+              disabled={checkoutLoading}
+              className="pro-cta-btn"
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                gap: 10,
+                height: isMobile ? 52 : 56,
+                padding: isMobile ? "0 28px" : "0 36px",
+                borderRadius: 999,
+                background: BRAND_GRADIENT,
+                color: "#fff",
+                fontSize: 15,
+                fontWeight: 900,
+                letterSpacing: "-0.005em",
+                border: "none",
+                cursor: checkoutLoading ? "wait" : "pointer",
+                boxShadow: `0 12px 32px ${rgbaFromHex(ACCENT, 0.40)}`,
+                fontFamily: "inherit",
+                minWidth: isMobile ? 0 : 220,
+              }}
+            >
+              {checkoutLoading ? "Redirecting…" : user ? "Unlock Stint Pro" : "Sign in to unlock"}
+              <span aria-hidden="true" style={{ fontSize: 14 }}>→</span>
+            </button>
+            <p className="pro-hero-trust" style={{
+              margin: 0,
+              fontSize: 11.5,
+              color: "rgba(255,255,255,0.62)",
+              letterSpacing: "-0.005em",
+              fontWeight: 600,
+            }}>
+              Cancel anytime · Secure checkout via Stripe
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Pro Community League highlight — single prominent feature card ──────────
+// Replaces the old "Three things you actually use" proof strip. The Pro
+// Community League is the one most-paid-for, most-engaged-with Pro perk —
+// it stands alone here as a hero-level card with its top-5 board, growth
+// counter, and a contextual CTA (View / Join).
+
+function ProLeagueHighlight({ proLeague, isPro, user, onView, isMobile, isTablet }) {
+  const loading = proLeague.state === "loading";
+  const empty   = !loading && proLeague.totalMembers === 0;
+  const memberCount = proLeague.totalMembers || 0;
+  const myRank = proLeague.myRank;
+
+  // Hero kicker + headline depend on the state
+  const kicker = empty ? "Founding season · Live" : "Pro Community League · Live";
+  const headlineCount = empty ? "01" : String(memberCount);
+  const headlineSub   = empty
+    ? "Pro managers"
+    : memberCount === 1
+      ? "Pro manager"
+      : "Pro managers";
+  const pitch = empty
+    ? "The Pro Community League opens with you. Every future member chases your name."
+    : isPro && myRank
+      ? "Your rank moves on its own each scored weekend. No picks to manage separately."
+      : "One season-long table for every Stint Pro member. Entry is automatic on upgrade.";
+
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <header style={{ marginBottom: isMobile ? 14 : 18 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: ACCENT, marginBottom: 6,
+        }}>The Pro perk you came for</div>
+        <h2 className="stint-section-title" style={{
+          margin: 0,
+          fontSize: isMobile ? 22 : 28,
+          letterSpacing: "-0.035em",
+          lineHeight: 1.12,
+        }}>The Stint Pro Community League</h2>
+      </header>
+
+      <div style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       `1px solid ${rgbaFromHex(ACCENT, 0.28)}`,
+        background:   `linear-gradient(135deg, ${rgbaFromHex(ACCENT, 0.14)} 0%, ${rgbaFromHex(ACCENT, 0.03)} 50%, ${PANEL_BG} 100%)`,
+        boxShadow:    LIFTED_SHADOW,
+      }}>
+        {/* Top accent rail */}
+        <span aria-hidden="true" style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+          opacity: 0.92,
+        }} />
+
+        {/* Ambient orange glow at the top-left */}
+        <div aria-hidden="true" style={{
+          position:  "absolute",
+          top:       -140,
+          left:      -60,
+          right:     -60,
+          height:    260,
+          background: `radial-gradient(ellipse 70% 60% at 30% 100%, ${rgbaFromHex(ACCENT, 0.22)} 0%, transparent 70%)`,
+          pointerEvents: "none",
+        }} />
+
+        <div style={{
+          position: "relative",
+          padding: isMobile ? "26px 22px 24px" : isTablet ? "32px 32px 30px" : "36px 40px 34px",
+          display: "grid",
+          gridTemplateColumns: isMobile || isTablet ? "1fr" : "minmax(0, 1.3fr) minmax(280px, 0.9fr)",
+          gap: isMobile ? 24 : 36,
+          alignItems: "start",
+        }}>
+          {/* Left: kicker + headline count + pitch + CTA */}
+          <div>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "5px 12px", borderRadius: RADIUS_PILL,
+              background: rgbaFromHex(ACCENT, 0.14),
+              border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+              marginBottom: isMobile ? 16 : 22,
+            }}>
+              <span aria-hidden="true" style={{
+                width: 6, height: 6, borderRadius: "50%", background: LIVE_GREEN,
+                boxShadow: LIVE_GREEN_GLOW,
+              }} />
+              <span style={{
+                fontSize: 10, fontWeight: 900,
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                color: ACCENT,
+              }}>{kicker}</span>
+            </div>
+
+            {/* Massive count + label */}
+            <div style={{
+              display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap",
+              marginBottom: isMobile ? 14 : 18,
+            }}>
+              <span style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: isMobile ? 64 : 88,
+                fontWeight: 700,
+                letterSpacing: "-0.055em",
+                color: TEXT_PRIMARY,
+                lineHeight: 0.88,
+                fontVariantNumeric: "tabular-nums",
+                textShadow: `0 0 30px ${rgbaFromHex(ACCENT, 0.32)}`,
+              }}>{loading ? "—" : headlineCount}</span>
+              <span style={{
+                fontSize: isMobile ? 13 : 15,
+                fontWeight: 800,
+                color: MUTED_TEXT,
+                letterSpacing: "-0.01em",
+              }}>{headlineSub}</span>
+            </div>
+
+            <p style={{
+              margin: 0,
+              fontSize: isMobile ? 14 : 15,
+              color: "rgba(226,232,240,0.84)",
+              lineHeight: 1.65,
+              maxWidth: "48ch",
+              fontWeight: 500,
+              letterSpacing: "-0.005em",
+              marginBottom: isMobile ? 18 : 22,
+            }}>{pitch}</p>
+
+            {/* Pro user gets their rank prominently + View button */}
+            {isPro && (
+              <div style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 14,
+                flexWrap: "wrap",
+              }}>
+                {myRank && (
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 10,
+                    padding: "10px 18px",
+                    borderRadius: RADIUS_PILL,
+                    background: rgbaFromHex(ACCENT, 0.16),
+                    border: `1px solid ${rgbaFromHex(ACCENT, 0.36)}`,
+                  }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 900,
+                      letterSpacing: "0.16em", textTransform: "uppercase",
+                      color: ACCENT,
+                    }}>Your rank</span>
+                    <span style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: isMobile ? 22 : 24,
+                      fontWeight: 700,
+                      letterSpacing: "-0.04em",
+                      color: TEXT_PRIMARY,
+                      fontVariantNumeric: "tabular-nums",
+                      lineHeight: 1,
+                    }}>#{myRank}</span>
+                  </div>
+                )}
+                <button
+                  onClick={onView}
+                  className="pro-gradient-btn"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    background: BRAND_GRADIENT, border: "none",
+                    borderRadius: RADIUS_PILL,
+                    color: "#fff",
+                    fontSize: 13, fontWeight: 900,
+                    padding: "12px 22px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    boxShadow: `0 6px 20px ${rgbaFromHex(ACCENT, 0.36)}`,
+                    letterSpacing: "-0.005em",
+                  }}
+                >
+                  View Pro League <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            )}
+
+            {/* Free user gets a soft callout */}
+            {!isPro && (
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 10,
+                padding: "10px 16px",
+                borderRadius: RADIUS_PILL,
+                background: rgbaFromHex(ACCENT, 0.10),
+                border: `1px solid ${rgbaFromHex(ACCENT, 0.26)}`,
+              }}>
+                <span aria-hidden="true" style={{ fontSize: 14 }}>🏆</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 800,
+                  color: ACCENT,
+                  letterSpacing: "-0.005em",
+                }}>Pro unlock includes automatic entry</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right: top-5 leaderboard preview */}
+          <div style={{
+            position: "relative",
+            padding: isMobile ? "18px 18px 16px" : "20px 22px 18px",
+            borderRadius: CARD_RADIUS,
+            border: `1px solid ${HAIRLINE}`,
+            background: "rgba(6,16,27,0.50)",
+            display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: SUBTLE_TEXT, marginBottom: 4,
+            }}>Top of the board</div>
+            {loading ? (
+              <div style={{ fontSize: 13, color: SUBTLE_TEXT, padding: "8px 4px" }}>Loading standings…</div>
+            ) : proLeague.leaderboard.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: MUTED_TEXT, padding: "8px 4px", lineHeight: 1.6 }}>
+                No scored picks on the Pro board yet. Your rank appears here automatically after your first scored weekend.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 6 }}>
+                {proLeague.leaderboard.slice(0, 5).map((row, index) => {
+                  const rank  = index + 1;
+                  const isYou = isPro && row.user_id === user?.id;
+                  const isGold = rank === 1;
+                  const bg = isYou
+                    ? rgbaFromHex(ACCENT, 0.10)
+                    : isGold
+                      ? "rgba(251,191,36,0.06)"
+                      : "rgba(148,163,184,0.04)";
+                  const border = isYou
+                    ? `1px solid ${rgbaFromHex(ACCENT, 0.34)}`
+                    : isGold
+                      ? "1px solid rgba(251,191,36,0.22)"
+                      : `1px solid ${HAIRLINE}`;
+                  return (
+                    <div key={row.user_id || rank} style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 12px",
+                      borderRadius: RADIUS_MD,
+                      background: bg,
+                      border,
+                    }}>
+                      <RankBadge rank={rank} size={24} />
+                      <span style={{
+                        fontSize: 13, fontWeight: 700,
+                        minWidth: 0, overflow: "hidden",
+                        textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        color: TEXT_PRIMARY,
+                      }}>
+                        {row.username}
+                        {isYou && (
+                          <span style={{
+                            color: ACCENT, marginLeft: 7,
+                            fontSize: 9, fontWeight: 900,
+                            letterSpacing: "0.10em", textTransform: "uppercase",
+                          }}>You</span>
+                        )}
+                      </span>
+                      <span style={{
+                        marginLeft: "auto",
+                        fontSize: 13, fontWeight: 900,
+                        color: isGold ? PRO_AMBER_DOT : TEXT_PRIMARY,
+                        fontVariantNumeric: "tabular-nums",
+                      }}>{row.points} pts</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Pro vs Free comparison table ────────────────────────────────────────────
+
+const COMPARISON_ROWS = [
+  // Lead with the most-aspirational perk — highlighted with `featured: true`.
+  { feature: "Pro Community League auto-entry",   free: "—",             pro: "Yes · auto",      featured: true },
+  { feature: "Make picks every weekend",          free: "Yes",           pro: "Yes" },
+  { feature: "Leagues you can join + create",     free: "Up to 2",       pro: "Unlimited" },
+  { feature: "Pro game modes (Survival, Draft…)", free: "Preview only",  pro: "All five" },
+  { feature: "AI Race Debrief after each round",  free: "—",             pro: "Every weekend" },
+  { feature: "AI Pre-Race Tip before lock",       free: "—",             pro: "Every weekend" },
+  { feature: "Season Coach archetype + moves",    free: "Preview",       pro: "Full read" },
+  { feature: "AI vs You head-to-head spread",     free: "—",             pro: "Yes" },
+  { feature: "Full Category Lab breakdown",       free: "Top 3 only",    pro: "Every category" },
+  { feature: "League scoring + rule customisation", free: "—",           pro: "Yes" },
+];
+
+function ProVsFreeTable({ isMobile }) {
+  const ref = useRef(null);
+  const isVisible = useReveal(ref, { threshold: 0.18 });
+
+  return (
+    <section
+      ref={ref}
+      className={`pro-vs ${isVisible ? "is-visible" : ""}`}
+      style={{ marginBottom: 28 }}
+    >
+      <header style={{ marginBottom: isMobile ? 16 : 22 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: ACCENT, marginBottom: 6,
+        }}>The unlock</div>
+        <h2 className="stint-section-title" style={{
+          margin: 0,
+          fontSize: isMobile ? 22 : 30,
+          letterSpacing: "-0.035em",
+          lineHeight: 1.12,
+        }}>What changes when you upgrade</h2>
+      </header>
+
+      <div style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: SECTION_RADIUS,
+        border: `1px solid ${rgbaFromHex(ACCENT, 0.20)}`,
+        background: `linear-gradient(180deg, ${rgbaFromHex(ACCENT, 0.06)} 0%, ${PANEL_BG} 100%)`,
+        boxShadow: CARD_SHADOW,
+      }}>
+        {/* Header row */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1.4fr 0.8fr 0.8fr" : "1.6fr 1fr 1fr",
+          padding: isMobile ? "14px 16px" : "18px 24px",
+          borderBottom: `1px solid ${HAIRLINE}`,
+          alignItems: "baseline",
+        }}>
+          <span style={{
+            fontSize: 11, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: SUBTLE_TEXT,
+          }}>Feature</span>
+          <span style={{
+            fontSize: 11, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: SUBTLE_TEXT,
+            textAlign: "center",
+          }}>Free</span>
+          <span style={{
+            fontSize: 11, fontWeight: 900,
+            letterSpacing: "0.16em", textTransform: "uppercase",
+            color: ACCENT,
+            textAlign: "center",
+          }}>Pro ★</span>
+        </div>
+
+        {/* Rows */}
+        {COMPARISON_ROWS.map((row) => (
+          <div
+            key={row.feature}
+            className="pro-vs-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1.4fr 0.8fr 0.8fr" : "1.6fr 1fr 1fr",
+              padding: isMobile ? "13px 16px" : "16px 24px",
+              borderBottom: `1px solid ${HAIRLINE}`,
+              alignItems: "center",
+              // Featured row (Pro Community League) gets a row-level glow
+              background: row.featured ? rgbaFromHex(ACCENT, 0.08) : "transparent",
+              transition: "background 200ms ease",
+            }}
+          >
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              fontSize: isMobile ? 12.5 : 14,
+              fontWeight: row.featured ? 900 : 700,
+              color: row.featured ? ACCENT : TEXT_PRIMARY,
+              letterSpacing: "-0.005em",
+              paddingRight: 8,
+            }}>
+              {row.featured && (
+                <span aria-hidden="true" style={{
+                  fontSize: 10,
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  padding: "2px 6px",
+                  borderRadius: 999,
+                  background: rgbaFromHex(ACCENT, 0.18),
+                  border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+                  fontWeight: 900,
+                  color: ACCENT,
+                  flexShrink: 0,
+                }}>★ Featured</span>
+              )}
+              <span>{row.feature}</span>
+            </span>
+            <span style={{
+              fontSize: isMobile ? 11.5 : 13,
+              fontWeight: 600,
+              color: row.free === "—" ? "rgba(148,163,184,0.45)" : MUTED_TEXT,
+              textAlign: "center",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "-0.005em",
+            }}>{row.free}</span>
+            <span
+              className="pro-vs-pro-cell"
+              style={{
+                fontSize: isMobile ? 12 : 13.5,
+                fontWeight: 900,
+                color: "rgba(255,255,255,0.98)",
+                textAlign: "center",
+                // Brighter base; featured row goes even brighter
+                background: row.featured ? rgbaFromHex(ACCENT, 0.26) : rgbaFromHex(ACCENT, 0.16),
+                border: row.featured ? `1px solid ${rgbaFromHex(ACCENT, 0.42)}` : `1px solid ${rgbaFromHex(ACCENT, 0.20)}`,
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: "-0.005em",
+                transition: "color 200ms ease, background 200ms ease",
+              }}
+            >{row.pro}</span>
+          </div>
+        ))}
+
+        {/* Footer CTA */}
+        <div style={{
+          padding: isMobile ? "16px 16px" : "20px 24px",
+          background: rgbaFromHex(ACCENT, 0.08),
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 14,
+          flexWrap: "wrap",
+        }}>
+          <div>
+            <div style={{
+              fontSize: 10, fontWeight: 900,
+              letterSpacing: "0.16em", textTransform: "uppercase",
+              color: ACCENT, marginBottom: 4,
+            }}>One unlock, everything above</div>
+            <div className="stint-card-title" style={{
+              fontSize: 15,
+              fontWeight: 900,
+              letterSpacing: "-0.022em",
+              lineHeight: 1.16,
+              color: TEXT_PRIMARY,
+            }}>Pro pays for itself in one race-week brief.</div>
+          </div>
+          <a
+            href="#pro-final-pricing"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: isMobile ? "11px 20px" : "12px 22px",
+              borderRadius: RADIUS_PILL,
+              background: BRAND_GRADIENT,
+              color: "#fff",
+              fontSize: 13, fontWeight: 900,
+              textDecoration: "none",
+              boxShadow: `0 6px 18px ${rgbaFromHex(ACCENT, 0.32)}`,
+              letterSpacing: "-0.005em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Unlock Pro <span aria-hidden="true" style={{ fontSize: 12 }}>→</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Final pricing CTA card ──────────────────────────────────────────────────
+
+function FinalPricingCard({
+  plan, onPlanChange,
+  priceValue, priceUnit,
+  onUnlock, checkoutLoading,
+  user, isMobile, isTablet,
+}) {
+  // Calculate per-race cost framing
+  const isMonthly = plan === "monthly";
+  const perRace = isMonthly ? "$0.50/race" : "$1.25/race";
+  const savings = isMonthly ? null : "Save $19 vs monthly";
+
+  return (
+    <section
+      id="pro-final-pricing"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: SECTION_RADIUS,
+        border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+        background: `
+          linear-gradient(180deg, ${rgbaFromHex(ACCENT, 0.22)} 0%, ${rgbaFromHex(ACCENT, 0.04)} 50%, ${PANEL_BG} 100%)
+        `,
+        padding: isMobile ? "32px 22px" : "44px 40px",
+        marginBottom: 28,
+        textAlign: "center",
+        boxShadow: LIFTED_SHADOW,
+        scrollMarginTop: 80,
+      }}
+    >
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+        opacity: 0.92,
+      }} />
+
+      <div style={{
+        display: "inline-flex", alignItems: "center", gap: 8,
+        padding: "5px 12px", borderRadius: RADIUS_PILL,
+        background: rgbaFromHex(ACCENT, 0.14),
+        border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+        marginBottom: isMobile ? 14 : 18,
+      }}>
+        <span aria-hidden="true" style={{
+          width: 5, height: 5, borderRadius: "50%", background: ACCENT,
+        }} />
+        <span style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.18em", textTransform: "uppercase",
+          color: ACCENT,
+        }}>Ready when you are</span>
+      </div>
+
+      <h2 className="stint-page-title" style={{
+        margin: "0 auto 14px",
+        fontSize: isMobile ? 28 : 40,
+        letterSpacing: "-0.045em",
+        lineHeight: 1.04,
+        textTransform: "uppercase",
+        maxWidth: "20ch",
+      }}>Unlock the whole season</h2>
+
+      <p style={{
+        margin: "0 auto 26px",
+        fontSize: isMobile ? 14 : 15.5,
+        color: MUTED_TEXT,
+        lineHeight: 1.6,
+        maxWidth: 480,
+        fontWeight: 500,
+      }}>
+        One subscription. Every Pro surface unlocks immediately. Cancel anytime — your picks and history stay yours.
+      </p>
+
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+      }}>
+        <PriceToggle
+          plan={plan}
+          isMobile={isMobile}
+          onChange={onPlanChange}
+        />
+
+        <div>
+          <span
+            key={`final-${plan}`}
+            className="pro-price-num"
+            style={{
+              display: "inline-block",
+              fontFamily: "var(--font-mono)",
+              fontSize: isMobile ? 56 : 76,
+              fontWeight: 700,
+              letterSpacing: "-0.05em",
+              color: TEXT_PRIMARY,
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 0.92,
+            }}
+          >{priceValue}</span>
+          <span style={{
+            fontSize: isMobile ? 14 : 16,
+            color: MUTED_TEXT,
+            marginLeft: 8,
+            fontWeight: 600,
+          }}>{priceUnit}</span>
+        </div>
+
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: SUBTLE_TEXT,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.005em",
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          justifyContent: "center",
+        }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "4px 11px", borderRadius: RADIUS_PILL,
+            background: "rgba(148,163,184,0.10)",
+            border: `1px solid ${HAIRLINE}`,
+          }}>
+            <span aria-hidden="true">⚡</span>
+            {perRace}
+          </span>
+          {savings && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 11px", borderRadius: RADIUS_PILL,
+              color: WARM,
+              background: rgbaFromHex(WARM, 0.10),
+              border: `1px solid ${rgbaFromHex(WARM, 0.28)}`,
+              fontWeight: 900,
+              letterSpacing: "0.06em", textTransform: "uppercase",
+              fontSize: 10,
+            }}>{savings}</span>
+          )}
+        </div>
+
+        <button
+          onClick={onUnlock}
+          disabled={checkoutLoading}
+          className="pro-cta-btn"
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            gap: 10,
+            height: isMobile ? 52 : 56,
+            padding: isMobile ? "0 32px" : "0 40px",
+            borderRadius: 999,
+            background: BRAND_GRADIENT,
+            color: "#fff",
+            fontSize: 15,
+            fontWeight: 900,
+            letterSpacing: "-0.005em",
+            border: "none",
+            cursor: checkoutLoading ? "wait" : "pointer",
+            boxShadow: `0 12px 32px ${rgbaFromHex(ACCENT, 0.40)}`,
+            fontFamily: "inherit",
+            marginTop: 6,
+          }}
+        >
+          {checkoutLoading ? "Redirecting…" : user ? "Unlock Stint Pro" : "Sign in to unlock"}
+          <span aria-hidden="true" style={{ fontSize: 14 }}>→</span>
+        </button>
+
+        <p style={{
+          margin: 0,
+          fontSize: 11.5,
+          color: SUBTLE_TEXT,
+          letterSpacing: "-0.005em",
+          fontWeight: 600,
+        }}>
+          Cancel anytime · Secure checkout via Stripe
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ─── Sticky mobile CTA ───────────────────────────────────────────────────────
+
+function StickyMobileCta({ onUnlock, plan, isMobile }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    if (typeof window === "undefined") return undefined;
+    const onScroll = () => {
+      // Show after user scrolls past 480px (past the hero)
+      setVisible(window.scrollY > 480);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isMobile]);
+
+  if (!isMobile) return null;
+  const price = plan === "monthly" ? "from $4/mo" : "$29/season";
+
+  return (
+    <div
+      className={`pro-sticky-cta ${visible ? "is-visible" : ""}`}
+      role="region"
+      aria-label="Quick unlock"
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.14em", textTransform: "uppercase",
+          color: ACCENT,
+        }}>Stint Pro</div>
+        <div style={{
+          fontSize: 12, fontWeight: 800, color: TEXT_PRIMARY,
+          letterSpacing: "-0.005em",
+          marginTop: 2,
+        }}>Unlock {price}</div>
+      </div>
+      <button
+        onClick={onUnlock}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: BRAND_GRADIENT, border: "none",
+          borderRadius: RADIUS_PILL,
+          color: "#fff",
+          fontSize: 12.5, fontWeight: 900,
+          letterSpacing: "-0.005em",
+          padding: "10px 16px",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          boxShadow: `0 4px 14px ${rgbaFromHex(ACCENT, 0.36)}`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Unlock Pro <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  );
+}
+
+// ─── Member view components ──────────────────────────────────────────────────
+
+function MemberHero({ user, statusTone, error, note, isMobile, isTablet, joinedAt }) {
+  const titleText = `Welcome back, ${user?.username || "manager"}.`;
+
+  return (
+    <section
+      style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       PANEL_BORDER,
+        background:   `
+          linear-gradient(140deg, ${rgbaFromHex(ACCENT, 0.30)} 0%, ${rgbaFromHex(ACCENT, 0.08)} 38%, rgba(6,16,27,0.96) 100%),
+          url("/images/Track.png") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow:    LIFTED_SHADOW,
+        marginBottom: isMobile ? 18 : 24,
+        padding:      isMobile ? "28px 22px 26px" : isTablet ? "36px 36px 32px" : "44px 48px 38px",
+      }}
+    >
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+        opacity: 0.92,
+      }} />
+
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, flexWrap: "wrap", marginBottom: isMobile ? 18 : 24,
+      }}>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "5px 12px", borderRadius: RADIUS_PILL,
+          background: rgbaFromHex(ACCENT, 0.14),
+          border: `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+        }}>
+          <span aria-hidden="true" style={{
+            width: 5, height: 5, borderRadius: "50%", background: ACCENT,
+            boxShadow: `0 0 0 4px ${rgbaFromHex(ACCENT, 0.22)}`,
+          }} />
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: ACCENT,
+          }}>Stint Pro · Member</span>
+        </div>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: "rgba(6,16,27,0.42)",
+          border: `1px solid ${rgbaFromHex(statusTone.dot, 0.32)}`,
+          borderRadius: RADIUS_PILL, padding: "6px 12px",
+          flexShrink: 0,
+        }}>
+          <span aria-hidden="true" style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: statusTone.dot, boxShadow: statusTone.glow,
+            flexShrink: 0,
+          }} />
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: statusTone.text,
+          }}>Subscription {statusTone.label.toLowerCase()}</span>
+        </div>
+      </div>
+
+      <h1 className="stint-page-title" style={{
+        margin: 0,
+        fontSize: isMobile ? "clamp(30px, 8vw, 42px)" : "clamp(46px, 5.8vw, 68px)",
+        letterSpacing: "-0.045em",
+        lineHeight: 0.96,
+        color: "rgba(255,255,255,0.98)",
+        textShadow: "0 2px 18px rgba(0,0,0,0.32)",
+        textTransform: "uppercase",
+        maxWidth: "18ch",
+      }}>{titleText}</h1>
+
+      <p style={{
+        margin: isMobile ? "16px 0 0" : "20px 0 0",
+        fontSize: isMobile ? 14 : 15.5,
+        fontWeight: 500,
+        color: "rgba(226,232,240,0.84)",
+        lineHeight: 1.6,
+        maxWidth: "52ch",
+        letterSpacing: "-0.005em",
+      }}>
+        Every Pro surface is unlocked. Your Pro Community League rank moves on its own each scored weekend — pick, race, repeat.
+      </p>
+
+      {(error || note) && (
+        <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
+          {error && <div style={{ padding: "10px 14px", borderRadius: 10, background: ERROR_BG, border: `1px solid ${ERROR_BORDER}`, color: ERROR_TEXT, fontSize: 13 }}>{error}</div>}
+          {note && <div style={{ padding: "10px 14px", borderRadius: 10, background: NOTE_BG, border: `1px solid ${NOTE_BORDER}`, color: NOTE_TEXT, fontSize: 13 }}>{note}</div>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const MEMBER_PERKS = [
+  { icon: "🏆", label: "Pro Community League",   detail: "Auto-entered + ranked each weekend",       color: ACCENT },
+  { icon: "🧠", label: "AI Coach (full read)",   detail: "Archetype + Protect/Challenge/Next move",  color: AI_BLUE_TEXT },
+  { icon: "📰", label: "Race Debriefs",          detail: "Written around your picks, every round",   color: AI_BLUE_TEXT },
+  { icon: "🎮", label: "All Pro game modes",     detail: "Survival, Draft, Double Down, H2H, Budget", color: PRO_AMBER_DOT },
+  { icon: "♾️", label: "Unlimited leagues",       detail: "Create + join as many as you want",        color: ACCENT },
+  { icon: "🎯", label: "AI vs You spread",       detail: "Head-to-head category comparison",          color: AI_BLUE_TEXT },
+];
+
+function MemberPerksGrid({ isMobile }) {
+  const ref = useRef(null);
+  const isVisible = useReveal(ref, { threshold: 0.18 });
+
+  return (
+    <section
+      ref={ref}
+      className={`pro-perks ${isVisible ? "is-visible" : ""}`}
+      style={{ marginBottom: 16 }}
+    >
+      <header style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: ACCENT, marginBottom: 6,
+        }}>Unlocked for you</div>
+        <h2 className="stint-section-title" style={{
+          margin: 0,
+          fontSize: isMobile ? 20 : 24,
+          letterSpacing: "-0.032em",
+          lineHeight: 1.14,
+        }}>Everything you have access to</h2>
+      </header>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, minmax(0, 1fr))",
+        gap: isMobile ? 8 : 10,
+      }}>
+        {MEMBER_PERKS.map((perk) => (
+          <div
+            key={perk.label}
+            className="pro-perk pro-lift"
+            style={{
+              position: "relative", overflow: "hidden",
+              borderRadius: CARD_RADIUS,
+              border: `1px solid ${rgbaFromHex(perk.color, 0.20)}`,
+              background: `linear-gradient(135deg, ${rgbaFromHex(perk.color, 0.08)} 0%, ${rgbaFromHex(perk.color, 0.02)} 60%, ${PANEL_BG_ALT} 100%)`,
+              padding: isMobile ? "12px 14px 11px" : "14px 16px 13px",
+              boxShadow: CARD_SHADOW,
+            }}
+          >
+            <span aria-hidden="true" style={{
+              position: "absolute", top: 0, bottom: 0, left: 0, width: 2,
+              background: perk.color, opacity: 0.78,
+            }} />
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 6,
+            }}>
+              <span aria-hidden="true" style={{
+                fontSize: 14, lineHeight: 1,
+              }}>{perk.icon}</span>
+              <span style={{
+                fontSize: 12.5, fontWeight: 900,
+                letterSpacing: "-0.018em",
+                color: TEXT_PRIMARY,
+                lineHeight: 1.16,
+              }}>{perk.label}</span>
+            </div>
+            <div style={{
+              fontSize: 11.5,
+              color: MUTED_TEXT,
+              lineHeight: 1.5,
+              letterSpacing: "-0.005em",
+            }}>{perk.detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -733,301 +2002,80 @@ export default function ProPage({ user, setUser, setPage }) {
     }
   }
 
-  // ─── Member dashboard view (Pro) ────────────────────────────────────────────
+  // ─── Subscription status tone (used in hero when Pro) ────────────────────
+  const statusTone = isPro
+    ? (scheduledToCancel
+        ? { label: "Ending",  bg: PRO_AMBER_BG, border: PRO_AMBER_BORDER, text: PRO_AMBER_TEXT, dot: PRO_AMBER_DOT, glow: "none" }
+        : { label: "Active",  bg: SUCCESS_BG,   border: SUCCESS_BORDER,   text: SUCCESS_TEXT,   dot: LIVE_GREEN,    glow: LIVE_GREEN_GLOW })
+    : null;
 
-  if (isPro) {
-    const statusTone = scheduledToCancel
-      ? { label: "Ending",  bg: PRO_AMBER_BG, border: PRO_AMBER_BORDER, text: PRO_AMBER_TEXT, dot: PRO_AMBER_DOT, glow: "none" }
-      : { label: "Active",  bg: SUCCESS_BG,   border: SUCCESS_BORDER,   text: SUCCESS_TEXT,   dot: LIVE_GREEN,    glow: LIVE_GREEN_GLOW };
-
-    return (
-      <>
-      <style>{sharedStyles}</style>
-      <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "0 0 40px" : "0 0 60px" }}>
-
-        {/* ── Member hero — canonical PageMasthead ── */}
-        <PageMasthead
-          variant="full"
-          marginBottom={16}
-          eyebrow="Stint Pro member"
-          eyebrowTone="accent"
-          title={`Welcome back, ${user?.username || "manager"}.`}
-          description="Every Pro feature is unlocked. Your Pro Community League rank moves on its own each scored weekend."
-          image={{ src: "/images/Hero-Main.png", position: "right-mask" }}
-          tone="live"
-          style={{ padding: isMobile ? "32px 22px 28px" : isTablet ? "40px 36px 34px" : "48px 48px 40px" }}
-          meta={(
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: statusTone.bg, border: `1px solid ${statusTone.border}`, borderRadius: 999, padding: "10px 18px", flexShrink: 0 }}>
-              <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: statusTone.dot, boxShadow: statusTone.glow, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 800, color: statusTone.text, letterSpacing: "-0.01em" }}>Subscription {statusTone.label.toLowerCase()}</span>
-            </div>
-          )}
-        >
-          {error && (
-            <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: ERROR_BG, border: `1px solid ${ERROR_BORDER}`, color: ERROR_TEXT, fontSize: 13 }}>{error}</div>
-          )}
-          {note && (
-            <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: NOTE_BG, border: `1px solid ${NOTE_BORDER}`, color: NOTE_TEXT, fontSize: 13 }}>{note}</div>
-          )}
-        </PageMasthead>
-
-        {/* ── Dashboard grid ── */}
-        <section className="pro-league-section" style={{ display: "grid", gridTemplateColumns: isMobile || isTablet ? "1fr" : "minmax(0,1.35fr) minmax(280px, 1fr)", gap: 14, marginBottom: 16 }}>
-
-          {/* Pro League standings */}
-          <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-            <div style={{ padding: isMobile ? "16px 18px 14px" : "20px 24px 16px", borderBottom: `1px solid ${HAIRLINE}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div>
-                <Kicker color={ACCENT}>Your Pro League</Kicker>
-                <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4 }}>
-                  {proLeague.myRank
-                    ? `Rank #${proLeague.myRank}${proLeague.totalMembers ? ` of ${proLeague.totalMembers}` : ""}`
-                    : proLeague.totalMembers
-                      ? "Awaiting first scored pick"
-                      : "You're one of the founding members"}
-                </div>
-              </div>
-              <button onClick={openLeagues} className="pro-gradient-btn" style={{ background: BRAND_GRADIENT, border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontWeight: 900, fontSize: 13, padding: "10px 18px", boxShadow: "0 4px 16px rgba(255,106,26,0.24)" }}>
-                View Pro League
-              </button>
-            </div>
-            <div style={{ padding: isMobile ? "14px 18px 18px" : "16px 22px 20px" }}>
-              {proLeague.state === "loading" ? (
-                <div style={{ fontSize: 13, color: SUBTLE_TEXT, padding: "18px 4px" }}>Loading standings…</div>
-              ) : proLeague.leaderboard.length === 0 ? (
-                <div style={{ fontSize: 13, color: MUTED_TEXT, padding: "18px 4px", lineHeight: 1.65 }}>
-                  No scored picks on the Pro board yet. As soon as your weekend scores, your rank updates here automatically.
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 6 }}>
-                  {proLeague.leaderboard.slice(0, 5).map((row, index) => {
-                    const rank  = index + 1;
-                    const isYou = row.user_id === user?.id;
-                    const isGold = rank === 1;
-                    const bg = isYou ? rgbaFromHex(ACCENT, 0.07)
-                      : isGold ? "rgba(251,191,36,0.05)"
-                      : "var(--btn-secondary-bg)";
-                    const border = isYou ? `1px solid ${rgbaFromHex(ACCENT, 0.28)}`
-                      : isGold ? "1px solid rgba(251,191,36,0.22)"
-                      : `1px solid ${HAIRLINE}`;
-                    return (
-                      <div key={row.user_id} style={{
-                        display:      "flex",
-                        alignItems:   "center",
-                        gap:          10,
-                        padding:      "10px 12px",
-                        borderRadius: RADIUS_MD,
-                        background:   bg,
-                        border,
-                      }}>
-                        <RankBadge rank={rank} size={26} />
-                        <span style={{ fontSize: 13, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.username}{isYou && <span style={{ color: "var(--brand)", marginLeft: 6, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>You</span>}</span>
-                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 900, color: isGold ? PRO_AMBER_DOT : TEXT_PRIMARY, fontVariantNumeric: "tabular-nums" }}>{row.points} pts</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Subscription management */}
-          <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden" }}>
-            <div style={{ padding: isMobile ? "16px 18px 14px" : "20px 22px 16px", borderBottom: `1px solid ${HAIRLINE}` }}>
-              <Kicker>Manage</Kicker>
-              <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4 }}>Your subscription</div>
-            </div>
-            <div style={{ padding: isMobile ? "14px 18px 18px" : "16px 22px 20px", display: "grid", gap: 12 }}>
-              {/* Status is already signalled by the hero pill — only show
-                  renewal + billing-managed-by here so the panel gives the
-                  user information they can act on. */}
-              <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: RADIUS_MD, background: PANEL_BG_ALT, border: PANEL_BORDER }}>
-                  <span style={{ fontSize: 12, color: MUTED_TEXT }}>{scheduledToCancel ? "Access ends" : "Renews"}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800 }}>{subscriptionEndsLabel || "On subscription anniversary"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: RADIUS_MD, background: PANEL_BG_ALT, border: PANEL_BORDER }}>
-                  <span style={{ fontSize: 12, color: MUTED_TEXT }}>Billing</span>
-                  <span style={{ fontSize: 13, fontWeight: 800 }}>Managed via Stripe</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handlePortal}
-                disabled={portalLoading || statusRefreshing}
-                className="pro-secondary-btn"
-                style={{
-                  background:   "transparent",
-                  border:       PANEL_BORDER,
-                  borderRadius: 999,
-                  padding:      isMobile ? "12px 20px" : "10px 18px",
-                  minHeight:    isMobile ? 44 : 38,
-                  fontSize:     13,
-                  fontWeight:   700,
-                  color:        MUTED_TEXT,
-                  cursor:       portalLoading || statusRefreshing ? "wait" : "pointer",
-                  fontFamily:   "inherit",
-                }}
-              >
-                {portalLoading || statusRefreshing ? "Opening…" : "Manage subscription"}
-              </button>
-
-              {scheduledToCancel && (
-                <div style={{ padding: "10px 12px", borderRadius: RADIUS_MD, background: PRO_AMBER_BG, border: `1px solid ${PRO_AMBER_BORDER}`, color: PRO_AMBER_TEXT, fontSize: 12, lineHeight: 1.6 }}>
-                  Subscription scheduled to cancel. You keep full Pro access until {subscriptionEndsLabel || "the end of the current billing period"}.
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Quick links */}
-        <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 10 }}>
-          {[
-            { title: "Open your Coach",    desc: "Archetype, Protect, Challenge, and the next move written around your picks.", onClick: openInsights, color: AI_BLUE_TEXT, bg: AI_BLUE_SOFT,               border: AI_BLUE_BORDER                 },
-            { title: "Explore game modes", desc: "Survival, Draft, Double Down, Head-to-Head, and Budget — run any in your leagues.", onClick: openLeagues, color: "var(--brand)",      bg: "rgba(255,106,26,0.07)",  border: "rgba(255,106,26,0.20)"       },
-            { title: "View Pro standings", desc: "Watch the full season-long Pro Community leaderboard.",                          onClick: openLeagues, color: PRO_AMBER_DOT, bg: "rgba(251,191,36,0.06)",  border: "rgba(251,191,36,0.22)"       },
-          ].map((link) => (
-            <button
-              key={link.title}
-              onClick={link.onClick}
-              className="pro-utility-card"
-              style={{ textAlign: "left", background: link.bg, border: `1px solid ${link.border}`, borderRadius: CARD_RADIUS, padding: isMobile ? "14px 16px" : "16px 18px", cursor: "pointer", fontFamily: "inherit", color: TEXT_PRIMARY, display: "flex", flexDirection: "column", gap: 6 }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.02em", color: link.color }}>{link.title}</span>
-              <span style={{ fontSize: 12, color: MUTED_TEXT, lineHeight: 1.55 }}>{link.desc}</span>
-            </button>
-          ))}
-        </section>
-      </div>
-      </>
-    );
-  }
-
-  // ─── Free user view ─────────────────────────────────────────────────────────
+  // ─── Single merged view (Free + Pro share the same page) ───────────────────
 
   const priceValue = plan === "monthly" ? "$4" : "$29";
   const priceUnit  = plan === "monthly" ? "/ month" : "/ full season";
 
+  const handlePlanChange = (next) => {
+    if (next === plan) return;
+    withViewTransition(() => setPlan(next), { name: "pro-price", direction: next === "season" ? "forward" : "back" });
+  };
+
+  // Hero unlock and final unlock both share the same checkout flow.
+  // The sticky mobile CTA + final card both scroll-bypass / re-trigger.
   return (
     <>
     <style>{sharedStyles}</style>
-    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "0 0 40px" : "0 0 60px" }}>
+    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "0 0 80px" : "0 0 60px" }}>
 
-      {/* ── Checkout block — canonical PageMasthead with center-aligned identityRow ── */}
-      <PageMasthead
-        variant="full"
-        marginBottom={16}
-        image={{ src: "/images/Hero-Main.png", position: "right-mask" }}
-        tone="ambient"
-        style={{ padding: isMobile ? "36px 22px 32px" : isTablet ? "44px 36px 38px" : "52px 52px 44px", textAlign: "center" }}
-        identityRow={(
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,106,26,0.10)", border: `1px solid ${rgbaFromHex(ACCENT, 0.28)}`, borderRadius: 999, padding: "5px 14px", marginBottom: 20 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--brand)" }} />
-              <Kicker color={ACCENT} style={{ letterSpacing: "0.14em" }}>Stint Pro</Kicker>
-            </div>
-
-            <h1 className="stint-page-title" style={{ margin: "0 auto 14px", fontSize: isMobile ? 30 : isTablet ? 38 : 44, letterSpacing: isMobile ? "-0.045em" : "-0.05em", lineHeight: 1.05, maxWidth: 620 }}>
-              Your season, <span style={{ color: "var(--brand)" }}>sharper</span>.
-            </h1>
-
-            <p className="stint-body" style={{ margin: "0 auto 28px", maxWidth: 460, fontSize: isMobile ? 14 : 15, lineHeight: 1.65 }}>
-              Pro game modes, AI-powered insights, unlimited leagues and full stats — everything you need to compete seriously.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-              <PriceToggle
-                plan={plan}
-                isMobile={isMobile}
-                onChange={(next) => withViewTransition(() => setPlan(next), { name: "pro-price", direction: next === "season" ? "forward" : "back" })}
-              />
-
-              <div style={{ marginBottom: 2 }}>
-                <span
-                  key={plan}
-                  className="pro-price-num"
-                  style={{
-                    display:            "inline-block",
-                    fontFamily:         "var(--font-mono)",
-                    fontSize:           isMobile ? 38 : isTablet ? 44 : 50,
-                    fontWeight:         700,
-                    letterSpacing:      "-0.03em",
-                    color:              TEXT_PRIMARY,
-                    fontVariantNumeric: "tabular-nums",
-                    viewTransitionName: "pro-price-value",
-                  }}
-                >
-                  {priceValue}
-                </span>
-                <span style={{ fontSize: 14, color: MUTED_TEXT, marginLeft: 6, viewTransitionName: "pro-price-unit" }}>{priceUnit}</span>
-              </div>
-
-              {error && (
-                <div style={{ fontSize: 13, color: ERROR_TEXT, background: ERROR_BG, border: `1px solid ${ERROR_BORDER}`, borderRadius: 8, padding: "8px 14px", maxWidth: 460 }}>{error}</div>
-              )}
-
-              <button
-                onClick={handleCheckout}
-                disabled={checkoutLoading}
-                className="pro-cta-btn"
-                style={{
-                  display:        "inline-flex",
-                  alignItems:     "center",
-                  justifyContent: "center",
-                  height:         46,
-                  padding:        "0 30px",
-                  borderRadius:   999,
-                  background:     BRAND_GRADIENT,
-                  color:          "#fff",
-                  fontSize:       14,
-                  fontWeight:     900,
-                  letterSpacing:  "-0.01em",
-                  border:         "none",
-                  cursor:         checkoutLoading ? "wait" : "pointer",
-                  boxShadow:      "0 4px 16px rgba(255,106,26,0.24)",
-                  fontFamily:     "inherit",
-                }}
-              >
-                {checkoutLoading ? "Redirecting…" : user ? "Unlock Stint Pro" : "Sign in to unlock"}
-              </button>
-
-              <p style={{ margin: 0, fontSize: 12, color: SUBTLE_TEXT }}>
-                Cancel anytime · Secure checkout via Stripe
-              </p>
-            </div>
-          </div>
-        )}
+      {/* ── 1. Cinematic hero — Free shows unlock/price, Pro shows manage button ── */}
+      <ProHero
+        user={user}
+        isMobile={isMobile}
+        isTablet={isTablet}
+        isPro={isPro}
+        statusTone={statusTone}
+        subscriptionEndsLabel={subscriptionEndsLabel}
+        scheduledToCancel={scheduledToCancel}
+        plan={plan}
+        onPlanChange={handlePlanChange}
+        priceValue={priceValue}
+        priceUnit={priceUnit}
+        onUnlock={handleCheckout}
+        checkoutLoading={checkoutLoading}
+        onManage={handlePortal}
+        portalLoading={portalLoading || statusRefreshing}
+        error={error}
+        note={note}
+        proLeagueCount={proLeague.totalMembers}
       />
 
-      {/* ── Proof strip ── */}
-      <section className="pro-features-section" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: "-0.03em", color: TEXT_PRIMARY }}>
-            Why people go Pro
-          </div>
-        </div>
-        {/* Desktop: asymmetric 1.35fr × 1fr with Pro League featured on the left, AI + Coach stacked on the right.
-             Tablet/mobile: single column stack so each module keeps its weight. */}
-        <div style={{
-          display:              "grid",
-          gridTemplateColumns:  isMobile || isTablet ? "1fr" : "minmax(0,1.35fr) minmax(0,1fr)",
-          gap:                  10,
-          alignItems:           "stretch",
-        }}>
-          <ProLeagueFeatureCard proLeague={proLeague} isMobile={isMobile} />
-          <div style={{ display: "grid", gap: 10 }}>
-            <AiSampleProofCard isMobile={isMobile} />
-            <CoachArchetypeProofCard isMobile={isMobile} />
-          </div>
-        </div>
-      </section>
+      {/* ── 2. Pro Community League highlight — single, prominent perk card ── */}
+      <ProLeagueHighlight
+        proLeague={proLeague}
+        isPro={isPro}
+        user={user}
+        onView={openLeagues}
+        isMobile={isMobile}
+        isTablet={isTablet}
+      />
 
-      {/* ── Features ── */}
-      <section className="pro-features-section" style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: "-0.03em", color: TEXT_PRIMARY, marginBottom: 14 }}>
-          What's in Pro
-        </div>
+      {/* ── 3. Pro vs Free comparison table ── */}
+      <ProVsFreeTable isMobile={isMobile} />
+
+      {/* ── 4. Features grid ── */}
+      <section style={{ marginBottom: 28 }}>
+        <header style={{ marginBottom: isMobile ? 14 : 18 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.16em", textTransform: "uppercase",
+            color: ACCENT, marginBottom: 6,
+          }}>The full menu</div>
+          <h2 className="stint-section-title" style={{
+            margin: 0,
+            fontSize: isMobile ? 22 : 28,
+            letterSpacing: "-0.035em",
+            lineHeight: 1.12,
+          }}>What&apos;s in Pro</h2>
+        </header>
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
           {HEADLINE_FEATURES.map((f) => (
@@ -1035,8 +2083,6 @@ export default function ProPage({ user, setUser, setPage }) {
           ))}
         </div>
 
-        {/* Utility grid: 2 cols on mobile, 2 cols on tablet (avoids cramped 4-column
-             density at 820-1120), 4 cols only on true desktop. */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile || isTablet ? "1fr 1fr" : "repeat(4,1fr)", gap: 10 }}>
           {UTILITY_FEATURES.map((f) => (
             <UtilityCard key={f.title} {...f} isMobile={isMobile} />
@@ -1044,12 +2090,22 @@ export default function ProPage({ user, setUser, setPage }) {
         </div>
       </section>
 
-      {/* ── FAQ ── */}
-      <section className="pro-features-section" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: "-0.03em", color: TEXT_PRIMARY }}>Questions</div>
-        </div>
-        <div style={{ display: "grid", gap: 8 }}>
+      {/* ── 5. FAQ — polished accordion ── */}
+      <section style={{ marginBottom: 28 }}>
+        <header style={{ marginBottom: isMobile ? 14 : 18 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.16em", textTransform: "uppercase",
+            color: ACCENT, marginBottom: 6,
+          }}>{isPro ? "Anything to know" : "Before you upgrade"}</div>
+          <h2 className="stint-section-title" style={{
+            margin: 0,
+            fontSize: isMobile ? 22 : 28,
+            letterSpacing: "-0.035em",
+            lineHeight: 1.12,
+          }}>Common questions</h2>
+        </header>
+        <div style={{ display: "grid", gap: 10 }}>
           {FAQ_ITEMS.map((item, index) => (
             <FaqItem
               key={item.q}
@@ -1066,6 +2122,11 @@ export default function ProPage({ user, setUser, setPage }) {
         Stint Pro · F1 2026 season · Cancel anytime via Stripe
       </div>
     </div>
+
+    {/* Sticky mobile CTA — Free users only; fades in after the hero leaves */}
+    {!isPro && (
+      <StickyMobileCta onUnlock={handleCheckout} plan={plan} isMobile={isMobile} />
+    )}
     </>
   );
 }
@@ -1079,6 +2140,123 @@ const sharedStyles = `
   .pro-hero-section    { animation: pro-section-in 420ms cubic-bezier(0.16,1,0.3,1) both; }
   .pro-league-section  { animation: pro-section-in 420ms 80ms  cubic-bezier(0.16,1,0.3,1) both; }
   .pro-features-section{ animation: pro-section-in 420ms 160ms cubic-bezier(0.16,1,0.3,1) both; }
+
+  /* ─── Hero motion — letter typing + cascade fade-ups ────────────────── */
+
+  @keyframes pro-char-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pro-hero-char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: pro-char-in 380ms cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  @keyframes pro-fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pro-hero-kicker, .pro-hero-deck, .pro-hero-counters, .pro-hero-price, .pro-hero-cta, .pro-hero-trust {
+    opacity: 0;
+    animation: pro-fade-up 480ms cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  .pro-hero-kicker   { animation-delay: 100ms; }
+  .pro-hero-deck     { animation-delay: 520ms; }
+  .pro-hero-counters { animation-delay: 680ms; }
+  .pro-hero-price    { animation-delay: 780ms; }
+  .pro-hero-cta      { animation-delay: 880ms; }
+  .pro-hero-trust    { animation-delay: 980ms; }
+
+  /* Hero counter bloom (after count-up settles) */
+  @keyframes pro-num-bloom {
+    from { transform: scale(0.95); }
+    to   { transform: scale(1); }
+  }
+  .pro-counter-num { animation: pro-num-bloom 520ms cubic-bezier(0.16,1,0.3,1) 100ms both; }
+
+  /* ─── Showcase + table — intersection reveal stagger ────────────────── */
+
+  .pro-show-card, .pro-vs-row {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 460ms cubic-bezier(0.16,1,0.3,1),
+                transform 460ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .pro-show.is-visible .pro-show-card { opacity: 1; transform: translateY(0); }
+  .pro-show.is-visible .pro-show-card:nth-child(1) { transition-delay: 60ms; }
+  .pro-show.is-visible .pro-show-card:nth-child(2) { transition-delay: 140ms; }
+  .pro-show.is-visible .pro-show-card:nth-child(3) { transition-delay: 220ms; }
+  .pro-show.is-visible .pro-show-card:nth-child(4) { transition-delay: 300ms; }
+  .pro-show.is-visible .pro-show-card:nth-child(5) { transition-delay: 380ms; }
+  .pro-show.is-visible .pro-show-card:nth-child(6) { transition-delay: 460ms; }
+
+  .pro-vs.is-visible .pro-vs-row { opacity: 1; transform: translateY(0); }
+  .pro-vs.is-visible .pro-vs-row:nth-child(1)  { transition-delay: 40ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(2)  { transition-delay: 100ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(3)  { transition-delay: 160ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(4)  { transition-delay: 220ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(5)  { transition-delay: 280ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(6)  { transition-delay: 340ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(7)  { transition-delay: 400ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(8)  { transition-delay: 460ms; }
+  .pro-vs.is-visible .pro-vs-row:nth-child(n+9) { transition-delay: 520ms; }
+
+  /* Pro vs Free table: subtle row hover */
+  .pro-vs-row:hover .pro-vs-pro-cell { color: #fff; }
+
+  /* ─── Sticky mobile CTA ─────────────────────────────────────────────── */
+
+  .pro-sticky-cta {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px 12px 18px;
+    border-radius: ${RADIUS_PILL}px;
+    background: rgba(6,16,27,0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid ${rgbaFromHex(ACCENT, 0.34)};
+    box-shadow: 0 12px 36px rgba(0,0,0,0.46), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 320ms cubic-bezier(0.16,1,0.3,1), transform 320ms cubic-bezier(0.16,1,0.3,1);
+    pointer-events: none;
+  }
+  .pro-sticky-cta.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ─── Member perks grid ─────────────────────────────────────────────── */
+
+  .pro-perk {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 380ms cubic-bezier(0.16,1,0.3,1), transform 380ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .pro-perks.is-visible .pro-perk { opacity: 1; transform: translateY(0); }
+  .pro-perks.is-visible .pro-perk:nth-child(1) { transition-delay: 40ms; }
+  .pro-perks.is-visible .pro-perk:nth-child(2) { transition-delay: 100ms; }
+  .pro-perks.is-visible .pro-perk:nth-child(3) { transition-delay: 160ms; }
+  .pro-perks.is-visible .pro-perk:nth-child(4) { transition-delay: 220ms; }
+  .pro-perks.is-visible .pro-perk:nth-child(5) { transition-delay: 280ms; }
+  .pro-perks.is-visible .pro-perk:nth-child(6) { transition-delay: 340ms; }
+
+  /* Generic hoverable lift — for new Pro showcase cards */
+  .pro-lift {
+    transition: transform 240ms cubic-bezier(0.16,1,0.3,1), box-shadow 240ms ease, border-color 240ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .pro-lift:hover { transform: translateY(-2px); }
+  }
 
   .pro-cta-btn {
     transition: box-shadow 240ms cubic-bezier(0.16,1,0.3,1),
@@ -1179,11 +2357,14 @@ const sharedStyles = `
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pro-hero-section, .pro-league-section, .pro-features-section, .pro-price-num {
-      animation: none !important; opacity: 1 !important; transform: none !important;
+    .pro-hero-section, .pro-league-section, .pro-features-section, .pro-price-num,
+    .pro-hero-char, .pro-hero-kicker, .pro-hero-deck, .pro-hero-counters, .pro-hero-price, .pro-hero-cta, .pro-hero-trust,
+    .pro-counter-num, .pro-show-card, .pro-vs-row, .pro-perk, .pro-sticky-cta, .pro-lift {
+      animation: none !important; opacity: 1 !important; transform: none !important; transition: none !important;
     }
     .pro-cta-btn, .pro-secondary-btn, .pro-gradient-btn,
     .pro-headline-card, .pro-utility-card, .pro-proof-card { transition: none !important; }
     ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+    .pro-sticky-cta { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
   }
 `;

@@ -133,6 +133,12 @@ export const NOTE_TEXT   = "var(--text-note)";
 export const NOTE_BG     = "rgba(56,189,248,0.08)";
 export const NOTE_BORDER = "rgba(56,189,248,0.22)";
 
+// Info cyan — used by the AI Insight surface for a "secondary AI" accent
+// distinct from AI_BLUE. Kept as a hard hex because it's a literal text
+// color, not a theme token. Brighter and cooler than AI_BLUE so the two
+// can coexist on the same screen.
+export const INFO_CYAN = "#67e8f9";
+
 // Live-dot green — "active right now" signal used on subscription pills,
 // live Pro League indicator, etc. Keeps all "I am alive" signals on one hue.
 export const LIVE_GREEN      = "var(--text-live)";

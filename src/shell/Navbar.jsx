@@ -43,10 +43,14 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
   const userPillBg = wcMode ? "rgba(7,32,19,0.78)" : USER_PILL_BG;
   const dropdownBg = wcMode ? "rgba(5,24,15,0.96)" : DROPDOWN_BG;
 
-  // Picks first — the product's primary verb. Everything else is supporting.
+  // Home first as the conventional landing entry; Picks remains the primary
+  // verb but is one tab in — accessible from anywhere via the Picks tab.
+  // Calendar tab folded into Home (the Home tab now carries the round
+  // selector + per-race lede + session strip). Old /calendar?round=N deep
+  // links continue to work because Home reads the same `?round=N` param.
   const f1Tabs = [
+    ["home",        "Home"],
     ["predictions", "Picks"],
-    ["calendar",    "Calendar"],
     ["ai-brief",    "AI Insight"],
     ["news",        "Wire"],
     ["community",   "Leagues"],

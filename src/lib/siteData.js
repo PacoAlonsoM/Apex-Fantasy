@@ -1,10 +1,12 @@
 import { ACTIVE_CAL, countdown, fmtFull, nextRace, parseDate } from "@/src/constants/calendar";
 import { BRAND_DESCRIPTOR, BRAND_NAME, BRAND_TAGLINE, LEGAL_DISCLAIMER, SUPPORT_EMAIL } from "@/src/constants/design";
 import { getViewerTimeZoneLabel } from "@/src/lib/timezone";
+// Calendar removed from public navigation — the calendar's content (round
+// picker + session strip + race meta) lives on Home now. Old /calendar URLs
+// fall through routing.js to Home.
 export const PUBLIC_NAV = [
   { href: "/", key: "home", label: "Home" },
   { href: "/world-cup", key: "wc", label: "World Cup" },
-  { href: "/calendar", key: "calendar", label: "Calendar" },
   { href: "/picks", key: "picks", label: "Picks" },
   { href: "/insight", key: "insight", label: "AI Insight" },
   { href: "/wire", key: "wire", label: "Wire" },
@@ -17,7 +19,6 @@ export const PUBLIC_NAV = [
 export const FOOTER_LINKS = [
   { href: "/", label: "Home" },
   { href: "/world-cup", label: "World Cup" },
-  { href: "/calendar", label: "Calendar" },
   { href: "/picks", label: "Picks" },
   { href: "/insight", label: "AI Insight" },
   { href: "/wire", label: "Wire" },
@@ -34,10 +35,6 @@ export const PAGE_META = {
   home: {
     title: "Compete hard. Predict sharp. Win your league.",
     description: "STINT is the public F1 predictions front door: next-race context, sharper reads, wire coverage and clean paths into picks and leagues.",
-  },
-  calendar: {
-    title: "F1 Calendar and Weekend Timeline",
-    description: "Read the season as one race-week system with round dates, session order, timezone-adjusted timing and next-race context.",
   },
   wire: {
     title: "F1 Wire and Race-Week Coverage",

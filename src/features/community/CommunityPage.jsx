@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/src/lib/supabase";
-import StandingsPage from "@/src/features/standings/StandingsPage";
 import { CAL, countdown, fmt, nextRace, rc } from "@/src/constants/calendar";
 import { PTS } from "@/src/constants/scoring";
 import {
@@ -9,7 +8,6 @@ import {
   BRAND_GRADIENT,
   CARD_RADIUS,
   CARD_SHADOW,
-  CONTENT_MAX,
   DEFAULT_AVATAR_COLOR,
   HAIRLINE,
   LIFTED_SHADOW,
@@ -24,6 +22,9 @@ import {
   SOFT_SHADOW,
   SPRINT,
   SUBTLE_TEXT,
+  SUCCESS_BG,
+  SUCCESS_BORDER,
+  SUCCESS_TEXT,
   TEXT_PRIMARY,
   WARM,
   teamSupportKey,
@@ -36,6 +37,8 @@ import { hexToRgba } from "@/src/lib/colors";
 import { formatStamp } from "@/src/lib/format";
 import IdentityAvatar from "@/src/ui/IdentityAvatar";
 import PageMasthead from "@/src/ui/PageMasthead";
+import PageShell from "@/src/ui/PageShell";
+import StatusBadge from "@/src/ui/StatusBadge";
 
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
@@ -56,148 +59,624 @@ function AvatarChip({ name, colorKey, size = 32, fontSize, pro = false }) {
   );
 }
 
-function RaceWeekBanner({ race, isMobile }) {
-  if (!race) return null;
-  const cd = countdown(race.date);
-  const flagColor = rc(race);
+// ─── LeaguesLede ──────────────────────────────────────────────────────────────
+// The Leagues-tab equivalent of the Home race-week lede: not about a race,
+// but about the user's competitive context — how many leagues they're in,
+// when the next standings shake-up is, and the two primary actions (create /
+// join). For anon visitors it becomes a clean "sign in to play" surface.
 
-  let statePill, stateColor, contextLine;
-  if (!cd) {
-    statePill = "Results";
-    stateColor = WARM;
-    contextLine = `Round ${race.displayRound} complete`;
-  } else if (cd.d === 0) {
-    statePill = "Live";
-    stateColor = "#EF4444";
-    contextLine = "Race day — good luck";
-  } else if (cd.d <= 3) {
-    statePill = "Locked In";
-    stateColor = ACCENT;
-    contextLine = "Picks locked — race weekend underway";
-  } else {
-    statePill = "Open";
-    stateColor = "#22C55E";
-    contextLine = `Round ${race.displayRound} · picks open · ${cd.d}d ${cd.h}h to lights out`;
-  }
+function lockStateForCountdown(cd) {
+  if (!cd) return null;
+  if (cd.d >= 1) return { status: "open",      label: "Open" };
+  if (cd.h >= 6) return { status: "lock-soon", label: "Lock soon" };
+  if (cd.h >= 1) return { status: "lock-soon", label: `Lock < ${cd.h}h` };
+  return            { status: "lock-now",  label: `Lock < ${cd.m}m` };
+}
+
+function formatCountdownShort(cd) {
+  if (!cd) return "—";
+  if (cd.d >= 1) return `${cd.d}d ${cd.h}h`;
+  if (cd.h >= 1) return `${cd.h}h ${cd.m}m`;
+  return `${cd.m}m`;
+}
+
+function LeaguesLede({
+  user,
+  demoMode,
+  race,
+  leagueCount,
+  proActive,
+  joinCode,
+  setJoinCode,
+  onJoin,
+  onCreate,
+  onOpenAuth,
+  isMobile,
+}) {
+  const cd       = race ? countdown(race.date) : null;
+  const lock     = lockStateForCountdown(cd);
+  const isAnon   = !user && !demoMode;
+  const cdLabel  = formatCountdownShort(cd);
 
   return (
-    <div style={{
-      position: "relative",
-      borderRadius: SECTION_RADIUS,
-      overflow: "hidden",
-      border: "1px solid rgba(214,223,239,0.08)",
-      background: PANEL_BG_ALT,
-      marginBottom: 20,
-    }}>
-      <div style={{
-        position: "absolute", inset: 0,
-        backgroundImage: "url('/images/hero-glow.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "right center",
-        opacity: 0.12,
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `linear-gradient(135deg, ${hexToRgba(flagColor, 0.10)} 0%, transparent 58%)`,
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "relative", zIndex: 1,
-        display: "flex",
-        alignItems: isMobile ? "flex-start" : "center",
-        flexDirection: isMobile ? "column" : "row",
-        gap: isMobile ? 12 : 0,
-        padding: isMobile ? "18px 20px 16px" : "18px 28px 18px 26px",
-        justifyContent: "space-between",
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase",
-            color: SUBTLE_TEXT, marginBottom: 6, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 7,
-          }}>
-            <span style={{
-              display: "inline-block", width: 7, height: 7,
-              borderRadius: "50%", background: flagColor, flexShrink: 0,
-            }} />
-            {race.circuit} · {race.city}
-          </div>
-          <div style={{
-            fontSize: isMobile ? 22 : 26,
-            fontWeight: 900,
-            letterSpacing: "-0.045em",
-            lineHeight: 1.08,
-            color: TEXT_PRIMARY,
-            marginBottom: 10,
-            fontFamily: "Sora, var(--font-sora), sans-serif",
-          }}>
-            {race.n}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              background: hexToRgba(stateColor, 0.12),
-              border: `1px solid ${hexToRgba(stateColor, 0.28)}`,
-              borderRadius: RADIUS_PILL,
-              color: stateColor,
-              fontSize: 11, fontWeight: 700,
-              padding: "4px 10px",
-              letterSpacing: "0.04em",
-            }}>
-              {statePill === "Live" && (
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: stateColor, display: "inline-block",
-                  animation: "stntPulse 1.4s ease-in-out infinite",
-                }} />
-              )}
-              {statePill}
+    <section
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: SECTION_RADIUS,
+        border: PANEL_BORDER,
+        background: `
+          linear-gradient(135deg, ${hexToRgba(ACCENT, 0.34)} 0%, ${hexToRgba(WARM, 0.12)} 36%, rgba(6,16,27,0.96) 100%),
+          url("/images/Close%20racing.png") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow: LIFTED_SHADOW,
+        marginBottom: isMobile ? 16 : 22,
+        minHeight: isMobile ? 0 : 280,
+        padding: isMobile ? "20px 18px 22px" : "30px 30px 26px",
+      }}
+    >
+      {/* Top accent rail */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${WARM} 60%, ${ACCENT} 80%, transparent)`,
+          opacity: 0.92,
+        }}
+      />
+
+      <div
+        className="f1-stagger-strong"
+        style={{ display: "grid", gap: isMobile ? 14 : 18 }}
+      >
+        {/* Row 1: kicker + race-week chip */}
+        <div style={{ "--f1-i": 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, color: SUBTLE_TEXT }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 6, height: 6, borderRadius: "50%", background: ACCENT,
+                boxShadow: `0 0 0 4px ${hexToRgba(ACCENT, 0.20)}`,
+              }}
+            />
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+              {isAnon ? "Leagues" : "Your leagues"}
             </span>
-            {race.sprint && (
-              <span style={{
-                display: "inline-flex", alignItems: "center", gap: 4,
-                background: hexToRgba(SPRINT, 0.10),
-                border: `1px solid ${hexToRgba(SPRINT, 0.22)}`,
-                borderRadius: RADIUS_PILL,
-                color: SPRINT,
-                fontSize: 11, fontWeight: 700,
-                padding: "4px 10px",
-                letterSpacing: "0.04em",
-              }}>
-                Sprint Weekend
-              </span>
-            )}
+          </div>
+          {race && lock && (
+            <StatusBadge status={lock.status} dot={lock.status === "open"}>
+              {race.n.replace(/grand prix/i, "GP").trim()} · {cdLabel}
+            </StatusBadge>
+          )}
+        </div>
+
+        {/* Row 2: title + stats line */}
+        <div style={{ "--f1-i": 1 }}>
+          <h1
+            className="stint-page-title"
+            style={{
+              margin: 0,
+              fontSize: isMobile ? 38 : 68,
+              letterSpacing: "-0.05em",
+              lineHeight: 0.92,
+              color: "rgba(255,255,255,0.98)",
+              textShadow: "0 2px 18px rgba(0,0,0,0.36)",
+              maxWidth: 820,
+              textTransform: "uppercase",
+            }}
+          >
+            {isAnon
+              ? "Play with friends. Race for prizes."
+              : leagueCount === 0
+                ? "Spin up your first league"
+                : leagueCount === 1
+                  ? "1 league in play"
+                  : `${leagueCount} leagues in play`}
+          </h1>
+          <div
+            style={{
+              marginTop: 12,
+              fontSize: isMobile ? 13 : 15,
+              lineHeight: 1.6,
+              color: "rgba(255,255,255,0.78)",
+              maxWidth: 620,
+            }}
+          >
+            {isAnon
+              ? "Create a free account to make picks, set custom scoring, and join private leagues. Pro members compete for the season prize pool."
+              : leagueCount === 0
+                ? "Create a private league for your group, or join one with a 6-character code."
+                : (
+                  <>
+                    Picks lock at every race.{" "}
+                    {proActive
+                      ? "You're racing the Pro Community for the season prize. "
+                      : "Tap a league below to see standings, post in the room, or open the round review. "}
+                    Standings update minutes after the chequered flag.
+                  </>
+                )}
           </div>
         </div>
-        <div style={{
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: isMobile ? "flex-start" : "flex-end",
-          gap: 3,
-          paddingLeft: isMobile ? 0 : 24,
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: "-0.02em" }}>
-            {fmt(race.date)}
-          </div>
-          {cd && cd.d > 0 && (
-            <div style={{ fontSize: 11, color: MUTED_TEXT, fontVariantNumeric: "tabular-nums" }}>
-              {cd.d}d {cd.h}h {cd.m}m
-            </div>
+
+        {/* Row 3: actions */}
+        <div
+          style={{ "--f1-i": 2, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
+        >
+          {isAnon ? (
+            <button
+              type="button"
+              onClick={() => onOpenAuth?.("register", { page: "community" })}
+              className="stint-button f1-hoverable"
+              style={{ minHeight: 48, padding: "0 22px", fontSize: 14, fontWeight: 900 }}
+            >
+              Create account <span aria-hidden="true" style={{ marginLeft: 8 }}>↗</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onCreate}
+                className="stint-button f1-hoverable"
+                style={{ minHeight: 48, padding: "0 22px", fontSize: 14, fontWeight: 900 }}
+              >
+                Create league <span aria-hidden="true" style={{ marginLeft: 8 }}>+</span>
+              </button>
+              <form
+                onSubmit={(event) => { event.preventDefault(); onJoin?.(); }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "var(--btn-secondary-bg)",
+                  border: "1px solid var(--border-soft)",
+                  borderRadius: RADIUS_PILL,
+                  padding: "4px 4px 4px 14px",
+                  minHeight: 48,
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, whiteSpace: "nowrap" }}>
+                  Code
+                </span>
+                <input
+                  value={joinCode}
+                  onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                  placeholder="STINT1"
+                  maxLength={6}
+                  style={{
+                    width: 86,
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    color: TEXT_PRIMARY,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: "0.18em",
+                    textAlign: "center",
+                    textTransform: "uppercase",
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!joinCode.trim()}
+                  className="f1-hoverable"
+                  style={{
+                    minHeight: 40,
+                    padding: "0 16px",
+                    border: "none",
+                    borderRadius: RADIUS_PILL,
+                    background: joinCode.trim() ? ACCENT : "var(--btn-secondary-bg)",
+                    color: joinCode.trim() ? "#fffaf5" : SUBTLE_TEXT,
+                    cursor: joinCode.trim() ? "pointer" : "not-allowed",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    letterSpacing: "-0.005em",
+                    transition: "background 160ms cubic-bezier(0.23,1,0.32,1), color 160ms cubic-bezier(0.23,1,0.32,1)",
+                  }}
+                >
+                  Join
+                </button>
+              </form>
+            </>
           )}
-          <div style={{
-            fontSize: 11, color: SUBTLE_TEXT,
-            marginTop: 3,
-            textAlign: isMobile ? "left" : "right",
-            maxWidth: 220,
-            lineHeight: 1.5,
-          }}>
-            {contextLine}
-          </div>
         </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+// ─── League card ──────────────────────────────────────────────────────────────
+// Single-league tile used in the LeagueGrid. Two variants:
+//   • "pro"     — flagship Pro Community card with Hero-Main backdrop, amber
+//                 gradient, prize-pool callout, "Pro League" status pill.
+//   • "private" — neutral PANEL_BG_ALT surface, member count + code + your-rank
+//                 + top-3 avatar row.
+// Hover lift comes from `.f1-hoverable`; active state via ACCENT outline.
+
+function LeagueCard({
+  league,
+  active,
+  variant = "private",
+  members = [],
+  yourRank,
+  proActive,
+  onSelect,
+  isMobile,
+}) {
+  const isPro = variant === "pro";
+  const memberCount = members.length;
+  const top3 = members.slice(0, 3);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="f1-hoverable"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        textAlign: "left",
+        cursor: "pointer",
+        appearance: "none",
+        width: "100%",
+        minHeight: isMobile ? 168 : 196,
+        padding: isMobile ? "18px 18px 16px" : "22px 22px 20px",
+        borderRadius: CARD_RADIUS,
+        border: active
+          ? `1px solid ${isPro ? "rgba(245,158,11,0.46)" : hexToRgba(ACCENT, 0.42)}`
+          : `1px solid ${isPro ? "rgba(245,158,11,0.22)" : PANEL_BORDER.replace("1px solid ", "")}`,
+        background: isPro
+          ? `linear-gradient(160deg, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.04) 36%, ${PANEL_BG} 96%), url("/images/Close%20racing.png") center / cover no-repeat, ${PANEL_BG}`
+          : active
+            ? `linear-gradient(160deg, ${hexToRgba(ACCENT, 0.10)} 0%, ${PANEL_BG_ALT} 80%)`
+            : PANEL_BG_ALT,
+        boxShadow: active ? LIFTED_SHADOW : CARD_SHADOW,
+        color: TEXT_PRIMARY,
+        display: "grid",
+        gap: 10,
+        gridTemplateRows: "auto auto 1fr auto",
+        fontFamily: "var(--font-body)",
+        transition: "background 200ms cubic-bezier(0.23,1,0.32,1), border-color 200ms cubic-bezier(0.23,1,0.32,1)",
+      }}
+    >
+      {isPro && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 3,
+            background: "linear-gradient(90deg, transparent, #f59e0b 30%, #fbbf24 60%, #f59e0b 80%, transparent)",
+            opacity: 0.92,
+          }}
+        />
+      )}
+
+      {/* Top row: kicker + member count chip */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        {isPro ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: RADIUS_PILL, background: "rgba(245,158,11,0.16)", border: "1px solid rgba(245,158,11,0.32)" }}>
+            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+            <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fde68a" }}>Pro League</span>
+          </span>
+        ) : (
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+            {league.owner_id ? "Private league" : "League"}
+          </span>
+        )}
+        <span
+          className="stint-tabular"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "3px 8px",
+            borderRadius: RADIUS_PILL,
+            background: isPro ? "rgba(245,158,11,0.10)" : "var(--btn-secondary-bg)",
+            border: `1px solid ${isPro ? "rgba(245,158,11,0.22)" : "var(--border-soft)"}`,
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: "0.06em",
+            color: isPro ? "#fde68a" : SUBTLE_TEXT,
+          }}
+        >
+          {memberCount} {memberCount === 1 ? "member" : "members"}
+        </span>
+      </div>
+
+      {/* League name */}
+      <h3
+        style={{
+          margin: 0,
+          fontFamily: "var(--font-display)",
+          fontSize: isMobile ? 22 : 26,
+          fontWeight: 900,
+          letterSpacing: "-0.03em",
+          lineHeight: 1.1,
+          color: isPro ? "rgba(255,255,255,0.98)" : TEXT_PRIMARY,
+          textShadow: isPro ? "0 1px 8px rgba(0,0,0,0.32)" : "none",
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+        }}
+      >
+        {league.name || (isPro ? "Stint Pro Community" : "League")}
+      </h3>
+
+      {/* Middle: prize callout (Pro) or rank+code (private) */}
+      <div style={{ alignSelf: "end" }}>
+        {isPro ? (
+          <>
+            <div
+              className="stint-tabular"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: isMobile ? 36 : 44,
+                fontWeight: 700,
+                letterSpacing: "-0.04em",
+                color: "#fde68a",
+                lineHeight: 0.92,
+              }}
+            >
+              $500
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(252,211,77,0.72)", fontWeight: 700, marginTop: 4 }}>
+              {proActive ? "Season prize · you're in" : "Season prize pool"}
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            {Number.isFinite(yourRank) && yourRank > 0 ? (
+              <div>
+                <div className="stint-tabular" style={{ fontFamily: "var(--font-mono)", fontSize: isMobile ? 30 : 36, fontWeight: 700, letterSpacing: "-0.04em", color: TEXT_PRIMARY, lineHeight: 0.92 }}>
+                  #{yourRank}
+                </div>
+                <div style={{ fontSize: 10, color: SUBTLE_TEXT, fontWeight: 700, marginTop: 4, letterSpacing: "0.10em", textTransform: "uppercase" }}>Your rank</div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: MUTED_TEXT, lineHeight: 1.5 }}>
+                Standings populate as picks are scored.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer: top-3 micro-roster + code + chevron */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 4 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {top3.length > 0 ? (
+            <>
+              <div style={{ display: "inline-flex", marginLeft: 4 }}>
+                {top3.map((member, i) => (
+                  <span
+                    key={member.id || i}
+                    style={{ marginLeft: i === 0 ? 0 : -6, display: "inline-flex" }}
+                  >
+                    <IdentityAvatar
+                      username={member.username}
+                      colorKey={member.avatar_color}
+                      size={isMobile ? 24 : 26}
+                      pro={isProProfile(member)}
+                    />
+                  </span>
+                ))}
+              </div>
+              {memberCount > top3.length && (
+                <span className="stint-tabular" style={{ fontSize: 11, fontWeight: 700, color: SUBTLE_TEXT }}>
+                  +{memberCount - top3.length}
+                </span>
+              )}
+            </>
+          ) : (
+            <span style={{ fontSize: 11, color: SUBTLE_TEXT, fontWeight: 700 }}>No members yet</span>
+          )}
+        </div>
+
+        {!isPro && league.code && (
+          <span
+            className="stint-tabular"
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.16em",
+              color: SUBTLE_TEXT,
+              fontFamily: "var(--font-mono)",
+              padding: "3px 9px",
+              borderRadius: RADIUS_PILL,
+              background: "var(--btn-secondary-bg)",
+              border: "1px solid var(--border-soft)",
+            }}
+          >
+            {league.code}
+          </span>
+        )}
+        {isPro && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 900, color: "#fde68a", letterSpacing: "-0.005em" }}>
+            {proActive ? "Manage" : "Join Pro"} <span aria-hidden="true">↗</span>
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ─── Empty leagues state ──────────────────────────────────────────────────────
+
+function EmptyLeaguesState({ onCreate, isMobile }) {
+  return (
+    <section
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: SECTION_RADIUS,
+        border: PANEL_BORDER,
+        background: `
+          linear-gradient(160deg, ${hexToRgba(ACCENT, 0.08)} 0%, ${PANEL_BG_ALT} 80%),
+          ${PANEL_BG_ALT}
+        `,
+        padding: isMobile ? "32px 24px 28px" : "52px 40px 44px",
+        textAlign: "center",
+        marginBottom: 22,
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 12 }}>
+        No leagues yet
+      </div>
+      <h2
+        style={{
+          margin: 0,
+          fontFamily: "var(--font-display)",
+          fontSize: isMobile ? 28 : 40,
+          fontWeight: 900,
+          letterSpacing: "-0.045em",
+          lineHeight: 1.05,
+          color: TEXT_PRIMARY,
+          marginBottom: 12,
+        }}
+      >
+        Spin up your first league
+      </h2>
+      <div style={{ fontSize: isMobile ? 13 : 14, lineHeight: 1.65, color: MUTED_TEXT, maxWidth: 480, margin: "0 auto 22px" }}>
+        Create a private room for your group, or paste a 6-character code above to join one. Standings update after every race.
+      </div>
+      <button
+        type="button"
+        onClick={onCreate}
+        className="stint-button f1-hoverable"
+        style={{ minHeight: 48, padding: "0 22px", fontSize: 14, fontWeight: 900 }}
+      >
+        Create your first league <span aria-hidden="true" style={{ marginLeft: 8 }}>+</span>
+      </button>
+    </section>
+  );
+}
+
+// ─── League switcher (inside deep-dive) ──────────────────────────────────────
+// Horizontal pill strip of every league the user is part of (Pro + private).
+// Replaces the hidden sidebar — users can hop between leagues without going
+// back to the grid. Same pattern as Home's RoundSelector.
+
+function LeagueSwitcher({ proLeague, privateLeagues, selectedId, onSelect, onAllLeagues, isMobile }) {
+  const all = [
+    ...(proLeague ? [proLeague] : []),
+    ...privateLeagues,
+  ];
+  if (all.length <= 1) {
+    // Single league — no point in a switcher; just offer the back link.
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <button
+          type="button"
+          onClick={onAllLeagues}
+          style={{
+            background: "none",
+            border: "none",
+            color: SUBTLE_TEXT,
+            cursor: "pointer",
+            fontWeight: 800,
+            fontSize: 11,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            padding: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          ← All leagues
+        </button>
+      </div>
+    );
+  }
+  return (
+    <section style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+          Switch league
+        </span>
+        <button
+          type="button"
+          onClick={onAllLeagues}
+          style={{
+            background: "none",
+            border: "none",
+            color: ACCENT,
+            cursor: "pointer",
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.10em",
+            textTransform: "uppercase",
+            padding: 0,
+          }}
+        >
+          All leagues →
+        </button>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          overflowX: "auto",
+          paddingBottom: 6,
+          WebkitOverflowScrolling: "touch",
+          scrollSnapType: "x proximity",
+        }}
+      >
+        {all.map((league) => {
+          const active = league.id === selectedId;
+          const isPro  = league.type === "pro_community";
+          return (
+            <button
+              key={league.id}
+              type="button"
+              onClick={() => onSelect(league.id)}
+              aria-pressed={active}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
+                scrollSnapAlign: "start",
+                padding: "8px 14px",
+                borderRadius: RADIUS_PILL,
+                border: active
+                  ? `1px solid ${isPro ? "rgba(245,158,11,0.42)" : hexToRgba(ACCENT, 0.42)}`
+                  : `1px solid ${isPro ? "rgba(245,158,11,0.18)" : "var(--border-soft)"}`,
+                background: active
+                  ? (isPro ? "rgba(245,158,11,0.14)" : hexToRgba(ACCENT, 0.13))
+                  : "var(--btn-secondary-bg)",
+                color: active ? (isPro ? "#fde68a" : ACCENT) : TEXT_PRIMARY,
+                fontFamily: "var(--font-body)",
+                fontSize: 13,
+                fontWeight: 800,
+                letterSpacing: "-0.005em",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                minHeight: 38,
+                transition:
+                  "background 140ms cubic-bezier(0.23,1,0.32,1), border-color 140ms cubic-bezier(0.23,1,0.32,1), color 140ms cubic-bezier(0.23,1,0.32,1)",
+              }}
+            >
+              {isPro && (
+                <span
+                  aria-hidden="true"
+                  style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }}
+                />
+              )}
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: isMobile ? 140 : 220 }}>
+                {league.name || (isPro ? "Pro Community" : "League")}
+              </span>
+              {!isPro && league.code && (
+                <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: active ? hexToRgba(ACCENT, 0.78) : SUBTLE_TEXT, fontFamily: "var(--font-mono)" }}>
+                  {league.code}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -516,49 +995,140 @@ function roundMeta(roundNumber) {
 
 // ─── Sub-views ────────────────────────────────────────────────────────────────
 
-function LeagueStandingsView({ currentLeague, currentStandings, leagueStandings, leagueSummary, isTablet }) {
+function LeagueStandingsView({ user, currentLeague, currentStandings, leagueStandings, leagueSummary, isMobile, isTablet }) {
+  const leaderPts = Number(leagueSummary.leader?.points || 0);
   return (
-    <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-      <div style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 80px", background: PANEL_BG_ALT, borderBottom: `1px solid ${HAIRLINE}` }}>
-        <div style={{ textAlign: "center", padding: "8px 0", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>#</div>
-        <div style={{ padding: "8px 12px", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Player</div>
-        <div style={{ textAlign: "right", padding: "8px 14px 8px 0", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Pts</div>
+    <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+      <div style={{ padding: "14px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+          Season standings
+        </span>
+        <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+          {currentStandings.length} {currentStandings.length === 1 ? "player" : "players"}
+        </span>
       </div>
       {leagueStandings[currentLeague.id] === undefined ? (
         <div style={{ padding: 28, color: MUTED_TEXT, fontSize: 13 }}>Loading standings…</div>
       ) : currentStandings.length === 0 ? (
         <div style={{ padding: 28, color: MUTED_TEXT, fontSize: 13 }}>No members yet. Share your league code to get started.</div>
       ) : (
-        <div className="stnt-stagger" style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: isTablet ? 640 : 720, overflowY: "auto" }}>
+        <div className="f1-stagger-strong" style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: isTablet ? 640 : 720, overflowY: "auto" }}>
           {currentStandings.map((member, index) => {
-            const podiumBg = index === 0 ? "rgba(245,158,11,0.06)" : index === 1 ? "rgba(203,213,225,0.04)" : index === 2 ? "rgba(180,130,80,0.04)" : PANEL_BG;
-            const rankColor = index === 0 ? "#F59E0B" : index === 1 ? "#CBD5E1" : index === 2 ? "#C2956C" : SUBTLE_TEXT;
-            const gap = index === 0 ? null : (leagueSummary.leader?.points || 0) - (member.points || 0);
+            const isMe        = member.id === user?.id;
+            const isPodium    = index < 3;
+            const isLeader    = index === 0;
+            const medalTone   = index === 0 ? "#FCD34D" : index === 1 ? "#CBD5E1" : "#FBA371";
+            const medalBg     = index === 0 ? "rgba(252,211,77,0.10)" : index === 1 ? "rgba(203,213,225,0.06)" : "rgba(251,163,113,0.07)";
+            const medalBorder = index === 0 ? "rgba(252,211,77,0.32)" : index === 1 ? "rgba(203,213,225,0.22)" : "rgba(251,163,113,0.22)";
+            const rowBg       = isMe
+              ? `linear-gradient(90deg, ${hexToRgba(ACCENT, 0.10)} 0%, ${PANEL_BG} 70%)`
+              : (isPodium ? medalBg : PANEL_BG);
+            const gap = isLeader ? null : leaderPts - Number(member.points || 0);
             return (
-              <div key={member.id} className="stnt-row" style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 80px", gap: 0, background: podiumBg }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: index === 0 ? 16 : 13, fontWeight: 900, color: rankColor, fontVariantNumeric: "tabular-nums" }}>
-                  {index + 1}
+              <div
+                key={member.id}
+                style={{
+                  "--f1-i": Math.min(index, 8),
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "44px minmax(0,1fr) 90px" : "56px minmax(0,1fr) 110px",
+                  alignItems: "center",
+                  background: rowBg,
+                  outline: isMe ? `1px solid ${hexToRgba(ACCENT, 0.32)}` : "none",
+                  outlineOffset: -1,
+                  padding: isPodium ? (isMobile ? "12px 0" : "14px 0") : (isMobile ? "10px 0" : "12px 0"),
+                }}
+              >
+                {/* Medal-rank badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span
+                    className="stint-tabular"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: isPodium ? (isLeader ? 34 : 28) : 26,
+                      height: isPodium ? (isLeader ? 34 : 28) : 26,
+                      borderRadius: "50%",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: isPodium ? 13 : 11,
+                      fontWeight: 900,
+                      color: isPodium ? medalTone : SUBTLE_TEXT,
+                      background: isPodium ? "rgba(0,0,0,0.36)" : "transparent",
+                      border: isPodium ? `1px solid ${medalBorder}` : "none",
+                    }}
+                  >
+                    {index + 1}
+                  </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: index < 3 ? "13px 12px" : "11px 12px" }}>
-                  <AvatarChip name={member.username} colorKey={member.avatar_color} size={index < 3 ? 34 : 30} radius={index < 3 ? 11 : 10} pro={isProProfile(member)} />
+
+                {/* Avatar + username + gap */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 12, minWidth: 0 }}>
+                  <IdentityAvatar
+                    username={member.username}
+                    colorKey={member.avatar_color}
+                    size={isPodium ? (isLeader ? 44 : 38) : 34}
+                    pro={isProProfile(member)}
+                  />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{member.username}</div>
-                    <div style={{ fontSize: 11, color: MUTED_TEXT }}>{index === 0 ? "Leading" : `−${gap} pts`}</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span
+                        style={{
+                          fontSize: isPodium ? 14 : 13,
+                          fontWeight: 800,
+                          letterSpacing: "-0.01em",
+                          color: isMe ? ACCENT : TEXT_PRIMARY,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {member.username}
+                      </span>
+                      {isMe && (
+                        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT }}>You</span>
+                      )}
+                    </div>
+                    <div className="stint-tabular" style={{ fontSize: 11, color: SUBTLE_TEXT, marginTop: 3, fontWeight: 600 }}>
+                      {isLeader ? (
+                        <span style={{ color: medalTone, fontWeight: 800 }}>Leading</span>
+                      ) : gap > 0 ? (
+                        <>−{gap} pts from leader</>
+                      ) : (
+                        <>Tied with leader</>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 14px 0 0" }}>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: index < 3 ? 17 : 15, fontWeight: 700, color: index === 0 ? "var(--text-pro)" : TEXT_PRIMARY, fontVariantNumeric: "tabular-nums" }}>{member.points || 0}</div>
+
+                {/* Points */}
+                <div style={{ paddingRight: isMobile ? 14 : 18, textAlign: "right" }}>
+                  <div
+                    className="stint-tabular"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: isPodium ? (isLeader ? 28 : 22) : 18,
+                      fontWeight: 700,
+                      letterSpacing: "-0.04em",
+                      lineHeight: 1,
+                      color: isMe ? ACCENT : isPodium ? medalTone : TEXT_PRIMARY,
+                    }}
+                  >
+                    {member.points || 0}
+                  </div>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>
+                    Pts
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-function LeagueReviewView({ currentLeague, currentLeagueReview, currentLeagueRoundResult, selectedLeagueRoundMeta, scoredRounds, leagueReviewRound, setLeagueReviewRound, isMobile, isTablet }) {
+function LeagueReviewView({ user, currentLeague, currentLeagueReview, currentLeagueRoundResult, selectedLeagueRoundMeta, scoredRounds, leagueReviewRound, setLeagueReviewRound, isMobile, isTablet }) {
   const members = currentLeagueReview?.members || [];
   const hasSprintData = members.some((e) => e.sprintRows.length > 0);
   const allPrompts = hasSprintData
@@ -598,66 +1168,272 @@ function LeagueReviewView({ currentLeague, currentLeagueReview, currentLeagueRou
   return (
     <div style={{ display: "grid", gap: 16 }}>
 
-      {/* ── Round selector ── */}
+      {/* ── Round selector ─────────────────────────────────────────────────
+          Same pattern as Home's round selector: a horizontal pill strip,
+          each pill carries the round number + GP short code, active pill
+          uses the canonical ACCENT outline. Race-color dot per round. */}
       {scoredRounds.length > 0 && (
-        <div className="stnt-vtab-strip">
-          {scoredRounds.map((round) => {
-            const meta = roundMeta(round.race_round);
-            const active = Number(leagueReviewRound) === Number(round.race_round);
-            return (
-              <button
-                key={round.race_round}
-                onClick={() => setLeagueReviewRound(Number(round.race_round))}
-                className="stnt-vtab"
-                style={{
-                  background: active ? hexToRgba(ACCENT, 0.13) : "transparent",
-                  border: active ? `1px solid ${hexToRgba(ACCENT, 0.3)}` : "1px solid rgba(148,163,184,0.14)",
-                  borderRadius: RADIUS_PILL,
-                  color: active ? ACCENT : MUTED_TEXT,
-                  cursor: "pointer",
-                  padding: "8px 14px",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  flexShrink: 0,
-                }}
-              >
-                {meta?.n || `R${round.race_round}`}
-              </button>
-            );
-          })}
-        </div>
+        <section>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+              Scored rounds
+            </span>
+            <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+              {scoredRounds.length} {scoredRounds.length === 1 ? "race" : "races"} reviewed
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              overflowX: "auto",
+              paddingBottom: 6,
+              WebkitOverflowScrolling: "touch",
+              scrollSnapType: "x proximity",
+            }}
+          >
+            {scoredRounds.map((round) => {
+              const meta = roundMeta(round.race_round);
+              const active = Number(leagueReviewRound) === Number(round.race_round);
+              const raceColor = meta ? rc(meta) : ACCENT;
+              return (
+                <button
+                  key={round.race_round}
+                  type="button"
+                  onClick={() => setLeagueReviewRound(Number(round.race_round))}
+                  aria-pressed={active}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexShrink: 0,
+                    scrollSnapAlign: "start",
+                    padding: "9px 14px",
+                    borderRadius: RADIUS_PILL,
+                    border: active
+                      ? `1px solid ${hexToRgba(ACCENT, 0.42)}`
+                      : "1px solid var(--border-soft)",
+                    background: active
+                      ? hexToRgba(ACCENT, 0.13)
+                      : "var(--btn-secondary-bg)",
+                    color: active ? ACCENT : TEXT_PRIMARY,
+                    fontFamily: "var(--font-body)",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: "-0.005em",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    minHeight: 38,
+                    transition:
+                      "background 140ms cubic-bezier(0.23,1,0.32,1), border-color 140ms cubic-bezier(0.23,1,0.32,1), color 140ms cubic-bezier(0.23,1,0.32,1)",
+                  }}
+                >
+                  <span
+                    className="stint-tabular"
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      color: active ? ACCENT : SUBTLE_TEXT,
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    R{String(round.race_round).padStart(2, "0")}
+                  </span>
+                  <span aria-hidden="true" style={{ width: 4, height: 4, borderRadius: "50%", background: raceColor, flexShrink: 0 }} />
+                  <span>{meta?.n || `Round ${round.race_round}`}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      {/* ── Race result header ── */}
-      {currentLeagueRoundResult && (
-        <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-          <div style={{ padding: "16px 18px 14px", borderBottom: `1px solid ${HAIRLINE}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
-                {selectedLeagueRoundMeta?.n || (leagueReviewRound ? `Round ${leagueReviewRound}` : "Race")}
+      {/* ── Race result header ─────────────────────────────────────────────
+          Editorial podium card. Three named cards (P2 silver, P1 gold, P3
+          bronze) carry the result protagonist instead of a single gradient
+          name. Below: pole + supporting calls as a meta strip. */}
+      {currentLeagueRoundResult && (() => {
+        const winner = currentLeagueRoundResult.winner || null;
+        const p2     = currentLeagueRoundResult.p2 || null;
+        const p3     = currentLeagueRoundResult.p3 || null;
+        const meta = [
+          ["Pole",          currentLeagueRoundResult.pole],
+          ["Fastest lap",   currentLeagueRoundResult.fastest_lap],
+          ["Driver of day", currentLeagueRoundResult.dotd],
+          ["Constructor",   currentLeagueRoundResult.best_constructor],
+          ["Safety car",    typeof currentLeagueRoundResult.safety_car === "boolean" ? (currentLeagueRoundResult.safety_car ? "Yes" : "No") : null],
+          ["Red flag",      typeof currentLeagueRoundResult.red_flag   === "boolean" ? (currentLeagueRoundResult.red_flag   ? "Yes" : "No") : null],
+        ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+        const PODIUM = [
+          { rank: 2, name: p2,     tone: "#CBD5E1", bg: "rgba(203,213,225,0.08)", border: "rgba(203,213,225,0.22)", label: "P2" },
+          { rank: 1, name: winner, tone: "#FCD34D", bg: "rgba(252,211,77,0.10)",  border: "rgba(252,211,77,0.32)",  label: "WINNER" },
+          { rank: 3, name: p3,     tone: "#FBA371", bg: "rgba(251,163,113,0.08)", border: "rgba(251,163,113,0.22)", label: "P3" },
+        ];
+        return (
+          <section
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: SECTION_RADIUS,
+              border: PANEL_BORDER,
+              background: `
+                linear-gradient(180deg, rgba(252,211,77,0.06) 0%, rgba(252,211,77,0) 32%, ${PANEL_BG} 100%),
+                ${PANEL_BG}
+              `,
+              boxShadow: SOFT_SHADOW,
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                background: "linear-gradient(90deg, transparent, #CBD5E1 20%, #FCD34D 50%, #FBA371 80%, transparent)",
+                opacity: 0.6,
+              }}
+            />
+            <div style={{ padding: isMobile ? "16px 16px 14px" : "20px 22px 18px", borderBottom: `1px solid ${HAIRLINE}` }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                  {selectedLeagueRoundMeta?.n || (leagueReviewRound ? `Round ${leagueReviewRound}` : "Race result")}
+                </div>
+                <span
+                  className="stint-tabular"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.10em",
+                    textTransform: "uppercase",
+                    color: SUCCESS_TEXT,
+                    background: SUCCESS_BG,
+                    border: `1px solid ${SUCCESS_BORDER}`,
+                    borderRadius: RADIUS_PILL,
+                    padding: "2px 9px",
+                  }}
+                >
+                  Scored
+                </span>
               </div>
-              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: -0.8, color: "#facc15", lineHeight: 1 }}>
-                {currentLeagueRoundResult.winner || "Pending"}
-              </div>
-              <div style={{ fontSize: 11, color: MUTED_TEXT, marginTop: 3 }}>Race winner</div>
             </div>
-            {currentLeagueRoundResult.pole && (
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>Pole</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#93c5fd" }}>{currentLeagueRoundResult.pole}</div>
+
+            {/* Podium row */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+                gap: isMobile ? 8 : 10,
+                padding: isMobile ? "14px 16px 8px" : "20px 22px 14px",
+                alignItems: "end",
+              }}
+            >
+              {PODIUM.map(({ rank, name, tone, bg, border, label }) => {
+                if (!name) return <div key={rank} aria-hidden="true" />;
+                const isWin = rank === 1;
+                return (
+                  <div
+                    key={rank}
+                    className="f1-hoverable"
+                    style={{
+                      position: "relative",
+                      borderRadius: CARD_RADIUS,
+                      border: `1px solid ${border}`,
+                      background: bg,
+                      padding: isMobile ? "14px 14px 12px" : isWin ? "20px 18px 16px" : "16px 16px 14px",
+                      minHeight: isWin ? (isMobile ? 0 : 132) : (isMobile ? 0 : 112),
+                      display: "grid",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: tone }}>
+                        {label}
+                      </span>
+                      <span
+                        className="stint-tabular"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          fontWeight: 900,
+                          color: tone,
+                          background: "rgba(0,0,0,0.34)",
+                          border: `1px solid ${border}`,
+                        }}
+                      >
+                        {rank}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: isWin ? (isMobile ? 24 : 30) : (isMobile ? 18 : 20),
+                        fontWeight: 900,
+                        letterSpacing: "-0.04em",
+                        lineHeight: 1.08,
+                        color: TEXT_PRIMARY,
+                      }}
+                    >
+                      {name}
+                    </div>
+                    {isWin && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: MUTED_TEXT, marginTop: 2 }}>
+                        Race winner
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Meta strip: pole / FL / DOTD / constructor / SC / RF */}
+            {meta.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 132 : 148}px, 1fr))`,
+                  gap: 1,
+                  background: HAIRLINE,
+                  borderTop: `1px solid ${HAIRLINE}`,
+                }}
+              >
+                {meta.map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      padding: "12px 14px",
+                      background: PANEL_BG_ALT,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                      {label}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        letterSpacing: "-0.015em",
+                        color: TEXT_PRIMARY,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(128px,1fr))", gap: 1, background: HAIRLINE }}>
-            {resultSummaryRows.map(([label, value, color]) => (
-              <div key={label} style={{ minWidth: 0, padding: "10px 12px", background: PANEL_BG }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 3 }}>{label}</div>
-                <div style={{ fontSize: 13, fontWeight: 900, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          </section>
+        );
+      })()}
 
       {/* ── States ── */}
       {scoredRounds.length === 0 ? (
@@ -675,44 +1451,149 @@ function LeagueReviewView({ currentLeague, currentLeagueReview, currentLeagueRou
         </div>
       ) : members.length > 0 ? (
         <>
-          {/* ── Round leaderboard ── */}
-          <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-            <div style={{ padding: "11px 16px 9px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
-              <div style={{ fontSize: 12, fontWeight: 900 }}>This round</div>
+          {/* ── Round leaderboard ───────────────────────────────────────────
+              Each row is composed: medal-rank badge (top-3 get gold/silver/
+              bronze rims) + avatar with team-color rim + username/meta +
+              two-column points readout (season faded, round bold). */}
+          <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+            <div style={{ padding: "14px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                This round
+              </span>
+              <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
+                {members.length} {members.length === 1 ? "player" : "players"}
+              </span>
             </div>
-            <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
+            <div className="f1-stagger-strong" style={{ display: "grid", gap: 1, background: HAIRLINE }}>
               {members.map((entry, index) => {
-                const podiumBg = index === 0 ? "rgba(245,158,11,0.05)" : index === 1 ? "rgba(203,213,225,0.03)" : index === 2 ? "rgba(180,130,80,0.03)" : PANEL_BG;
-                const rankColor = index === 0 ? "#F59E0B" : index === 1 ? "#CBD5E1" : index === 2 ? "#C2956C" : SUBTLE_TEXT;
-                const bonus = bonusPointsFromBreakdown(entry.breakdown);
+                const isMe       = entry.member.id === user.id;
+                const isPodium   = index < 3;
+                const isLeader   = index === 0;
+                const medalTone  = index === 0 ? "#FCD34D" : index === 1 ? "#CBD5E1" : "#FBA371";
+                const medalBg    = index === 0 ? "rgba(252,211,77,0.10)" : index === 1 ? "rgba(203,213,225,0.06)" : "rgba(251,163,113,0.07)";
+                const medalBorder = index === 0 ? "rgba(252,211,77,0.32)" : index === 1 ? "rgba(203,213,225,0.22)" : "rgba(251,163,113,0.22)";
+                const rowBg      = isMe
+                  ? `linear-gradient(90deg, ${hexToRgba(ACCENT, 0.10)} 0%, ${PANEL_BG} 70%)`
+                  : (isPodium ? medalBg : PANEL_BG);
+                const bonus      = bonusPointsFromBreakdown(entry.breakdown);
                 return (
-                  <div key={entry.member.id} className="stnt-row" style={{ display: "grid", gridTemplateColumns: "40px minmax(0,1fr) 64px 72px", alignItems: "center", background: podiumBg }}>
-                    <div style={{ textAlign: "center", fontSize: index === 0 ? 14 : 12, fontWeight: 900, color: rankColor, fontVariantNumeric: "tabular-nums" }}>{index + 1}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 12px 11px 0" }}>
-                      <AvatarChip name={entry.member.username} colorKey={entry.member.avatar_color} size={30} radius={10} fontSize={11} pro={isProProfile(entry.member)} />
+                  <div
+                    key={entry.member.id}
+                    style={{
+                      "--f1-i": Math.min(index, 8),
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "44px minmax(0,1fr) 78px" : "52px minmax(0,1fr) 96px 96px",
+                      alignItems: "center",
+                      background: rowBg,
+                      outline: isMe ? `1px solid ${hexToRgba(ACCENT, 0.32)}` : "none",
+                      outlineOffset: -1,
+                      padding: isPodium ? (isMobile ? "12px 0" : "14px 0") : (isMobile ? "10px 0" : "12px 0"),
+                    }}
+                  >
+                    {/* Medal-rank badge */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span
+                        className="stint-tabular"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: isPodium ? (isLeader ? 32 : 28) : 24,
+                          height: isPodium ? (isLeader ? 32 : 28) : 24,
+                          borderRadius: "50%",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: isPodium ? 13 : 11,
+                          fontWeight: 900,
+                          color: isPodium ? medalTone : SUBTLE_TEXT,
+                          background: isPodium ? "rgba(0,0,0,0.36)" : "transparent",
+                          border: isPodium ? `1px solid ${medalBorder}` : "none",
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+                    </div>
+
+                    {/* Avatar + username + hits/bonus */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 12, minWidth: 0 }}>
+                      <IdentityAvatar
+                        username={entry.member.username}
+                        colorKey={entry.member.avatar_color}
+                        size={isPodium ? (isLeader ? 42 : 38) : 34}
+                        pro={isProProfile(entry.member)}
+                      />
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.member.username}</div>
-                        <div style={{ fontSize: 10, color: MUTED_TEXT }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span
+                            style={{
+                              fontSize: isPodium ? 14 : 13,
+                              fontWeight: 800,
+                              letterSpacing: "-0.01em",
+                              color: isMe ? ACCENT : TEXT_PRIMARY,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {entry.member.username}
+                          </span>
+                          {isMe && (
+                            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT }}>You</span>
+                          )}
+                        </div>
+                        <div className="stint-tabular" style={{ fontSize: 11, color: SUBTLE_TEXT, marginTop: 3, fontWeight: 600 }}>
                           {entry.correctCalls} hit{entry.correctCalls !== 1 ? "s" : ""}
-                          {bonus > 0 ? ` · +${bonus} bonus` : ""}
+                          {bonus > 0 ? <> · <span style={{ color: SUCCESS_TEXT, fontWeight: 800 }}>+{bonus} bonus</span></> : null}
                         </div>
                       </div>
                     </div>
-                    <div style={{ padding: "0 8px 0 0", textAlign: "right" }}>
-                      <div style={{ fontSize: 11, color: SUBTLE_TEXT, fontVariantNumeric: "tabular-nums" }}>{entry.member.points || 0}</div>
-                      <div style={{ fontSize: 10, color: SUBTLE_TEXT, marginTop: 1 }}>season</div>
-                    </div>
-                    <div style={{ padding: "0 14px 0 0", textAlign: "right" }}>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: entry.prediction ? 20 : 14, fontWeight: 700, letterSpacing: -0.3, color: entry.prediction ? TEXT_PRIMARY : SUBTLE_TEXT, fontVariantNumeric: "tabular-nums" }}>
+
+                    {/* Season pts column (hidden on mobile) */}
+                    {!isMobile && (
+                      <div style={{ paddingRight: 16, textAlign: "right" }}>
+                        <div
+                          className="stint-tabular"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: MUTED_TEXT,
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
+                          {entry.member.points || 0}
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 2 }}>
+                          Season
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Round pts column — the protagonist */}
+                    <div style={{ paddingRight: isMobile ? 14 : 18, textAlign: "right" }}>
+                      <div
+                        className="stint-tabular"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: entry.prediction ? (isLeader ? 28 : 24) : 16,
+                          fontWeight: 700,
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1,
+                          color: entry.prediction
+                            ? (isMe ? ACCENT : isPodium ? medalTone : TEXT_PRIMARY)
+                            : SUBTLE_TEXT,
+                        }}
+                      >
                         {entry.prediction ? entry.roundScore : "—"}
                       </div>
-                      <div style={{ fontSize: 10, color: SUBTLE_TEXT, marginTop: 1 }}>pts</div>
+                      <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 4 }}>
+                        {entry.prediction ? "Pts" : "No pick"}
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
 
           {/* ── Pick comparison grid ── */}
           {hasPredictions && activePrompts.length > 0 && (
@@ -842,7 +1723,7 @@ function LeagueChatView({ items, user, isMobile, authorProfiles, currentLeague, 
                   maxWidth: isMobile ? "88%" : "72%",
                   borderRadius: mine ? "14px 14px 3px 14px" : "3px 14px 14px 14px",
                   border: mine ? `1px solid ${hexToRgba(ACCENT, 0.24)}` : PANEL_BORDER,
-                  background: mine ? `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.16)}, rgba(14,25,41,0.92))` : PANEL_BG_ALT,
+                  background: mine ? `linear-gradient(135deg, ${hexToRgba(ACCENT, 0.16)}, ${PANEL_BG_ALT})` : PANEL_BG_ALT,
                   padding: "9px 12px 8px",
                 }}
               >
@@ -1285,10 +2166,8 @@ function CreateLeagueModal({ user, isMobile, viewportHeight, leagueName, setLeag
 export default function CommunityPage({ user, openAuth, demoMode = false, setPage }) {
   const { isMobile, isTablet, width: viewportWidth, height: viewportHeight } = useViewport();
   const isProUser = user?.subscription_status === "pro";
-  const [tab, setTab] = useState("leagues");
   const [leagueView, setLeagueView] = useState("standings");
   const [authorProfiles, setAuthorProfiles] = useState({});
-  const [leaderboard, setLeaderboard] = useState([]);
   const [leagues, setLeagues] = useState([]);
   const [leagueStandings, setLeagueStandings] = useState({});
   const [leaguePosts, setLeaguePosts] = useState({});
@@ -1297,7 +2176,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
   const [leagueReviewRound, setLeagueReviewRound] = useState(null);
   const [leagueRoundReviews, setLeagueRoundReviews] = useState({});
   const [selectedLeagueId, setSelectedLeagueId] = useState(null);
-  const [loadingLB, setLoadingLB] = useState(true);
   const [leagueMessage, setLeagueMessage] = useState("");
   const [leagueName, setLeagueName] = useState("");
   const [leagueGameMode, setLeagueGameMode] = useState("standard");
@@ -1349,7 +2227,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
   const next = nextRace();
 
   useEffect(() => {
-    fetchPublicCommunity();
     fetchScoredRounds();
     fetchProLeague();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1371,8 +2248,11 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
       setSelectedLeagueId(null);
       return;
     }
-    if (!selectedLeagueId || !validIds.includes(selectedLeagueId)) {
-      setSelectedLeagueId(visibleProLeagueId || leagues[0]?.id || null);
+    // Land on the LeagueGrid by default — users browse their portfolio first,
+    // then open a single league. Only clear the selection if the previously
+    // chosen league has disappeared from the visible set.
+    if (selectedLeagueId && !validIds.includes(selectedLeagueId)) {
+      setSelectedLeagueId(null);
     }
   }, [leagues, selectedLeagueId, visibleProLeagueId]);
 
@@ -1407,8 +2287,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
         favorite_team: user.favorite_team,
       }, user),
     }));
-    setLeaderboard((current) => mergeProfilesByIdentity([...current, ...mockProStandings], user)
-      .sort((left, right) => (Number(right.points || 0) - Number(left.points || 0)) || left.username.localeCompare(right.username)));
     setLeagueStandings((current) => Object.fromEntries(
       Object.entries(current).map(([leagueId, standings]) => [leagueId, standings.map((profile) => normalizeProfileIdentity(profile, user))])
     ));
@@ -1483,28 +2361,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
       ...current,
       ...Object.fromEntries(data.map((profile) => [profile.id, normalizeProfileIdentity(profile, user)])),
     }));
-  }
-
-  async function fetchPublicCommunity() {
-    setLoadingLB(true);
-    const { data, error } = await supabase.functions.invoke("community-public-feed", {
-      body: {},
-    });
-
-    if (error) {
-      setLeaderboard(mockProStandings);
-      setLoadingLB(false);
-      return;
-    }
-
-    const leaderboardRows = mergeProfilesByIdentity([
-      ...((data?.leaderboard || []).map((profile) => normalizeProfileIdentity(profile, user))),
-      ...mockProStandings,
-    ], user)
-      .sort((left, right) => (Number(right.points || 0) - Number(left.points || 0)) || left.username.localeCompare(right.username));
-
-    setLeaderboard(leaderboardRows);
-    setLoadingLB(false);
   }
 
   async function fetchLeagues() {
@@ -1832,10 +2688,9 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     fetchLeaguePosts(currentLeague.id);
   }
 
-  const communityTabs = [["leagues", "Leagues"], ["leaderboard", "Global Leaderboard"], ["standings", "F1 Standings"]];
 
   return (
-    <div style={{ maxWidth: CONTENT_MAX, margin: "0 auto", padding: isMobile ? "28px 18px 72px" : isTablet ? "34px 22px 80px" : "38px 28px 84px", position: "relative", zIndex: 1 }}>
+    <PageShell tone="ambient" ambient="subtle">
       <style>{`
         .stnt-tab,.stnt-vtab{white-space:nowrap;transition:background 110ms ease,border-color 110ms ease,color 100ms ease,transform 90ms cubic-bezier(0.23,1,0.32,1)!important}
         .stnt-tab:active,.stnt-vtab:active{transform:scale(0.97)!important}
@@ -1860,7 +2715,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
         @media(hover:hover)and(pointer:fine){
           .stnt-pro-card:hover{transform:translateY(-1px)!important;box-shadow:0 6px 22px rgba(2,6,23,0.28)!important}
           .stnt-league-item:hover{background:rgba(255,255,255,0.035)!important}
-          .stnt-action:hover{background:rgba(255,255,255,0.06)!important}
+          .stnt-action:hover{background:var(--bg-hover)!important}
           .stnt-row:hover{background:rgba(255,255,255,0.028)!important}
         }
         /* sidebar: restore two-column layout from isMobile breakpoint up to desktop threshold */
@@ -1893,35 +2748,26 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
           .stnt-race-banner-pulse{animation:none!important}
         }
       `}</style>
-      <RaceWeekBanner race={next} isMobile={isMobile} />
-      <section style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {communityTabs.map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setTab(value)}
-              className="stnt-tab"
-              style={{
-                background: tab === value ? hexToRgba(ACCENT, 0.13) : "var(--btn-secondary-bg)",
-                border: tab === value ? `1px solid ${hexToRgba(ACCENT, 0.30)}` : "1px solid rgba(148,163,184,0.12)",
-                borderRadius: RADIUS_PILL,
-                color: tab === value ? ACCENT : MUTED_TEXT,
-                cursor: "pointer",
-                fontWeight: 800,
-                fontSize: 12,
-                padding: "9px 14px",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
+      <LeaguesLede
+        user={user}
+        demoMode={demoMode}
+        race={next}
+        leagueCount={privateLeagueCount}
+        proActive={isProUser && !!visibleProLeague}
+        joinCode={joinCode}
+        setJoinCode={setJoinCode}
+        onJoin={joinLeague}
+        onCreate={() => setShowCreateModal(true)}
+        onOpenAuth={openAuth}
+        isMobile={isMobile}
+      />
 
-      {tab === "leagues" && (
+      {(
         user ? (
-          <section className="stnt-in stnt-leagues-section" style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "300px minmax(0,1fr)", gap: 18 }}>
-            <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          currentLeague ? (
+            // ─── Selected league deep-dive ───────────────────────────────
+            <section className="stnt-in" style={{ display: "grid", gap: 18 }}>
+            <div style={{ display: "none" }}>
               {/* ── Pro featured card ── */}
               {visibleProLeague && (() => {
                 const active = selectedLeagueId === visibleProLeague.id;
@@ -1943,7 +2789,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                       minHeight: 128,
                     }}
                   >
-                    <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Hero-Main.png')", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: active ? 0.28 : 0.18, transition: "opacity 150ms ease", pointerEvents: "none" }} />
+                    <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Close%20racing.png')", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: active ? 0.28 : 0.18, transition: "opacity 150ms ease", pointerEvents: "none" }} />
                     <div style={{ position: "absolute", inset: 0, background: active ? "linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(6,16,27,0.92) 100%)" : "linear-gradient(135deg, rgba(6,16,27,0.55) 0%, rgba(6,16,27,0.97) 100%)", pointerEvents: "none" }} />
                     <div style={{ position: "relative", padding: "14px 16px 16px", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box", minHeight: 128 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -2051,144 +2897,254 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
 
             <div>
               {currentLeague && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                  {isMobile ? (
-                    <button
-                      onClick={() => setSelectedLeagueId(null)}
-                      style={{ background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0, display: "flex", alignItems: "center", gap: 5 }}
-                    >
-                      ← Back
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setSelectedLeagueId(null)}
-                        style={{ background: "none", border: "none", color: SUBTLE_TEXT, cursor: "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0 }}
-                      >
-                        Leagues
-                      </button>
-                      <span style={{ color: "var(--brand)" }}>›</span>
-                      <button
-                        onClick={() => setLeagueView("standings")}
-                        style={{ background: "none", border: "none", color: leagueView === "standings" ? "rgba(214,223,239,0.62)" : SUBTLE_TEXT, cursor: leagueView === "standings" ? "default" : "pointer", fontWeight: 800, fontSize: 11, letterSpacing: "0.08em", padding: 0 }}
-                        disabled={leagueView === "standings"}
-                      >
-                        {currentLeague.name}
-                      </button>
-                      <span style={{ color: "var(--brand)" }}>›</span>
-                      <span style={{ color: "rgba(214,223,239,0.62)" }}>
-                        {LEAGUE_VIEW_LABELS[leagueView] || leagueView}
-                      </span>
-                    </>
-                  )}
-                </div>
+                <LeagueSwitcher
+                  proLeague={visibleProLeague}
+                  privateLeagues={leagues}
+                  selectedId={selectedLeagueId}
+                  onSelect={setSelectedLeagueId}
+                  onAllLeagues={() => setSelectedLeagueId(null)}
+                  isMobile={isMobile}
+                />
               )}
               {currentLeague ? (
                 <>
-                  <div style={{ borderRadius: SECTION_RADIUS, border: currentLeague.type === "pro_community" ? "1px solid rgba(245,158,11,0.22)" : PANEL_BORDER, background: PANEL_BG, overflow: "hidden", marginBottom: 16, boxShadow: currentLeague.type === "pro_community" ? LIFTED_SHADOW : CARD_SHADOW, position: "relative" }}>
-                    {currentLeague.type === "pro_community" && (
-                      <>
-                        <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Hero-Main.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.38 }} />
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(6,16,27,0.35) 0%, rgba(6,16,27,0.88) 65%, rgba(6,16,27,1) 100%)" }} />
-                      </>
-                    )}
-                    <div style={{ position: "relative", padding: isMobile ? "16px 16px 14px" : "20px 22px 18px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-                        <div>
-                          {currentLeague.type === "pro_community" && (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: RADIUS_PILL, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.22)", marginBottom: 10 }}>
-                              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
-                              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "#fbbf24" }}>Pro League</span>
-                            </div>
-                          )}
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                            <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 900, letterSpacing: -0.8 }}>{currentLeague.name}</div>
-                          </div>
-                        </div>
+                  {(() => {
+                    const isPro     = currentLeague.type === "pro_community";
+                    const accentHue = isPro ? "#FCD34D" : ACCENT;
+                    const accentSoft= isPro ? "rgba(252,211,77,0.10)" : hexToRgba(ACCENT, 0.13);
+                    const accentBorder = isPro ? "rgba(252,211,77,0.32)" : hexToRgba(ACCENT, 0.28);
+                    const myIndex = currentStandings.findIndex((m) => m.id === user.id);
+                    const myRank  = myIndex >= 0 ? myIndex + 1 : null;
+                    const isOwner = !isPro && currentLeague.owner_id === user.id;
+                    const SUBTABS = [
+                      ["standings", "Standings"],
+                      ["review",    "Round Review"],
+                      ["chat",      "Chat"],
+                      ["setup",     "Rules"],
+                    ];
+                    const stats = [
+                      {
+                        label: "Members",
+                        value: String(currentStandings.length || 0),
+                        sub:   currentStandings.length === 1 ? "player" : "players",
+                      },
+                      leagueSummary.leader && {
+                        label: "Leader",
+                        value: leagueSummary.leader.username,
+                        sub:   leagueSummary.leader.points != null ? `${leagueSummary.leader.points} pts` : "",
+                        tone:  accentHue,
+                        big:   false,
+                      },
+                      myRank != null && {
+                        label: "Your rank",
+                        value: `#${myRank}`,
+                        sub:   myRank === 1 ? "Leading" : `−${(leagueSummary.leader?.points || 0) - (currentStandings[myIndex]?.points || 0)} pts`,
+                        tone:  ACCENT,
+                      },
+                      isPro
+                        ? { label: "Prize pool", value: "$500", sub: "Champion $250", tone: accentHue }
+                        : leagueSummary.average > 0
+                          ? { label: "Avg pts", value: String(leagueSummary.average), sub: "this season" }
+                          : null,
+                    ].filter(Boolean);
+                    return (
+                      <section
+                        className="f1-hoverable"
+                        style={{
+                          position: "relative",
+                          overflow: "hidden",
+                          borderRadius: SECTION_RADIUS,
+                          border: `1px solid ${isPro ? "rgba(252,211,77,0.28)" : PANEL_BORDER.replace("1px solid ", "")}`,
+                          background: isPro
+                            ? `linear-gradient(180deg, rgba(252,211,77,0.20) 0%, rgba(252,211,77,0.05) 28%, ${PANEL_BG} 96%), url("/images/Close%20racing.png") center 30% / cover no-repeat, ${PANEL_BG}`
+                            : `linear-gradient(180deg, ${hexToRgba(ACCENT, 0.12)} 0%, rgba(255,255,255,0) 28%, ${PANEL_BG} 96%), ${PANEL_BG}`,
+                          boxShadow: LIFTED_SHADOW,
+                          marginBottom: 16,
+                        }}
+                      >
+                        {/* Top accent rail */}
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: "absolute", top: 0, left: 0, right: 0, height: 3,
+                            background: `linear-gradient(90deg, transparent, ${accentHue} 30%, ${accentHue} 70%, transparent)`,
+                            opacity: 0.92,
+                          }}
+                        />
 
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {currentLeague.type !== "pro_community" && (
-                            <>
-                            <button onClick={() => navigator.clipboard?.writeText(currentLeague.code)} className="stnt-action" style={{ background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.14)", borderRadius: 12, color: "#dbe4f0", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 12 }}>
-                              Code {currentLeague.code}
-                            </button>
-                            {currentLeague.owner_id === user.id ? (
-                              <button onClick={() => deleteLeague(currentLeague.id)} className="stnt-action" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.26)", borderRadius: 12, color: "#fca5a5", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 12 }}>
-                                Delete league
-                              </button>
-                            ) : (
-                              <button onClick={() => leaveLeague(currentLeague.id)} className="stnt-action" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.26)", borderRadius: 12, color: "#fca5a5", cursor: "pointer", fontWeight: 700, padding: "10px 12px", fontSize: 12 }}>
-                                Leave league
-                              </button>
-                            )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {currentLeague.type === "pro_community" ? (
-                        <>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: RADIUS_PILL, background: "rgba(245,158,11,0.09)", border: "1px solid rgba(245,158,11,0.18)" }}>
-                              <span style={{ fontSize: 12, fontWeight: 900, color: "#fde68a", fontVariantNumeric: "tabular-nums" }}>{currentStandings.length || 0}</span>
-                              <span style={{ fontSize: 10, color: "rgba(252,211,77,0.55)", fontWeight: 700 }}>competing</span>
+                        <div style={{ position: "relative", padding: isMobile ? "20px 18px 4px" : "26px 26px 8px" }}>
+                          {/* Row 1: kicker pill + actions */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 11px", borderRadius: RADIUS_PILL, background: accentSoft, border: `1px solid ${accentBorder}` }}>
+                              <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: accentHue }} />
+                              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: accentHue }}>
+                                {isPro ? "Pro Community League" : "Private league"}
+                              </span>
+                              {!isPro && currentLeague.code && (
+                                <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", color: accentHue, fontFamily: "var(--font-mono)", paddingLeft: 4, borderLeft: `1px solid ${accentBorder}` }}>
+                                  · {currentLeague.code}
+                                </span>
+                              )}
                             </div>
-                            {leagueSummary.leader && (
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: RADIUS_PILL, background: "rgba(245,158,11,0.09)", border: "1px solid rgba(245,158,11,0.18)" }}>
-                                <span style={{ fontSize: 12, fontWeight: 900, color: "#fde68a" }}>{leagueSummary.leader.username}</span>
-                                <span style={{ fontSize: 10, color: "rgba(252,211,77,0.55)", fontWeight: 700 }}>leading</span>
+                            {!isPro && (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigator.clipboard?.writeText(currentLeague.code)}
+                                  className="f1-hoverable"
+                                  style={{ background: "var(--btn-secondary-bg)", border: "1px solid var(--border-soft)", borderRadius: RADIUS_PILL, color: TEXT_PRIMARY, cursor: "pointer", fontWeight: 800, padding: "8px 14px", fontSize: 12, letterSpacing: "-0.005em" }}
+                                >
+                                  Copy code
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => (isOwner ? deleteLeague(currentLeague.id) : leaveLeague(currentLeague.id))}
+                                  className="f1-hoverable"
+                                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.26)", borderRadius: RADIUS_PILL, color: "#fca5a5", cursor: "pointer", fontWeight: 800, padding: "8px 14px", fontSize: 12, letterSpacing: "-0.005em" }}
+                                >
+                                  {isOwner ? "Delete league" : "Leave"}
+                                </button>
                               </div>
                             )}
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: RADIUS_PILL, background: isProUser ? "rgba(34,197,94,0.1)" : "rgba(96,165,250,0.1)", border: isProUser ? "1px solid rgba(34,197,94,0.22)" : "1px solid rgba(96,165,250,0.22)" }}>
-                              <span style={{ fontSize: 12, fontWeight: 900, color: isProUser ? "#86efac" : "#93c5fd" }}>{isProUser ? "Competing" : "Viewing"}</span>
-                            </div>
                           </div>
-                          <div style={{ fontSize: 11, color: "rgba(252,211,77,0.55)", fontWeight: 700 }}>
-                            Champion $250 · Podium pool $500 · Season perks for top 3
-                          </div>
-                        </>
-                      ) : (
-                        <div style={{ fontSize: 12, color: MUTED_TEXT, lineHeight: 1.6 }}>
-                          <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>{currentStandings.length || 0}</span> members
-                          {leagueSummary.leader && <> · Leader: <span style={{ color: TEXT_PRIMARY, fontWeight: 800 }}>{leagueSummary.leader.username}</span></>}
-                          {leagueSummary.average > 0 && <> · Avg {leagueSummary.average} pts</>}
-                          {next?.n && <> · Next: {next.n}</>}
-                        </div>
-                      )}
 
-                      <div className="stnt-vtab-strip" style={{ marginTop: 16 }}>
-                        {[["standings", "Standings"], ["review", "Round Review"], ["chat", "Chat"], ["setup", "Rules"]].map(([value, label]) => (
-                          <button
-                            key={value}
-                            onClick={() => setLeagueView(value)}
-                            className="stnt-vtab"
+                          {/* Row 2: BIG title */}
+                          <h2
                             style={{
-                              background: leagueView === value ? hexToRgba(ACCENT, 0.13) : "transparent",
-                              border: leagueView === value ? `1px solid ${hexToRgba(ACCENT, 0.3)}` : "1px solid rgba(148,163,184,0.14)",
-                              borderRadius: RADIUS_PILL,
-                              color: leagueView === value ? ACCENT : MUTED_TEXT,
-                              cursor: "pointer",
-                              padding: "8px 14px",
-                              fontSize: 11,
-                              fontWeight: 800,
-                              letterSpacing: "0.01em",
-                              flexShrink: 0,
+                              margin: 0,
+                              fontFamily: "var(--font-display)",
+                              fontSize: isMobile ? 32 : 52,
+                              fontWeight: 900,
+                              letterSpacing: "-0.05em",
+                              lineHeight: 0.95,
+                              color: isPro ? "rgba(255,255,255,0.98)" : TEXT_PRIMARY,
+                              textShadow: isPro ? "0 2px 18px rgba(0,0,0,0.36)" : "none",
+                              textTransform: isPro ? "uppercase" : "none",
+                              marginBottom: isMobile ? 16 : 20,
                             }}
                           >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                            {currentLeague.name}
+                          </h2>
+
+                          {/* Row 3: stat strip */}
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : `repeat(${stats.length}, minmax(0, 1fr))`,
+                              gap: 1,
+                              background: HAIRLINE,
+                              border: `1px solid ${HAIRLINE}`,
+                              borderRadius: CARD_RADIUS,
+                              overflow: "hidden",
+                              marginBottom: isMobile ? 14 : 18,
+                            }}
+                          >
+                            {stats.map((s, i) => (
+                              <div
+                                key={`${s.label}-${i}`}
+                                style={{
+                                  padding: isMobile ? "12px 14px" : "14px 16px",
+                                  background: PANEL_BG_ALT,
+                                  minWidth: 0,
+                                }}
+                              >
+                                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 4 }}>
+                                  {s.label}
+                                </div>
+                                <div
+                                  className="stint-tabular"
+                                  style={{
+                                    fontFamily: s.label === "Members" || s.label === "Your rank" || s.label === "Prize pool" || s.label === "Avg pts" ? "var(--font-mono)" : "var(--font-display)",
+                                    fontSize: isMobile ? 22 : 26,
+                                    fontWeight: 800,
+                                    letterSpacing: "-0.03em",
+                                    lineHeight: 1.05,
+                                    color: s.tone || TEXT_PRIMARY,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {s.value}
+                                </div>
+                                {s.sub && (
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: SUBTLE_TEXT, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {s.sub}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {isPro && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(252,211,77,0.62)", letterSpacing: "0.02em", marginBottom: 14 }}>
+                              Champion $250 · Podium pool $500 · Season perks for top 3
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Row 4: subtab strip */}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            overflowX: "auto",
+                            WebkitOverflowScrolling: "touch",
+                            padding: isMobile ? "0 18px 16px" : "0 26px 18px",
+                            scrollSnapType: "x proximity",
+                            position: "relative",
+                          }}
+                        >
+                          {SUBTABS.map(([value, label]) => {
+                            const active = leagueView === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setLeagueView(value)}
+                                aria-pressed={active}
+                                style={{
+                                  scrollSnapAlign: "start",
+                                  flexShrink: 0,
+                                  padding: "10px 16px",
+                                  borderRadius: RADIUS_PILL,
+                                  border: active
+                                    ? `1px solid ${hexToRgba(ACCENT, 0.42)}`
+                                    : "1px solid var(--border-soft)",
+                                  background: active
+                                    ? hexToRgba(ACCENT, 0.13)
+                                    : "var(--btn-secondary-bg)",
+                                  color: active ? ACCENT : TEXT_PRIMARY,
+                                  fontFamily: "var(--font-body)",
+                                  fontSize: 13,
+                                  fontWeight: 800,
+                                  letterSpacing: "-0.005em",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                  minHeight: 40,
+                                  transition:
+                                    "background 140ms cubic-bezier(0.23,1,0.32,1), border-color 140ms cubic-bezier(0.23,1,0.32,1), color 140ms cubic-bezier(0.23,1,0.32,1)",
+                                  viewTransitionName: active ? "league-active-tab" : undefined,
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
 
                   {leagueView === "standings" && (
                     <div className="stnt-in-fast">
                       <LeagueStandingsView
+                        user={user}
                         currentLeague={currentLeague}
                         currentStandings={currentStandings}
                         leagueStandings={leagueStandings}
                         leagueSummary={leagueSummary}
+                        isMobile={isMobile}
                         isTablet={isTablet}
                       />
                     </div>
@@ -2197,6 +3153,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                   {leagueView === "review" && (
                     <div className="stnt-in-fast">
                       <LeagueReviewView
+                        user={user}
                         currentLeague={currentLeague}
                         currentLeagueReview={currentLeagueReview}
                         currentLeagueRoundResult={currentLeagueRoundResult}
@@ -2243,19 +3200,59 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                     </div>
                   )}
                 </>
-              ) : (
-                <div style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, padding: 28, boxShadow: SOFT_SHADOW }}>
-                  <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>No league selected</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.65, color: MUTED_TEXT }}>
-                    Create a new league or join with a code to open a dedicated standings and discussion space.
-                  </div>
-                </div>
-              )}
+              ) : null}
             </div>
           </section>
+          ) : (
+            // ─── League grid (no league selected) ──────────────────────────
+            <section className="stnt-in f1-stagger-strong" style={{ display: "grid", gap: 14 }}>
+              {leagues.length === 0 && !visibleProLeague ? (
+                <EmptyLeaguesState onCreate={() => setShowCreateModal(true)} isMobile={isMobile} />
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
+                    gap: isMobile ? 12 : 16,
+                  }}
+                >
+                  {visibleProLeague && (
+                    <div style={{ "--f1-i": 0, gridColumn: isMobile ? "auto" : isTablet ? "1 / -1" : "1 / span 2" }}>
+                      <LeagueCard
+                        league={visibleProLeague}
+                        active={false}
+                        variant="pro"
+                        members={leagueStandings[visibleProLeague.id] || []}
+                        proActive={isProUser}
+                        onSelect={() => setSelectedLeagueId(visibleProLeague.id)}
+                        isMobile={isMobile}
+                      />
+                    </div>
+                  )}
+                  {leagues.map((league, i) => {
+                    const standings = leagueStandings[league.id] || [];
+                    const myIndex = standings.findIndex((m) => m.id === user.id);
+                    return (
+                      <div key={league.id} style={{ "--f1-i": i + (visibleProLeague ? 1 : 0) }}>
+                        <LeagueCard
+                          league={league}
+                          active={false}
+                          variant="private"
+                          members={standings}
+                          yourRank={myIndex >= 0 ? myIndex + 1 : null}
+                          onSelect={() => setSelectedLeagueId(league.id)}
+                          isMobile={isMobile}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )
         ) : (
           <div style={{ borderRadius: SECTION_RADIUS, border: "1px solid rgba(245,158,11,0.22)", background: PANEL_BG, overflow: "hidden", boxShadow: LIFTED_SHADOW, position: "relative" }}>
-            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Hero-Main.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.22 }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Close%20racing.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.22 }} />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(6,16,27,0.4) 0%, rgba(6,16,27,0.96) 60%, rgba(6,16,27,1) 100%)" }} />
             <div style={{ position: "relative", padding: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap", marginBottom: 18 }}>
@@ -2287,9 +3284,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                   <button onClick={() => setPage?.("pro")} style={{ background: PANEL_BG_ALT, border: "1px solid rgba(148,163,184,0.18)", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 800, padding: "12px 14px", fontSize: 13 }}>
                     Join Pro
                   </button>
-                  <button onClick={() => setTab("leaderboard")} style={{ background: "transparent", border: "1px solid rgba(148,163,184,0.18)", borderRadius: 12, color: MUTED_TEXT, cursor: "pointer", fontWeight: 800, padding: "12px 14px", fontSize: 13 }}>
-                    Open Global Leaderboard
-                  </button>
                 </div>
               </div>
 
@@ -2320,104 +3314,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
         )
       )}
 
-      {tab === "leaderboard" && (
-        <section className="stnt-in" style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: LIFTED_SHADOW }}>
-          <PageMasthead
-            variant="flush"
-            marginBottom={0}
-            eyebrow={loadingLB ? "Loading" : "Live standings"}
-            eyebrowTone="live"
-            title="Global standings"
-            description="Every player ranked by season score"
-            image={{ src: "/images/hero-glow.png" }}
-            tone="ambient"
-            minHeight={isMobile ? 110 : isTablet ? 132 : 156}
-            style={{ padding: isMobile ? "16px 16px 14px" : "20px 22px 16px" }}
-            meta={!loadingLB && leaderboard.length > 0 ? (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
-                <div style={{ borderRadius: 16, border: `1px solid ${hexToRgba(ACCENT, 0.2)}`, background: hexToRgba(ACCENT, 0.06), padding: "8px 14px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono)" }}>{leaderboard.length}</div>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginTop: 2 }}>Players</div>
-                </div>
-                <div style={{ borderRadius: 16, border: "1px solid rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", padding: "8px 12px 8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                  <AvatarChip name={leaderboard[0]?.username || "?"} colorKey={leaderboard[0]?.avatar_color} size={28} radius={9} fontSize={10} pro={isProProfile(leaderboard[0])} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: -0.2, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{leaderboard[0]?.username || "—"}</div>
-                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Season leader</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          />
-          {loadingLB ? (
-            <div style={{ padding: 30, color: MUTED_TEXT, fontSize: 13 }}>Loading leaderboard...</div>
-          ) : leaderboard.length === 0 ? (
-            <div style={{ padding: "28px 22px", color: MUTED_TEXT, textAlign: "center", fontSize: 13 }}>No players yet.</div>
-          ) : (
-            <>
-              {/* Podium — P1/P2/P3 */}
-              {leaderboard.length >= 3 && (
-                <div style={{ padding: isMobile ? "16px 14px" : "20px 18px", borderBottom: `1px solid ${HAIRLINE}`, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 10 }}>
-                  {[
-                    { index: 0, color: "#F59E0B", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.22)", label: "Champion" },
-                    { index: 1, color: "#CBD5E1", bg: "rgba(203,213,225,0.06)", border: "rgba(203,213,225,0.16)", label: "P2" },
-                    { index: 2, color: "#C2956C", bg: "rgba(180,130,80,0.06)", border: "rgba(180,130,80,0.18)", label: "P3" },
-                  ].map(({ index, color, bg, border, label }) => {
-                    const player = leaderboard[index];
-                    const isMe = player?.id === user?.id;
-                    return (
-                      <div key={index} style={{ borderRadius: 14, border: `1px solid ${border}`, background: bg, padding: "14px 15px 13px", display: "flex", alignItems: "center", gap: 12 }}>
-                        <AvatarChip name={player?.username} colorKey={player?.avatar_color} size={index === 0 ? 42 : 36} radius={index === 0 ? 14 : 12} fontSize={index === 0 ? 14 : 12} pro={isProProfile(player)} />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color, marginBottom: 3 }}>{label}</div>
-                          <div style={{ fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: isMe ? hexToRgba(ACCENT, 0.9) : TEXT_PRIMARY }}>{player?.username || "—"}</div>
-                        </div>
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontSize: index === 0 ? 20 : 17, fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>{player?.points || 0}</div>
-                          <div style={{ fontSize: 10, color: SUBTLE_TEXT, marginTop: 1 }}>pts</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
 
-              <div style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr) 100px", background: PANEL_BG_ALT, borderBottom: `1px solid ${HAIRLINE}` }}>
-                <div style={{ textAlign: "center", padding: "8px 0", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>#</div>
-                <div style={{ padding: "8px 14px", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Player</div>
-                <div style={{ textAlign: "right", padding: "8px 16px 8px 0", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE_TEXT }}>Pts</div>
-              </div>
-              <div className="stnt-stagger" style={{ display: "grid", gap: 1, background: HAIRLINE, maxHeight: 600, overflowY: "auto" }}>
-                {leaderboard.map((player, index) => {
-                  const isMe = player.id === user?.id;
-                  return (
-                    <div key={player.id || player.username} className="stnt-row" style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr) 100px", background: isMe ? hexToRgba(ACCENT, 0.07) : index === 0 ? "rgba(245,158,11,0.07)" : index === 1 ? "rgba(203,213,225,0.04)" : index === 2 ? "rgba(180,130,80,0.04)" : PANEL_BG, outline: isMe ? `1px solid ${hexToRgba(ACCENT, 0.18)}` : "none", outlineOffset: -1 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: index === 0 ? 18 : index < 3 ? 15 : 13, fontWeight: 900, color: index === 0 ? "#F59E0B" : index === 1 ? "#CBD5E1" : index === 2 ? "#C2956C" : SUBTLE_TEXT, fontVariantNumeric: "tabular-nums" }}>
-                        {index + 1}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: index < 3 ? "14px 14px" : "11px 14px" }}>
-                        <AvatarChip name={player.username} colorKey={player.avatar_color} size={index < 3 ? 36 : 32} radius={index < 3 ? 11 : 10} pro={isProProfile(player)} />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: index < 3 ? 14 : 13, fontWeight: 800, color: isMe ? hexToRgba(ACCENT, 0.9) : TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player.username}</div>
-                          <div style={{ fontSize: 11, color: MUTED_TEXT }}>{isMe ? "You" : index === 0 ? "Season leader" : index === 1 ? "Podium pace" : index === 2 ? "Prize bracket" : "Active player"}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", padding: "0 16px 0 0" }}>
-                        <div style={{ fontSize: index < 3 ? 18 : 15, fontWeight: 900, color: isMe ? hexToRgba(ACCENT, 0.9) : index < 3 ? "#f8fafc" : TEXT_PRIMARY, fontVariantNumeric: "tabular-nums" }}>{player.points || 0}</div>
-                        {index < 3 && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: SUBTLE_TEXT }}>pts</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </section>
-      )}
-
-      {tab === "standings" && (
-        <div className="stnt-in"><StandingsPage compact /></div>
-      )}
 
       {/* ── Create League Modal ── */}
       {showCreateModal && (
@@ -2448,6 +3345,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
           onGoToPro={() => setPage?.("pro")}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

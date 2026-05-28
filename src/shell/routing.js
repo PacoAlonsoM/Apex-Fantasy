@@ -2,7 +2,6 @@ export const APP_BASE_PATH = "/app";
 
 const APP_PAGE_KEYS = new Set([
   "home",
-  "calendar",
   "public-picks",
   "predictions",
   "ai-brief",
@@ -30,7 +29,6 @@ const APP_PAGE_KEYS = new Set([
 
 const ROOT_PATH_BY_PAGE = {
   home: "/",
-  calendar: "/calendar",
   "public-picks": "/picks",
   "ai-brief": "/insight",
   news: "/wire",
@@ -58,7 +56,9 @@ const PAGE_BY_ROOT_PATH = new Map(
 
 const LEGACY_SLUG_TO_PAGE = {
   home: "home",
-  calendar: "calendar",
+  // `calendar` legacy slug now resolves to Home — the round selector + lede
+  // absorbed the old /calendar surface.
+  calendar: "home",
   picks: "public-picks",
   "public-picks": "public-picks",
   predictions: "predictions",

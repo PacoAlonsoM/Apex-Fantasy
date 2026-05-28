@@ -4,10 +4,11 @@ import {
   ACCENT,
   BRAND_GRADIENT,
   CARD_RADIUS,
-  CONTENT_MAX,
+  CARD_SHADOW,
   EASE_OUT_EXPO,
   ERROR_TEXT,
   HAIRLINE,
+  LIFTED_SHADOW,
   LIVE_GREEN,
   MUTED_TEXT,
   PANEL_BG,
@@ -16,6 +17,7 @@ import {
   PRO_AMBER_DOT,
   RADIUS_MD,
   RADIUS_PILL,
+  SECTION_RADIUS,
   SUBTLE_TEXT,
   SUCCESS,
   TEXT_PRIMARY,
@@ -37,6 +39,7 @@ import usePageMetadata from "@/src/lib/usePageMetadata";
 import IdentityAvatar from "@/src/ui/IdentityAvatar";
 import SectionLabel from "@/src/ui/SectionLabel";
 import PageMasthead from "@/src/ui/PageMasthead";
+import PageShell from "@/src/ui/PageShell";
 
 // ─── Seed posts — rendered when the database is empty ────────────────────────
 
@@ -413,6 +416,249 @@ function VoteColumn({ postId, score, userVote, isOwn, disabled, onVote, isMobile
 
 // ─── Masthead — editorial opening ───────────────────────────────────────────
 
+// ─── PaddockBriefing — unified hero (Masthead + Pulse strip + Composer) ─────
+//
+// One card: race context, the room's mood (winner consensus, DNF, voices,
+// ideas), and an inline composer. Replaces three stacked sections so the
+// user lands directly on "what's happening + how to join in."
+
+function PaddockBriefingChip({ kicker, value, sub, accent, isMobile, mono }) {
+  return (
+    <div style={{
+      padding: isMobile ? "10px 12px 11px" : "12px 14px 12px",
+      borderRadius: 12,
+      background: "rgba(6,16,27,0.50)",
+      border: `1px solid ${rgbaFromHex(accent || "#94a3b8", 0.20)}`,
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: 3,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, bottom: 0, left: 0, width: 2,
+        background: accent || "rgba(148,163,184,0.6)",
+        opacity: 0.65,
+      }} />
+      <span style={{
+        fontSize: 9, fontWeight: 900,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: SUBTLE_TEXT,
+      }}>{kicker}</span>
+      <span style={{
+        fontSize: isMobile ? 15 : 16,
+        fontWeight: 900,
+        letterSpacing: mono ? "-0.035em" : "-0.022em",
+        color: accent || TEXT_PRIMARY,
+        fontFamily: mono ? "var(--font-mono)" : "inherit",
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1.1,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      }}>{value || "—"}</span>
+      {sub && (
+        <span style={{
+          fontSize: 10.5,
+          color: SUBTLE_TEXT,
+          fontWeight: 600,
+          letterSpacing: "-0.005em",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}>{sub}</span>
+      )}
+    </div>
+  );
+}
+
+function PaddockBriefing({
+  race, mood, loading, threadCount, voicesCount, isSeedMode, isMobile,
+  user, demoPreview, openAuth, onSubmit, posting,
+}) {
+  const roundLabel = race?.r ? `R${String(race.r).padStart(2, "0")}` : "—";
+  const raceName   = race?.n || "this weekend";
+  const raceDate   = race?.date
+    ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(race.date)).toUpperCase()
+    : null;
+
+  const pulseStatus = (() => {
+    if (loading)    return { live: false, copy: "Walking the paddock…" };
+    if (isSeedMode) return { live: false, copy: "Paddock opens this week" };
+    const threads = threadCount || 0;
+    const voices  = voicesCount || 0;
+    if (!threads)   return { live: false, copy: "Start the first thread" };
+    const vPart = voices ? `${voices} ${voices === 1 ? "voice" : "voices"}` : null;
+    const tPart = `${threads} ${threads === 1 ? "thread" : "threads"}`;
+    return { live: true, copy: [vPart, tPart].filter(Boolean).join(" · ") };
+  })();
+
+  return (
+    <section
+      className="pd-masthead"
+      style={{
+        position:     "relative",
+        overflow:     "hidden",
+        borderRadius: SECTION_RADIUS,
+        border:       PANEL_BORDER,
+        background:   `
+          linear-gradient(140deg, ${rgbaFromHex(ACCENT, 0.32)} 0%, ${rgbaFromHex(ACCENT, 0.08)} 40%, rgba(6,16,27,0.96) 100%),
+          url("/images/Rear%20close%20up.png") center / cover no-repeat,
+          ${PANEL_BG}
+        `,
+        boxShadow:    LIFTED_SHADOW,
+        marginBottom: isMobile ? 22 : 28,
+        padding:      isMobile ? "22px 20px 22px" : "32px 36px 30px",
+      }}
+    >
+      {/* Top accent rail */}
+      <span aria-hidden="true" style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
+        opacity: 0.92,
+      }} />
+
+      {/* Row 1: kicker + live status */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, flexWrap: "wrap", marginBottom: isMobile ? 14 : 18,
+      }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.78)", flexWrap: "wrap" }}>
+          <span aria-hidden="true" style={{
+            width: 6, height: 6, borderRadius: "50%", background: ACCENT,
+            boxShadow: `0 0 0 4px ${rgbaFromHex(ACCENT, 0.22)}`,
+          }} />
+          <span style={{
+            fontSize: 11, fontWeight: 800,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.84)",
+            fontVariantNumeric: "tabular-nums",
+          }}>The Paddock · {roundLabel}{raceDate ? ` · ${raceDate}` : ""}</span>
+        </div>
+        <span
+          className={pulseStatus.live ? "pd-pulse-live" : ""}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "5px 12px",
+            borderRadius: RADIUS_PILL,
+            background: "rgba(6,16,27,0.42)",
+            border: `1px solid ${rgbaFromHex(pulseStatus.live ? LIVE_GREEN : "#94a3b8", 0.28)}`,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className={pulseStatus.live ? "pd-pulse-dot pd-pulse-dot--live" : "pd-pulse-dot"}
+            style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: pulseStatus.live ? LIVE_GREEN : "rgba(148,163,184,0.5)",
+              boxShadow: pulseStatus.live ? `0 0 0 3px ${rgbaFromHex(SUCCESS, 0.16)}` : "none",
+              flexShrink: 0,
+            }}
+          />
+          <span style={{
+            fontSize: 10, fontWeight: 800,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            color: pulseStatus.live ? "rgba(255,255,255,0.92)" : SUBTLE_TEXT,
+            fontVariantNumeric: "tabular-nums",
+          }}>
+            {pulseStatus.copy}
+          </span>
+        </span>
+      </div>
+
+      {/* Row 2: wordmark + lede */}
+      <div style={{ marginBottom: isMobile ? 18 : 22 }}>
+        <h1 className="stint-page-title" style={{
+          margin: 0,
+          fontSize: isMobile ? "clamp(40px, 11vw, 58px)" : "clamp(56px, 6.8vw, 84px)",
+          fontWeight: 900,
+          letterSpacing: isMobile ? "-0.05em" : "-0.055em",
+          lineHeight: 0.92,
+          color: "rgba(255,255,255,0.98)",
+          textShadow: "0 2px 18px rgba(0,0,0,0.32)",
+          textTransform: "uppercase",
+        }}>
+          The Paddock
+        </h1>
+        <div aria-hidden="true" style={{
+          display: "flex", alignItems: "center", gap: 0,
+          marginTop: isMobile ? 12 : 14,
+          marginBottom: isMobile ? 10 : 12,
+        }}>
+          <span style={{ width: 48, height: 2, background: ACCENT, flexShrink: 0 }} />
+          <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.10)" }} />
+        </div>
+        <p style={{
+          margin: 0,
+          fontSize: isMobile ? 13.5 : 15,
+          lineHeight: 1.55,
+          color: "rgba(226,232,240,0.78)",
+          letterSpacing: "-0.005em",
+          maxWidth: "52ch",
+          fontWeight: 500,
+        }}>
+          Where Stint reads the room before{" "}
+          <span style={{ color: "rgba(255,255,255,0.96)", fontWeight: 800 }}>{raceName}</span>.
+        </p>
+      </div>
+
+      {/* Row 3: pulse chips strip */}
+      {mood && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+          gap: isMobile ? 8 : 10,
+          marginBottom: isMobile ? 16 : 20,
+        }}>
+          <PaddockBriefingChip
+            kicker="Winner consensus"
+            value={mood.winner?.name || "Open"}
+            sub={mood.winner ? `${mood.winner.share}% of the room` : "Picks fill this week"}
+            accent={ACCENT}
+            isMobile={isMobile}
+          />
+          <PaddockBriefingChip
+            kicker="Hot DNF call"
+            value={mood.dnf?.name || "—"}
+            sub={mood.dnf ? `${mood.dnf.share}% taking risk` : "Room deciding"}
+            accent={PRO_AMBER_DOT}
+            isMobile={isMobile}
+          />
+          <PaddockBriefingChip
+            kicker="Voices this week"
+            value={String(mood.voices ?? "—")}
+            sub={mood.proActive ? `${mood.proActive} Pro active` : "Members posting"}
+            accent="#7dd3fc"
+            isMobile={isMobile}
+            mono
+          />
+          <PaddockBriefingChip
+            kicker="Ideas in motion"
+            value={String(mood.ideas ?? "—")}
+            sub={mood.topIdea || "Submit an idea"}
+            accent={INFO_SOFT}
+            isMobile={isMobile}
+            mono
+          />
+        </div>
+      )}
+
+      {/* Row 4: inline composer */}
+      <InlineComposer
+        user={user}
+        demoPreview={demoPreview}
+        openAuth={openAuth}
+        onSubmit={onSubmit}
+        posting={posting}
+        raceName={raceName}
+        isMobile={isMobile}
+      />
+    </section>
+  );
+}
+
 function PaddockMasthead({ race, loading, threadCount, voicesCount, isSeedMode, isMobile }) {
   const roundLabel = race?.r ? `R${String(race.r).padStart(2, "0")}` : "—";
   const raceName   = race?.n || "this weekend";
@@ -524,7 +770,7 @@ function PaddockMasthead({ race, loading, threadCount, voicesCount, isSeedMode, 
       eyebrow={eyebrow}
       meta={metaNode}
       identityRow={wordmark}
-      image={{ src: "/images/Grid%20lights.png", position: "right-mask" }}
+      image={{ src: "/images/Rear%20close%20up.png", position: "right-mask" }}
       tone="editorial"
     />
   );
@@ -1132,7 +1378,7 @@ function VoiceOfTheGrid({ quote, author, threadTitle, authorProfile, pro, onOpen
           padding:       isMobile ? "22px 20px 22px" : "28px 30px 26px",
           borderRadius:  CARD_RADIUS,
           border:        `1px solid ${HAIRLINE}`,
-          background:    `linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.002))`,
+          background:    PANEL_BG_ALT,
           color:         "inherit",
           font:          "inherit",
           cursor:        "pointer",
@@ -2421,7 +2667,7 @@ function LightsOut({ race, isMobile }) {
         marginTop:      isMobile ? 20 : 28,
         padding:        isMobile ? "28px 22px 26px" : "36px 32px 32px",
         borderRadius:   CARD_RADIUS,
-        background:     `linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005))`,
+        background:     PANEL_BG_ALT,
         border:         `1px solid ${HAIRLINE}`,
         overflow:       "hidden",
       }}
@@ -2550,6 +2796,19 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
   const [totalPostCount, setTotalPostCount] = useState(0);
   const [mood, setMood]                 = useState(null);
   const [boardFilter, setBoardFilter]   = useState("all");
+  const [gridSubtab, setGridSubtab]     = useState(() => {
+    if (typeof window === "undefined") return "talk";
+    const requested = new URLSearchParams(window.location.search).get("view");
+    return ["talk", "shape", "highlights"].includes(requested) ? requested : "talk";
+  });
+  const switchSubtab = (next) => {
+    if (next === gridSubtab) return;
+    if (typeof document !== "undefined" && document.startViewTransition) {
+      document.startViewTransition(() => setGridSubtab(next));
+    } else {
+      setGridSubtab(next);
+    }
+  };
 
   usePageMetadata({
     title:       "The Paddock — Stint Community",
@@ -2960,20 +3219,7 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className="stint-page-enter"
-      style={{
-        maxWidth: CONTENT_MAX,
-        margin:   "0 auto",
-        padding:  isNarrowPhone
-          ? "22px 14px 64px"
-          : isMobile ? "26px 18px 72px"
-          : isTablet ? "32px 24px 80px"
-          : "40px 32px 96px",
-        position: "relative",
-        zIndex:   1,
-      }}
-    >
+    <PageShell tone="live" ambient="glow">
       <style>{`
         /* ── Motion tokens
            - Curve: --gr-ease = ${EASE_OUT_EXPO} — ease-out-expo, STINT's signature.
@@ -3282,7 +3528,7 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
         @media (hover: hover) and (pointer: fine) {
           .gr-lightsout:hover {
             border-color: ${rgbaFromHex(ACCENT, 0.30)};
-            background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.008));
+            background: var(--bg-hover);
           }
           .gr-lightsout:hover .gr-lightsout-cta {
             transform: translateX(3px);
@@ -3304,19 +3550,34 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
           animation: gr-pulse-dot 2600ms ${EASE_OUT_EXPO} infinite;
         }
 
-        /* Entry orchestration — masthead → pulse → composer → featured → voice → board → shaping
-           Tight 60ms cadence stagger. translateY(8px) instead of 6 for a touch more deliberate read. */
+        /* Entry orchestration — hero → subtab nav → subtab body → footer.
+           Tight 80ms cadence. The hero is one card now (Masthead + Pulse +
+           Composer merged) so the cascade is fewer steps. */
         @keyframes gr-section-in {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .pd-masthead { animation: gr-section-in 420ms ${EASE_OUT_EXPO} both; }
-        .gr-pulse    { animation: gr-section-in 400ms 60ms  ${EASE_OUT_EXPO} both; }
-        .gr-composer { animation: gr-section-in 400ms 120ms ${EASE_OUT_EXPO} both; }
-        .gr-featured { animation: gr-section-in 400ms 180ms ${EASE_OUT_EXPO} both; }
-        .gr-voice    { animation: gr-section-in 400ms 240ms ${EASE_OUT_EXPO} both; }
-        .gr-board    { animation: gr-section-in 400ms 300ms ${EASE_OUT_EXPO} both; }
-        .gr-shaping  { animation: gr-section-in 400ms 360ms ${EASE_OUT_EXPO} both; }
+        .pd-masthead       { animation: gr-section-in 420ms ${EASE_OUT_EXPO} both; }
+        .gr-subtab-nav     { animation: gr-section-in 400ms 80ms ${EASE_OUT_EXPO} both; }
+        .gr-featured       { animation: gr-section-in 400ms 140ms ${EASE_OUT_EXPO} both; }
+        .gr-voice          { animation: gr-section-in 400ms 200ms ${EASE_OUT_EXPO} both; }
+        .gr-board          { animation: gr-section-in 400ms 140ms ${EASE_OUT_EXPO} both; }
+        .gr-shaping        { animation: gr-section-in 400ms 140ms ${EASE_OUT_EXPO} both; }
+        .gr-composer       { animation: gr-section-in 400ms 280ms ${EASE_OUT_EXPO} both; }
+
+        /* Subtab pills — hover lift + active morph */
+        .gr-subtab {
+          transition: background 200ms ${EASE_OUT_EXPO}, border-color 200ms ${EASE_OUT_EXPO}, transform 160ms ${EASE_OUT_EXPO};
+          -webkit-tap-highlight-color: transparent;
+        }
+        .gr-subtab:active { transform: scale(0.97); }
+
+        /* View-transition for the subtab body morph */
+        ::view-transition-old(grid-subtab-body),
+        ::view-transition-new(grid-subtab-body) {
+          animation-duration: 320ms;
+          animation-timing-function: ${EASE_OUT_EXPO};
+        }
 
         @media (prefers-reduced-motion: reduce) {
           .gr-board-row, .gr-featured-card, .gr-idea, .gr-tab, .gr-vote-btn, .gr-cta,
@@ -3329,103 +3590,191 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
           .gr-voice-card:active {
             transform: none !important;
           }
-          .pd-masthead, .gr-pulse, .gr-composer, .gr-featured, .gr-voice, .gr-board, .gr-shaping,
-          .gr-thread-reveal, .gr-thread-content, .gr-composer-form, .gr-score-pop {
-            animation: none !important; opacity: 1 !important; transform: none !important;
+          .pd-masthead, .gr-subtab-nav, .gr-composer, .gr-featured, .gr-voice, .gr-board, .gr-shaping,
+          .gr-thread-reveal, .gr-thread-content, .gr-composer-form, .gr-score-pop, .gr-subtab {
+            animation: none !important; opacity: 1 !important; transform: none !important; transition: none !important;
           }
           .gr-thread-reveal { grid-template-rows: 1fr !important; }
           .gr-lightsout-light, .pd-pulse-dot--live { animation: none !important; }
+          ::view-transition-old(grid-subtab-body), ::view-transition-new(grid-subtab-body) { animation: none !important; }
         }
       `}</style>
 
-      <PaddockMasthead
+      {/* Unified hero — masthead + pulse + composer in one card */}
+      <PaddockBriefing
         race={currentRace}
+        mood={mood}
         loading={loading}
         threadCount={totalPostCount || effectiveThreads.length + effectiveIdeas.length}
         voicesCount={voicesCount}
         isSeedMode={isSeedMode}
         isMobile={isMobile}
-      />
-
-      <PaddockPulse mood={mood} loading={loading} isMobile={isMobile} />
-
-      <InlineComposer
         user={user}
         demoPreview={demoPreview}
         openAuth={openAuth}
         onSubmit={submitPost}
         posting={posting}
-        raceName={currentRace?.n || ""}
-        isMobile={isMobile}
       />
 
-      {featuredTake && (
-        <FeaturedTake
-          post={featuredTake}
-          comments={comments}
-          authorProfiles={authorProfiles}
-          open={expandedPostId === featuredTake.id}
-          onToggle={toggleThread}
-          user={user}
-          demoPreview={demoPreview}
-          openAuth={openAuth}
-          replyText={replyText}
-          onReplyChange={setReplyText}
-          onReply={submitReply}
-          isMobile={isMobile}
-        />
-      )}
+      {/* Subtab nav — Talk / Shape Stint / Highlights */}
+      <nav
+        className="gr-subtab-nav"
+        aria-label="Paddock sections"
+        style={{
+          display: "flex",
+          gap: isMobile ? 8 : 10,
+          marginBottom: isMobile ? 22 : 28,
+          flexWrap: "wrap",
+        }}
+      >
+        {[
+          { key: "talk",       label: "Talk",        count: effectiveThreads.length, hideCount: effectiveThreads.length === 0 },
+          { key: "shape",      label: "Shape Stint", count: effectiveIdeas.length,   hideCount: effectiveIdeas.length === 0 },
+          { key: "highlights", label: "Highlights",  count: 0, hideCount: true },
+        ].map(({ key, label, count, hideCount }) => {
+          const active = gridSubtab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => switchSubtab(key)}
+              aria-pressed={active}
+              className="gr-subtab"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 9,
+                background: active ? rgbaFromHex(ACCENT, 0.13) : "rgba(148,163,184,0.04)",
+                border: active ? `1px solid ${rgbaFromHex(ACCENT, 0.30)}` : `1px solid ${HAIRLINE}`,
+                borderRadius: RADIUS_PILL,
+                color: active ? ACCENT : TEXT_PRIMARY,
+                cursor: "pointer",
+                fontWeight: 800,
+                fontSize: isMobile ? 13 : 14,
+                letterSpacing: "-0.005em",
+                padding: isMobile ? "12px 18px" : "11px 22px",
+                minHeight: isMobile ? 44 : 42,
+                fontFamily: "inherit",
+                viewTransitionName: active ? "grid-active-tab" : undefined,
+                boxShadow: active ? `0 4px 14px ${rgbaFromHex(ACCENT, 0.18)}` : "none",
+              }}
+            >
+              {label}
+              {!hideCount && (
+                <span style={{
+                  fontSize: 10, fontWeight: 900,
+                  letterSpacing: "0.06em",
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "2px 7px",
+                  borderRadius: 999,
+                  background: active ? rgbaFromHex(ACCENT, 0.20) : "rgba(148,163,184,0.10)",
+                  color: active ? ACCENT : SUBTLE_TEXT,
+                  border: active ? `1px solid ${rgbaFromHex(ACCENT, 0.30)}` : `1px solid ${HAIRLINE}`,
+                  minWidth: 22, textAlign: "center",
+                }}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-      <VoiceOfTheGrid
-        quote={voice?.body}
-        author={voice?.author}
-        threadTitle={voice?.threadTitle}
-        authorProfile={authorProfiles[voice?.authorId]}
-        pro={isProIdentity(authorProfiles[voice?.authorId], voice?.author)}
-        onOpen={() => voice && toggleThread(voice.threadId, voice.threadIsSeed)}
-        isMobile={isMobile}
-      />
+      {/* Subtab body — wrapped so view-transition morphs between modes */}
+      <div style={{ viewTransitionName: "grid-subtab-body" }}>
+        {gridSubtab === "talk" && (
+          <Board
+            posts={boardPosts}
+            filter={boardFilter}
+            onFilterChange={setBoardFilter}
+            authorProfiles={authorProfiles}
+            comments={comments}
+            expandedPostId={expandedPostId}
+            onToggle={toggleThread}
+            user={user}
+            demoPreview={demoPreview}
+            openAuth={openAuth}
+            replyText={replyText}
+            onReplyChange={setReplyText}
+            onReply={submitReply}
+            isMobile={isMobile}
+            hasPosts={effectiveThreads.length > 0}
+          />
+        )}
 
-      <Board
-        posts={boardPosts}
-        filter={boardFilter}
-        onFilterChange={setBoardFilter}
-        authorProfiles={authorProfiles}
-        comments={comments}
-        expandedPostId={expandedPostId}
-        onToggle={toggleThread}
-        user={user}
-        demoPreview={demoPreview}
-        openAuth={openAuth}
-        replyText={replyText}
-        onReplyChange={setReplyText}
-        onReply={submitReply}
-        isMobile={isMobile}
-        hasPosts={effectiveThreads.length > 0}
-      />
+        {gridSubtab === "shape" && (
+          <ShapingStint
+            ideas={effectiveIdeas}
+            authorProfiles={authorProfiles}
+            comments={comments}
+            scores={postScores}
+            userVotes={userVotes}
+            onVote={handleVote}
+            votingPostId={votingPostId}
+            user={user}
+            demoPreview={demoPreview}
+            openAuth={openAuth}
+            expandedPostId={expandedPostId}
+            onToggle={toggleThread}
+            replyText={replyText}
+            onReplyChange={setReplyText}
+            onReply={submitReply}
+            onSubmit={submitPost}
+            posting={posting}
+            isMobile={isMobile}
+          />
+        )}
 
-      <ShapingStint
-        ideas={effectiveIdeas}
-        authorProfiles={authorProfiles}
-        comments={comments}
-        scores={postScores}
-        userVotes={userVotes}
-        onVote={handleVote}
-        votingPostId={votingPostId}
-        user={user}
-        demoPreview={demoPreview}
-        openAuth={openAuth}
-        expandedPostId={expandedPostId}
-        onToggle={toggleThread}
-        replyText={replyText}
-        onReplyChange={setReplyText}
-        onReply={submitReply}
-        onSubmit={submitPost}
-        posting={posting}
-        isMobile={isMobile}
-      />
+        {gridSubtab === "highlights" && (
+          <div style={{ display: "grid", gap: isMobile ? 22 : 32 }}>
+            {featuredTake ? (
+              <FeaturedTake
+                post={featuredTake}
+                comments={comments}
+                authorProfiles={authorProfiles}
+                open={expandedPostId === featuredTake.id}
+                onToggle={toggleThread}
+                user={user}
+                demoPreview={demoPreview}
+                openAuth={openAuth}
+                replyText={replyText}
+                onReplyChange={setReplyText}
+                onReply={submitReply}
+                isMobile={isMobile}
+              />
+            ) : (
+              <section style={{
+                padding: isMobile ? "32px 22px" : "48px 32px",
+                textAlign: "center",
+                borderRadius: SECTION_RADIUS,
+                border: PANEL_BORDER,
+                background: PANEL_BG,
+              }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 900,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  color: SUBTLE_TEXT, marginBottom: 10,
+                }}>Featured · Empty</div>
+                <h3 className="stint-section-title" style={{
+                  margin: 0,
+                  fontSize: isMobile ? 18 : 22,
+                  letterSpacing: "-0.03em",
+                }}>Featured take appears once the room engages</h3>
+              </section>
+            )}
+
+            <VoiceOfTheGrid
+              quote={voice?.body}
+              author={voice?.author}
+              threadTitle={voice?.threadTitle}
+              authorProfile={authorProfiles[voice?.authorId]}
+              pro={isProIdentity(authorProfiles[voice?.authorId], voice?.author)}
+              onOpen={() => voice && toggleThread(voice.threadId, voice.threadIsSeed)}
+              isMobile={isMobile}
+            />
+          </div>
+        )}
+      </div>
 
       <LightsOut race={currentRace} isMobile={isMobile} />
-    </div>
+    </PageShell>
   );
 }

@@ -307,7 +307,7 @@ export default function ProSuccessPage({ user, setPage }) {
         eyebrowTone="live"
         title={<>You're in, <span style={{ color: "var(--brand)" }}>{username}</span>.</>}
         description="Stint Pro is active. Every Pro surface — game modes, the AI Coach, unlimited leagues, and the Pro Community League — is unlocked starting now."
-        image={{ src: "/images/Hero-Main.png", position: "right-mask" }}
+        image={{ src: "/images/Single%20car%20streak.png", position: "right-mask" }}
         tone="live"
         style={{ padding: isMobile ? "32px 22px 28px" : isTablet ? "40px 36px 34px" : "48px 48px 40px" }}
       >
@@ -349,7 +349,7 @@ export default function ProSuccessPage({ user, setPage }) {
         }}
       >
         <img
-          src="/images/Hero-Main.png"
+          src="/images/Single%20car%20streak.png"
           alt=""
           aria-hidden="true"
           style={{

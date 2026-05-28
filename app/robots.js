@@ -7,7 +7,7 @@ export default function robots() {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/calendar", "/wire", "/leaderboard", "/picks", "/insight", "/leagues", "/llms.txt"],
+        allow: ["/", "/wire", "/leaderboard", "/picks", "/insight", "/leagues", "/llms.txt"],
         disallow: ["/app"],
       },
     ],
