@@ -182,15 +182,32 @@ function parsePublished(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+// Google News RSS titles always end with " - {Publisher}" (en-dash or hyphen).
+// We attribute the article to the real publisher so the Wire feed reads with
+// varied source labels instead of a wall of "GN" fallbacks.
+function extractGoogleNewsPublisher(title) {
+  const raw = String(title || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^(.+?)\s+[–-]\s+([^–-]{2,60})$/);
+  if (!match) return null;
+  const stripped = match[1].trim();
+  const publisher = match[2].trim();
+  if (publisher.length < 2 || /^\d+$/.test(publisher)) return null;
+  if (!stripped) return null;
+  return { title: stripped, publisher };
+}
+
 function parseFeed(source, priority, xml) {
   const items = [
     ...(String(xml || "").match(/<item\b[\s\S]*?<\/item>/gi) || []),
     ...(String(xml || "").match(/<entry\b[\s\S]*?<\/entry>/gi) || []),
   ];
 
+  const isGoogleNewsFeed = /^Google News\b/i.test(String(source || ""));
+
   return items
     .map((block) => {
-      const title = extractTag(block, ["title"]);
+      let title = extractTag(block, ["title"]);
       const url = extractLink(block);
       const description = extractTag(block, ["description", "content:encoded", "summary", "content"]);
       const publishedAt = parsePublished(extractTag(block, ["pubDate", "published", "updated"], false));
@@ -198,14 +215,25 @@ function parseFeed(source, priority, xml) {
 
       if (!title || !url) return null;
 
+      let effectiveSource = source;
+      let effectivePriority = priority;
+      if (isGoogleNewsFeed) {
+        const parsed = extractGoogleNewsPublisher(title);
+        if (parsed) {
+          title = parsed.title;
+          effectiveSource = parsed.publisher;
+          effectivePriority = Math.max(priority, 3);
+        }
+      }
+
       return {
         title,
         summary: truncateSummary(description),
         url,
-        source,
+        source: effectiveSource,
         published_at: publishedAt,
         image_url: imageUrl,
-        source_priority: priority,
+        source_priority: effectivePriority,
         metadata: {
           ingested_from: source,
         },
