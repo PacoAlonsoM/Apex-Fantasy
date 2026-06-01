@@ -1,14 +1,12 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { checkLeagueLimits } from "@/src/lib/subscription";
-
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import {
+  AVAILABLE_LEAGUE_MODES,
+  PRO_LEAGUE_MODES,
+  leagueAccessErrorResponse,
+  requireLeagueUser,
+} from "../_lib/leagueServer";
 
 /**
  * POST /api/leagues/create
@@ -19,7 +17,7 @@ function getAdminClient() {
  *
  * Body:
  * {
- *   userId:     string         (required)
+ *   userId?:    string         (optional, must match auth user when present)
  *   name:       string         (required)
  *   game_mode?: string         (default: "standard")
  *   visibility?: string        (default: "private")
@@ -35,15 +33,23 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { userId, name, game_mode = "standard", visibility = "private", season = 2026, settings = {} } = body;
+  let auth;
+  try {
+    auth = await requireLeagueUser(request, body);
+  } catch (error) {
+    return leagueAccessErrorResponse(error);
+  }
 
-  if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+  const { user, supabase } = auth;
+  const { name, game_mode = "standard", visibility = "private", season = 2026, settings = {} } = body;
+  const userId = user.id;
+
   if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
-
-  // Verify auth header matches userId
-  const requesterId = request.headers.get("x-user-id");
-  if (!requesterId || requesterId !== userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!AVAILABLE_LEAGUE_MODES.has(game_mode)) {
+    return NextResponse.json(
+      { error: "This game mode is coming soon — not yet available." },
+      { status: 422 }
+    );
   }
 
   // Check league limits
@@ -62,8 +68,7 @@ export async function POST(request) {
   }
 
   // Pro-only game modes
-  const proOnlyModes = ["survival", "draft", "double_down", "head_to_head", "budget_picks"];
-  if (proOnlyModes.includes(game_mode) && !limits.isPro) {
+  if (PRO_LEAGUE_MODES.has(game_mode) && !limits.isPro) {
     return NextResponse.json(
       { error: "Pro subscription required for this game mode" },
       { status: 403 }
@@ -72,8 +77,6 @@ export async function POST(request) {
 
   // Generate a short invite code
   const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-
-  const supabase = getAdminClient();
 
   // Create the league
   const { data: league, error: leagueErr } = await supabase
@@ -90,7 +93,7 @@ export async function POST(request) {
       type:       "standard",
       is_active:  true,
     })
-    .select("id, name, code, game_mode, visibility, season")
+    .select("id, name, code, owner_id, type, game_mode, visibility, is_public, season, is_active, settings")
     .single();
 
   if (leagueErr) {

@@ -245,9 +245,8 @@ const currentLeagueDoublePointsRaces = settings.double_points_races?.length || 0
 - Hero: Hero-Main.png background with gradient overlay
 - "Pro League Preview" badge
 - League name + description + Login / Join Pro / Open Global Leaderboard buttons
-- Preview standings table: top-5 mock players (from `buildMockProStandings(user)`)
+- Preview standings table: top real Pro members when the `pro_community` league has members
 
-**Mock data:** `MOCK_PRO_USERS`, `MOCK_PRO_USERNAMES`, `buildMockProStandings()`, `buildMockProPosts()`
 **Fallback league:** `FALLBACK_PRO_LEAGUE` (used when Supabase `pro_community` row hasn't loaded yet)
 
 ---
@@ -292,11 +291,8 @@ CommunityPage.jsx
 │   ├── LEAGUE_MODES / LEAGUE_BONUS_CATEGORIES
 │   └── inputStyle
 │
-├── Mock data
-│   ├── FALLBACK_PRO_LEAGUE
-│   ├── MOCK_PRO_USERS / MOCK_PRO_USERNAMES / MOCK_PRO_POST_BLUEPRINTS
-│   ├── buildMockProStandings(user)
-│   └── buildMockProPosts(leagueId, user)
+├── Fallback data
+│   └── FALLBACK_PRO_LEAGUE
 │
 ├── Data utilities
 │   ├── identityKey / isUuidLike / isProProfile
@@ -400,7 +396,7 @@ StandingsPage.jsx
 - Double-points rounds (`currentLeagueDoublePointsRaces`) are shown as a count badge but not listed round-by-round
 
 ### Mock data coupling
-- `MOCK_PRO_USERS` and `MOCK_PRO_POST_BLUEPRINTS` are mixed into real data flows via `mergeProfilesByIdentity` and `mergePostsByIdentity` — the merge logic is load-bearing until real Pro users exist
+- Resolved in 2026-05 cleanup: Pro league standings/posts now use only Supabase rows. Mock profile fallbacks were removed.
 
 ---
 

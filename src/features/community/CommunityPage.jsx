@@ -29,7 +29,6 @@ import {
   WARM,
   teamSupportKey,
 } from "@/src/constants/design";
-import { MOCK_PRO_USERNAMES, MOCK_PRO_USERS } from "@/src/features/community/mockUsers";
 import { requireActiveSession } from "@/src/shell/authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "@/src/lib/resultHelpers";
 import useViewport from "@/src/lib/useViewport";
@@ -777,10 +776,10 @@ const LEAGUE_EXTRA_CATEGORY_LABELS = {
 const LEAGUE_MODES = [
   { key: "standard",     label: "Standard",     pro: false, desc: "Classic pick-em every race weekend." },
   { key: "survival",     label: "Survival",     pro: true,  desc: "Lowest scorer is eliminated each round." },
-  { key: "draft",        label: "Draft",        pro: true,  desc: "Snake-draft your drivers at season start." },
   { key: "double_down",  label: "Double Down",  pro: true,  desc: "Triple one pick per race — or lose points." },
-  { key: "head_to_head", label: "Head-to-Head", pro: true,  desc: "Bracket: beat your opponent each weekend." },
   { key: "budget_picks", label: "Budget Picks", pro: true,  desc: "50 credits per race, bet on your picks." },
+  { key: "draft",        label: "Draft",        pro: true,  desc: "Snake-draft your drivers at season start.", comingSoon: true },
+  { key: "head_to_head", label: "Head-to-Head", pro: true,  desc: "Bracket: beat your opponent each weekend.", comingSoon: true },
 ];
 
 const LEAGUE_BONUS_CATEGORIES = [
@@ -807,10 +806,10 @@ const inputStyle = {
   fontFamily: "inherit",
 };
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Fallback data ────────────────────────────────────────────────────────────
 
 const FALLBACK_PRO_LEAGUE = {
-  id: "mock-pro-community",
+  id: "pro-community-fallback",
   name: "Pro Community League",
   type: "pro_community",
   visibility: "public",
@@ -827,18 +826,6 @@ const FALLBACK_PRO_LEAGUE = {
   },
 };
 
-// Mock pro users + their username set live in a shared module so Grid and
-// Community render identical Pro signalling without forking the palette.
-
-const MOCK_PRO_POST_BLUEPRINTS = [
-  { username: "pitwall_pro", hoursAgo: 3, body: "Locked Norris for pole already. If McLaren keeps this long-run pace, the Pro board is going to move fast this weekend." },
-  { username: "paddock_analyst", hoursAgo: 5, body: "Reminder for everyone browsing the room: this board is public to follow, but only Pro members score and chat live here." },
-  { username: "grid_racer_hk", hoursAgo: 9, body: "Season prize pool looks serious now. Going aggressive on podium picks early before the midfield gets tidy." },
-  { username: "tyre_whisperer", hoursAgo: 12, body: "Race sims say tyre degradation is the real swing factor. I am fading the obvious winner pick for once." },
-  { username: "lauda_line", hoursAgo: 19, body: "The best part of this league is the field size. No soft weekends, no hiding, just one big season table." },
-  { username: "box_box_bella", hoursAgo: 27, body: "Forum check-in from the back of the top 10: I am one clean sprint weekend away from making this ugly for everyone ahead." },
-];
-
 // ─── Data utilities ───────────────────────────────────────────────────────────
 
 function identityKey(profile) {
@@ -850,8 +837,7 @@ function isUuidLike(value) {
 }
 
 function isProProfile(profile, fallbackName = "") {
-  const username = String(profile?.username || fallbackName || "").trim().toLowerCase();
-  return profile?.subscription_status === "pro" || MOCK_PRO_USERNAMES.has(username);
+  return profile?.subscription_status === "pro";
 }
 
 function mergeProfilesByIdentity(profiles, currentUser = null) {
@@ -876,35 +862,6 @@ function mergeProfilesByIdentity(profiles, currentUser = null) {
   });
 
   return [...merged.values()];
-}
-
-function buildMockProStandings(currentUser = null) {
-  const currentUserEntry = currentUser?.subscription_status === "pro" && currentUser?.username
-    ? [{ ...currentUser, subscription_status: "pro" }]
-    : [];
-
-  return mergeProfilesByIdentity([...MOCK_PRO_USERS, ...currentUserEntry], currentUser)
-    .sort((left, right) => (
-      Number(right.points || 0) - Number(left.points || 0)
-      || left.username.localeCompare(right.username)
-    ));
-}
-
-function buildMockProPosts(leagueId, currentUser = null) {
-  const mockProfiles = new Map(buildMockProStandings(currentUser).map((profile) => [profile.username, profile]));
-
-  return MOCK_PRO_POST_BLUEPRINTS.map((entry, index) => {
-    const author = mockProfiles.get(entry.username) || MOCK_PRO_USERS.find((profile) => profile.username === entry.username) || {};
-    return {
-      id: `mock-pro-post-${index + 1}`,
-      league_id: leagueId || "mock-pro-community",
-      author_id: author.id || `mock-pro-author-${index + 1}`,
-      author_name: author.username || entry.username,
-      title: entry.body.slice(0, 72),
-      body: entry.body,
-      created_at: new Date(Date.now() - (entry.hoursAgo * 60 * 60 * 1000)).toISOString(),
-    };
-  }).sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
 }
 
 function mergePostsByIdentity(posts) {
@@ -964,6 +921,7 @@ function buildLeagueReviewRows(prompts, picks, results, breakdown) {
       : (!!pick && actual !== null && pick === actual);
     const breakdownItem = Array.isArray(breakdown)
       ? breakdown.find((item) => item.label === prompt.label)
+        || breakdown.find((item) => item.key === prompt.key)
       : null;
 
     return {
@@ -993,19 +951,92 @@ function roundMeta(roundNumber) {
   return CAL.find((item) => Number(item.r) === Number(roundNumber)) || null;
 }
 
+async function leagueApiRequest(path, { method = "POST", session, userId, body = {} } = {}) {
+  const response = await fetch(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      ...(userId ? { "x-user-id": userId } : {}),
+    },
+    body: JSON.stringify({ userId, ...body }),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message = typeof payload === "string"
+      ? payload
+      : payload?.detail || payload?.error || "League request failed.";
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
 // ─── Sub-views ────────────────────────────────────────────────────────────────
 
 function LeagueStandingsView({ user, currentLeague, currentStandings, leagueStandings, leagueSummary, isMobile, isTablet }) {
   const leaderPts = Number(leagueSummary.leader?.points || 0);
+  const leagueLabel = currentLeague?.name || "League";
   return (
-    <section style={{ borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-      <div style={{ padding: "14px 18px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-          Season standings
+    <section style={{ position: "relative", borderRadius: SECTION_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          background: `linear-gradient(180deg, ${ACCENT} 0%, ${hexToRgba(ACCENT, 0.30)} 100%)`,
+          zIndex: 2,
+        }}
+      />
+      <div
+        style={{
+          padding: "18px 22px 16px 24px",
+          borderBottom: `1px solid ${HAIRLINE}`,
+          background: `radial-gradient(120% 100% at 0% 0%, ${hexToRgba(ACCENT, 0.10)} 0%, transparent 55%), linear-gradient(180deg, ${PANEL_BG_ALT} 0%, ${PANEL_BG} 100%)`,
+          display: "grid",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            width: "fit-content",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: RADIUS_PILL,
+            background: hexToRgba(ACCENT, 0.12),
+            border: `1px solid ${hexToRgba(ACCENT, 0.32)}`,
+            color: ACCENT,
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        >
+          <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT, boxShadow: `0 0 0 3px ${hexToRgba(ACCENT, 0.18)}` }} />
+          Standings
         </span>
-        <span className="stint-tabular" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: SUBTLE_TEXT }}>
-          {currentStandings.length} {currentStandings.length === 1 ? "player" : "players"}
-        </span>
+        <h2 style={{ margin: 0, fontFamily: "Sora, sans-serif", fontSize: isMobile ? 20 : 24, fontWeight: 800, letterSpacing: "-0.035em", color: TEXT_PRIMARY, lineHeight: 1.1 }}>
+          {leagueLabel}
+        </h2>
+        <div style={{ fontSize: 12, color: MUTED_TEXT, fontFamily: "Manrope, sans-serif" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", color: TEXT_PRIMARY, fontWeight: 800 }}>{currentStandings.length}</span>
+          <span> {currentStandings.length === 1 ? "player" : "players"}</span>
+          {leagueSummary.leader?.username && (
+            <>
+              <span style={{ color: SUBTLE_TEXT }}> · </span>
+              <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>{leagueSummary.leader.username}</span> leading
+            </>
+          )}
+        </div>
       </div>
       {leagueStandings[currentLeague.id] === undefined ? (
         <div style={{ padding: 28, color: MUTED_TEXT, fontSize: 13 }}>Loading standings…</div>
@@ -1743,22 +1774,57 @@ function LeagueChatView({ items, user, isMobile, authorProfiles, currentLeague, 
     );
   }
 
+  const chatAccent = isProBoard ? "#fbbf24" : ACCENT;
   return (
-    <div style={{ borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
-      <div style={{ padding: "13px 16px 11px", borderBottom: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: -0.2 }}>
-            {isProBoard ? "Pro Race Room" : "Chat"}
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 700, color: SUBTLE_TEXT, background: "var(--btn-secondary-bg)", border: `1px solid ${HAIRLINE}`, borderRadius: RADIUS_PILL, padding: "2px 8px" }}>
+    <div style={{ position: "relative", borderRadius: CARD_RADIUS, border: PANEL_BORDER, background: PANEL_BG, overflow: "hidden", boxShadow: SOFT_SHADOW }}>
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          background: `linear-gradient(180deg, ${chatAccent} 0%, ${hexToRgba(chatAccent, 0.30)} 100%)`,
+          zIndex: 2,
+        }}
+      />
+      <div
+        style={{
+          padding: "16px 18px 14px 22px",
+          borderBottom: `1px solid ${HAIRLINE}`,
+          background: `radial-gradient(120% 100% at 0% 0%, ${hexToRgba(chatAccent, 0.10)} 0%, transparent 55%), ${PANEL_BG_ALT}`,
+          display: "grid",
+          gap: 6,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            width: "fit-content",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: RADIUS_PILL,
+            background: hexToRgba(chatAccent, 0.12),
+            border: `1px solid ${hexToRgba(chatAccent, 0.32)}`,
+            color: chatAccent,
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        >
+          <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: chatAccent, boxShadow: `0 0 0 3px ${hexToRgba(chatAccent, 0.18)}` }} />
+          {isProBoard ? "Pro Race Room" : "Chat"}
+        </span>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+          <h2 style={{ margin: 0, fontFamily: "Sora, sans-serif", fontSize: isMobile ? 18 : 22, fontWeight: 800, letterSpacing: "-0.035em", color: TEXT_PRIMARY, lineHeight: 1.1 }}>
+            {currentLeague?.name || "League"}
+          </h2>
+          <span style={{ fontSize: 11, fontWeight: 800, color: TEXT_PRIMARY, background: hexToRgba(chatAccent, 0.10), border: `1px solid ${hexToRgba(chatAccent, 0.22)}`, borderRadius: RADIUS_PILL, padding: "3px 9px", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>
             {items.length}
           </span>
         </div>
-        {isProBoard && (
-          <span style={{ fontSize: 10, fontWeight: 900, color: "#d97706", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.22)", borderRadius: RADIUS_PILL, padding: "3px 8px", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0 }}>
-            Pro
-          </span>
-        )}
       </div>
 
       <div style={{ padding: 16 }}>
@@ -1958,19 +2024,24 @@ function CreateLeagueModal({ user, isMobile, viewportHeight, leagueName, setLeag
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 7 }}>Game mode</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 7 }}>
-              {LEAGUE_MODES.map(({ key, label, pro, desc }) => {
+              {LEAGUE_MODES.map(({ key, label, pro, desc, comingSoon }) => {
                 const isSelected = leagueGameMode === key;
-                const locked = pro && !isPro;
+                const locked = (pro && !isPro) || comingSoon;
                 return (
                   <button
                     key={key}
                     onClick={() => { if (!locked) setLeagueGameMode(key); }}
-                    title={desc}
-                    style={{ background: isSelected ? "rgba(255,106,26,0.14)" : PANEL_BG_ALT, border: isSelected ? "1px solid rgba(255,106,26,0.4)" : PANEL_BORDER, borderRadius: 12, color: locked ? SUBTLE_TEXT : isSelected ? "#fff" : MUTED_TEXT, cursor: locked ? "default" : "pointer", fontSize: 12, fontWeight: 700, padding: "10px 12px", textAlign: "left", display: "flex", flexDirection: "column", gap: 4 }}
+                    title={comingSoon ? `${desc} — coming soon` : desc}
+                    disabled={comingSoon}
+                    style={{ background: isSelected ? "rgba(255,106,26,0.14)" : PANEL_BG_ALT, border: isSelected ? "1px solid rgba(255,106,26,0.4)" : PANEL_BORDER, borderRadius: 12, color: locked ? SUBTLE_TEXT : isSelected ? "#fff" : MUTED_TEXT, cursor: locked ? "default" : "pointer", fontSize: 12, fontWeight: 700, padding: "10px 12px", textAlign: "left", display: "flex", flexDirection: "column", gap: 4, opacity: comingSoon ? 0.6 : 1 }}
                   >
-                    <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontWeight: 900, fontSize: 13, color: locked ? SUBTLE_TEXT : isSelected ? "#fff" : "#cbd5e1" }}>{label}</span>
-                      {locked && <span style={{ fontSize: 10, fontWeight: 900, color: "var(--brand)", background: "rgba(255,106,26,0.12)", borderRadius: 999, padding: "1px 5px", letterSpacing: "0.06em" }}>PRO</span>}
+                      {comingSoon ? (
+                        <span style={{ fontSize: 9, fontWeight: 900, color: SUBTLE_TEXT, background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 999, padding: "2px 7px", letterSpacing: "0.10em", textTransform: "uppercase" }}>Soon</span>
+                      ) : locked ? (
+                        <span style={{ fontSize: 10, fontWeight: 900, color: "var(--brand)", background: "rgba(255,106,26,0.12)", borderRadius: 999, padding: "1px 5px", letterSpacing: "0.06em" }}>PRO</span>
+                      ) : null}
                     </span>
                     <span style={{ fontSize: 11, lineHeight: 1.4, color: isSelected ? "rgba(255,255,255,0.6)" : SUBTLE_TEXT }}>{desc}</span>
                   </button>
@@ -2107,8 +2178,11 @@ function CreateLeagueModal({ user, isMobile, viewportHeight, leagueName, setLeag
               </div>
 
               {/* Tiebreaker order */}
-              <div style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8 }}>Tiebreaker (in order)</div>
+              <div style={{ marginBottom: 22, opacity: 0.65 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE_TEXT, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>Tiebreaker (in order)</span>
+                  <span style={{ fontSize: 9, fontWeight: 900, color: SUBTLE_TEXT, background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 999, padding: "2px 7px", letterSpacing: "0.10em" }}>SOON</span>
+                </div>
                 <div style={{ display: "grid", gap: 6 }}>
                   {tiebreakerOrder.map((key, idx) => (
                     <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2192,8 +2266,6 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
   const demoPreview = demoMode && !user;
   const visibleProLeague = proLeague || FALLBACK_PRO_LEAGUE;
   const visibleProLeagueId = visibleProLeague.id;
-  const mockProStandings = useMemo(() => buildMockProStandings(user), [user]);
-  const mockProPosts = useMemo(() => buildMockProPosts(visibleProLeagueId, user), [visibleProLeagueId, user]);
 
   const currentLeague = useMemo(
     () => leagues.find((league) => league.id === selectedLeagueId) || (visibleProLeagueId === selectedLeagueId ? visibleProLeague : null) || visibleProLeague || leagues[0] || null,
@@ -2290,14 +2362,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     setLeagueStandings((current) => Object.fromEntries(
       Object.entries(current).map(([leagueId, standings]) => [leagueId, standings.map((profile) => normalizeProfileIdentity(profile, user))])
     ));
-  }, [user, mockProStandings]);
-
-  useEffect(() => {
-    setAuthorProfiles((current) => ({
-      ...Object.fromEntries(mockProStandings.map((profile) => [profile.id, profile])),
-      ...current,
-    }));
-  }, [mockProStandings]);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.id || user?.subscription_status !== "pro" || !proLeague?.id) return;
@@ -2382,39 +2447,66 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
 
   async function fetchLeagueStandings(leagueId) {
     const isProBoard = leagueId === visibleProLeagueId;
-    const fallbackStandings = mockProStandings;
 
     if (isProBoard && !proLeague?.id) {
-      setLeagueStandings((current) => ({ ...current, [leagueId]: fallbackStandings }));
+      setLeagueStandings((current) => ({ ...current, [leagueId]: [] }));
       return;
     }
 
-    const { data: members, error: membersError } = await supabase.from("league_members").select("user_id").eq("league_id", leagueId);
+    const { data: members, error: membersError } = await supabase.from("league_members").select("user_id, status").eq("league_id", leagueId);
 
     if (membersError && isProBoard) {
-      setLeagueStandings((current) => ({ ...current, [leagueId]: fallbackStandings }));
+      setLeagueStandings((current) => ({ ...current, [leagueId]: [] }));
       return;
     }
 
     const ids = (members || []).map((member) => member.user_id).filter(Boolean);
 
     if (!ids.length) {
-      setLeagueStandings((current) => ({ ...current, [leagueId]: isProBoard ? fallbackStandings : [] }));
+      setLeagueStandings((current) => ({ ...current, [leagueId]: [] }));
       return;
     }
 
-    const { data: profiles, error: profilesError } = await supabase.from("profiles").select("*").in("id", ids);
+    const [{ data: profiles, error: profilesError }, { data: roundScores }] = await Promise.all([
+      supabase.from("profiles").select("*").in("id", ids),
+      supabase
+        .from("league_round_scores")
+        .select("user_id, score")
+        .eq("league_id", leagueId)
+        .in("user_id", ids),
+    ]);
 
     if (profilesError && isProBoard) {
-      setLeagueStandings((current) => ({ ...current, [leagueId]: fallbackStandings }));
+      setLeagueStandings((current) => ({ ...current, [leagueId]: [] }));
       return;
     }
 
-    const sorted = mergeProfilesByIdentity([
-      ...((profiles || []).map((profile) => normalizeProfileIdentity(profile, user))),
-      ...(isProBoard ? fallbackStandings : []),
-    ], user)
-      .sort((a, b) => (Number(b.points || 0) - Number(a.points || 0)) || a.username.localeCompare(b.username));
+    // Sum per-league mode-aware scores. Falls back to profiles.points (global
+    // score) only when no league_round_scores rows exist yet — keeps standings
+    // populated for leagues that haven't had a scoring run since the per-league
+    // table was added.
+    const pointsByUser = new Map();
+    for (const row of roundScores || []) {
+      pointsByUser.set(row.user_id, (pointsByUser.get(row.user_id) || 0) + (row.score || 0));
+    }
+    const memberStatusById = new Map((members || []).map((m) => [m.user_id, m.status]));
+
+    const enriched = (profiles || []).map((profile) => {
+      const leagueScore = pointsByUser.get(profile.id);
+      const points = leagueScore !== undefined ? leagueScore : (profile.points ?? 0);
+      return { ...profile, points, member_status: memberStatusById.get(profile.id) || "active" };
+    });
+
+    const sorted = mergeProfilesByIdentity(enriched.map((profile) => normalizeProfileIdentity(profile, user)), user)
+      .sort((a, b) => {
+        // Eliminated members fall to the bottom.
+        const aOut = a.member_status === "eliminated";
+        const bOut = b.member_status === "eliminated";
+        if (aOut !== bOut) return aOut ? 1 : -1;
+        const ptsDiff = Number(b.points || 0) - Number(a.points || 0);
+        if (ptsDiff !== 0) return ptsDiff;
+        return a.username.localeCompare(b.username);
+      });
 
     setLeagueStandings((current) => ({ ...current, [leagueId]: sorted }));
   }
@@ -2453,38 +2545,55 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
       },
     }));
 
-    const { data, error } = await supabase
-      .from("predictions")
-      .select("user_id,race_round,picks,score,score_breakdown,updated_at")
-      .eq("race_round", raceRound)
-      .in("user_id", memberIds);
+    const [predictionResponse, leagueScoreResponse] = await Promise.all([
+      supabase
+        .from("predictions")
+        .select("user_id,race_round,picks,score,score_breakdown,updated_at")
+        .eq("race_round", raceRound)
+        .in("user_id", memberIds),
+      supabase
+        .from("league_round_scores")
+        .select("user_id,score,breakdown,game_mode,computed_at")
+        .eq("league_id", leagueId)
+        .eq("race_round", raceRound)
+        .in("user_id", memberIds),
+    ]);
 
-    if (error) {
+    if (predictionResponse.error) {
       setLeagueRoundReviews((current) => ({
         ...current,
-        [key]: { loading: false, error: error.message, resultRow, members: [] },
+        [key]: { loading: false, error: predictionResponse.error.message, resultRow, members: [] },
       }));
       return;
     }
 
-    const predictionMap = new Map((data || []).map((item) => [item.user_id, item]));
+    const predictionMap = new Map((predictionResponse.data || []).map((item) => [item.user_id, item]));
+    const leagueScoreMap = new Map((leagueScoreResponse.data || []).map((item) => [item.user_id, item]));
     const meta = roundMeta(raceRound);
     const ranked = members
       .map((member) => {
         const prediction = predictionMap.get(member.id) || null;
-        const breakdown = Array.isArray(prediction?.score_breakdown) ? prediction.score_breakdown : [];
+        const leagueScore = leagueScoreMap.get(member.id) || null;
+        const breakdown = Array.isArray(leagueScore?.breakdown)
+          ? leagueScore.breakdown
+          : Array.isArray(prediction?.score_breakdown)
+            ? prediction.score_breakdown
+            : [];
         const raceRows = buildLeagueReviewRows(LEAGUE_RACE_REVIEW_PROMPTS, prediction?.picks || {}, resultRow, breakdown);
         const sprintRows = meta?.sprint
           ? buildLeagueReviewRows(LEAGUE_SPRINT_REVIEW_PROMPTS, prediction?.picks || {}, resultRow, breakdown)
           : [];
         const correctCalls = [...raceRows, ...sprintRows].filter((row) => row.hit).length;
-        const roundScore = prediction
-          ? totalRowPoints(raceRows) + totalRowPoints(sprintRows) + bonusPointsFromBreakdown(breakdown)
-          : 0;
+        const roundScore = leagueScore
+          ? Number(leagueScore.score || 0)
+          : prediction
+            ? totalRowPoints(raceRows) + totalRowPoints(sprintRows) + bonusPointsFromBreakdown(breakdown)
+            : 0;
 
         return {
           member,
           prediction,
+          leagueScore,
           roundScore,
           correctCalls,
           breakdown,
@@ -2506,15 +2615,10 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
 
   async function fetchLeaguePosts(leagueId) {
     const isProBoard = leagueId === visibleProLeagueId;
-    const fallbackPosts = isProBoard ? mockProPosts : [];
 
     if (isProBoard && !proLeague?.id) {
       setLeagueForumReady((current) => ({ ...current, [leagueId]: true }));
-      setLeaguePosts((current) => ({ ...current, [leagueId]: fallbackPosts }));
-      setAuthorProfiles((current) => ({
-        ...Object.fromEntries(mockProStandings.map((profile) => [profile.id, profile])),
-        ...current,
-      }));
+      setLeaguePosts((current) => ({ ...current, [leagueId]: [] }));
       return;
     }
 
@@ -2522,11 +2626,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     if (error) {
       if (isProBoard) {
         setLeagueForumReady((current) => ({ ...current, [leagueId]: true }));
-        setLeaguePosts((current) => ({ ...current, [leagueId]: fallbackPosts }));
-        setAuthorProfiles((current) => ({
-          ...Object.fromEntries(mockProStandings.map((profile) => [profile.id, profile])),
-          ...current,
-        }));
+        setLeaguePosts((current) => ({ ...current, [leagueId]: [] }));
         return;
       }
 
@@ -2535,15 +2635,9 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
       return;
     }
 
-    const mergedPosts = mergePostsByIdentity([...(data || []), ...fallbackPosts]);
+    const mergedPosts = mergePostsByIdentity(data || []);
     setLeagueForumReady((current) => ({ ...current, [leagueId]: true }));
     setLeaguePosts((current) => ({ ...current, [leagueId]: mergedPosts }));
-    if (isProBoard) {
-      setAuthorProfiles((current) => ({
-        ...Object.fromEntries(mockProStandings.map((profile) => [profile.id, profile])),
-        ...current,
-      }));
-    }
     hydrateAuthorProfiles(mergedPosts || []);
   }
 
@@ -2565,33 +2659,34 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
       }
     }
 
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
     const settings = {
       scoring_weights:    scoringWeights,
+      pick_weights:       scoringWeights,
       sprint_multiplier:  sprintMultiplier,
       tiebreaker_order:   tiebreakerOrder,
       double_points_races: [],
       extra_categories:   extraCategories,
     };
-    const { data, error } = await supabase.from("leagues").insert({
-      name:       leagueName,
-      code,
-      owner_id:   user.id,
-      is_public:  leagueVisibility === "public",
-      game_mode:  leagueGameMode,
-      visibility: leagueVisibility,
-      settings,
-    }).select().single();
-    if (error) {
-      alert(error.message);
+
+    let data;
+    try {
+      const payload = await leagueApiRequest("/api/leagues/create", {
+        session,
+        userId: user.id,
+        body: {
+          name: leagueName,
+          game_mode: leagueGameMode,
+          visibility: leagueVisibility,
+          season: 2026,
+          settings,
+        },
+      });
+      data = payload.league;
+    } catch (error) {
+      setCreateError(error.message || "Could not create league.");
       return;
     }
 
-    const { error: memberError } = await supabase.from("league_members").insert({ league_id: data.id, user_id: user.id });
-    if (memberError) {
-      alert(memberError.message);
-      return;
-    }
     setLeagueName("");
     setLeagueGameMode("standard");
     setLeagueVisibility("private");
@@ -2603,7 +2698,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     setExtraCategories([]);
     setCreateError("");
     await fetchLeagues();
-    setSelectedLeagueId(data.id);
+    setSelectedLeagueId(data?.id || null);
   }
 
   async function joinLeague() {
@@ -2612,21 +2707,22 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
 
-    const { data, error } = await supabase.from("leagues").select("*").eq("code", joinCode.toUpperCase()).single();
-    if (error || !data) {
-      alert("League not found.");
-      return;
-    }
-
-    const { error: joinError } = await supabase.from("league_members").insert({ league_id: data.id, user_id: user.id });
-    if (joinError) {
-      alert("Already in this league or there was an error joining.");
+    let data;
+    try {
+      const payload = await leagueApiRequest("/api/leagues/join", {
+        session,
+        userId: user.id,
+        body: { code: joinCode.toUpperCase() },
+      });
+      data = payload.league;
+    } catch (error) {
+      alert(error.message || "Could not join league.");
       return;
     }
 
     setJoinCode("");
     await fetchLeagues();
-    setSelectedLeagueId(data.id);
+    setSelectedLeagueId(data?.id || null);
   }
 
   async function leaveLeague(leagueId) {
@@ -2635,9 +2731,14 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
 
-    const { error } = await supabase.from("league_members").delete().eq("league_id", leagueId).eq("user_id", user.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await leagueApiRequest(`/api/leagues/${leagueId}/members`, {
+        method: "DELETE",
+        session,
+        userId: user.id,
+      });
+    } catch (error) {
+      alert(error.message || "Could not leave league.");
       return;
     }
     await fetchLeagues();
@@ -2650,9 +2751,14 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     const session = await requireActiveSession();
     if (!session) return openAuth("login");
 
-    const { error } = await supabase.from("leagues").delete().eq("id", leagueId);
-    if (error) {
-      alert(error.message);
+    try {
+      await leagueApiRequest(`/api/leagues/${leagueId}`, {
+        method: "DELETE",
+        session,
+        userId: user.id,
+      });
+    } catch (error) {
+      alert(error.message || "Could not delete league.");
       return;
     }
     await fetchLeagues();
@@ -2956,7 +3062,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                           borderRadius: SECTION_RADIUS,
                           border: `1px solid ${isPro ? "rgba(252,211,77,0.28)" : PANEL_BORDER.replace("1px solid ", "")}`,
                           background: isPro
-                            ? `linear-gradient(180deg, rgba(252,211,77,0.20) 0%, rgba(252,211,77,0.05) 28%, ${PANEL_BG} 96%), url("/images/Close%20racing.png") center 30% / cover no-repeat, ${PANEL_BG}`
+                            ? `linear-gradient(180deg, rgba(252,211,77,0.20) 0%, rgba(252,211,77,0.05) 28%, ${PANEL_BG} 96%), url("/images/Close%20racing.png") center 50% / cover no-repeat, ${PANEL_BG}`
                             : `linear-gradient(180deg, ${hexToRgba(ACCENT, 0.12)} 0%, rgba(255,255,255,0) 28%, ${PANEL_BG} 96%), ${PANEL_BG}`,
                           boxShadow: LIFTED_SHADOW,
                           marginBottom: 16,
@@ -3252,7 +3358,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
           )
         ) : (
           <div style={{ borderRadius: SECTION_RADIUS, border: "1px solid rgba(245,158,11,0.22)", background: PANEL_BG, overflow: "hidden", boxShadow: LIFTED_SHADOW, position: "relative" }}>
-            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Close%20racing.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.22 }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/images/Close%20racing.png')", backgroundSize: "cover", backgroundPosition: "center 50%", opacity: 0.22 }} />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(6,16,27,0.4) 0%, rgba(6,16,27,0.96) 60%, rgba(6,16,27,1) 100%)" }} />
             <div style={{ position: "relative", padding: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap", marginBottom: 18 }}>
@@ -3293,7 +3399,7 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                   <div style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}>Live season preview</div>
                 </div>
                 <div style={{ display: "grid", gap: 1, background: HAIRLINE }}>
-                  {mockProStandings.slice(0, 5).map((member, index) => (
+                  {currentStandings.slice(0, 5).map((member, index) => (
                     <div key={member.id} style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr) 86px", background: index === 0 ? "rgba(245,158,11,0.06)" : index === 1 ? "rgba(203,213,225,0.04)" : PANEL_BG }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: index < 3 ? 14 : 12, fontWeight: 900, color: index === 0 ? "#F59E0B" : index === 1 ? "#CBD5E1" : index === 2 ? "#C2956C" : SUBTLE_TEXT }}>{index + 1}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
@@ -3306,6 +3412,11 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY, fontVariantNumeric: "tabular-nums" }}>{member.points || 0}</div>
                     </div>
                   ))}
+                  {!currentStandings.length && (
+                    <div style={{ padding: "18px 16px", background: PANEL_BG, color: MUTED_TEXT, fontSize: 12, lineHeight: 1.55 }}>
+                      No Pro members are listed yet. Real profiles will appear here after members join.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

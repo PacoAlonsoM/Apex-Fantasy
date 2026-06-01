@@ -2,6 +2,26 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+let cachedAdminClient = null;
+
+function getAdminClient() {
+  if (cachedAdminClient) return cachedAdminClient;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!url || !key) {
+    throw new Error("Missing Supabase admin env vars for Pro leaderboard.");
+  }
+
+  cachedAdminClient = createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+  return cachedAdminClient;
+}
+
 /**
  * GET /api/pro/leaderboard?userId=optional
  *
@@ -18,10 +38,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId") || null;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    const supabase = getAdminClient();
 
     const { data: league } = await supabase
       .from("leagues")
@@ -35,7 +52,7 @@ export async function GET(request) {
 
     const { data: members } = await supabase
       .from("league_members")
-      .select("user_id, profiles(username, avatar_url)")
+      .select("user_id, profiles(username, avatar_url, points)")
       .eq("league_id", league.id)
       .eq("status", "active");
 
@@ -43,25 +60,29 @@ export async function GET(request) {
       return NextResponse.json({ leaderboard: [], totalMembers: 0, myRank: null });
     }
 
-    const userIds = members.map((m) => m.user_id);
+    const userIds = members.map((member) => member.user_id);
 
-    const { data: pickTotals } = await supabase
-      .from("picks")
-      .select("user_id, points_earned")
-      .in("user_id", userIds)
-      .not("points_earned", "is", null);
+    const { data: leagueScores, error: scoresError } = await supabase
+      .from("league_round_scores")
+      .select("user_id, score")
+      .eq("league_id", league.id)
+      .in("user_id", userIds);
 
     const scoreMap = new Map();
-    for (const p of pickTotals ?? []) {
-      const prev = scoreMap.get(p.user_id) ?? 0;
-      scoreMap.set(p.user_id, prev + (p.points_earned ?? 0));
+    if (!scoresError) {
+      for (const row of leagueScores ?? []) {
+        const prev = scoreMap.get(row.user_id) ?? 0;
+        scoreMap.set(row.user_id, prev + (row.score ?? 0));
+      }
     }
 
     const ranked = members
-      .map((m) => ({
-        user_id:  m.user_id,
-        username: m.profiles?.username ?? "Anonymous",
-        points:   scoreMap.get(m.user_id) ?? 0,
+      .map((member) => ({
+        user_id:  member.user_id,
+        username: member.profiles?.username ?? "Anonymous",
+        points:   scoreMap.has(member.user_id)
+          ? scoreMap.get(member.user_id)
+          : (member.profiles?.points ?? 0),
       }))
       .sort((a, b) => b.points - a.points);
 

@@ -33,6 +33,7 @@ import {
   SUCCESS_BG,
   SUCCESS_BORDER,
   SUCCESS_TEXT,
+  AI_BLUE_TEXT,
   ERROR_TEXT,
   rgbaFromHex,
 } from "@/src/constants/design";
@@ -281,7 +282,7 @@ function createPublicProLeague() {
   };
 }
 
-function normalizeLeagueContext(league) {
+function normalizeLeagueContext(league, memberStatus = "active") {
   if (!league) return null;
   return {
     id: league.id,
@@ -291,6 +292,8 @@ function normalizeLeagueContext(league) {
     settings: league.settings || {},
     isPro: league.type === "pro_community" || PRO_GAME_MODES.has(league.game_mode || league.gameMode),
     isPreview: league.isPreview || false,
+    memberStatus,
+    isEliminated: memberStatus === "eliminated",
   };
 }
 
@@ -629,6 +632,7 @@ function reviewRowsForPrompts(prompts, picks, results, breakdown) {
       : (!!pick && actual !== null && pick === actual);
     const breakdownItem = Array.isArray(breakdown)
       ? breakdown.find((item) => item.label === prompt.label)
+        || breakdown.find((item) => item.key === prompt.key)
       : null;
 
     return {
@@ -1155,7 +1159,7 @@ function DriverOption({ driver, selected, onClick, aiMatch = false, disabled = f
               <span style={{
                 fontSize: 9, fontWeight: 900,
                 letterSpacing: "0.14em", textTransform: "uppercase",
-                color: "#93c5fd",
+                color: AI_BLUE_TEXT,
               }}>AI</span>
             </span>
           )}
@@ -1274,7 +1278,7 @@ function ConstructorOption({ teamName, selected, onClick, aiMatch = false, disab
               <span style={{
                 fontSize: 9, fontWeight: 900,
                 letterSpacing: "0.14em", textTransform: "uppercase",
-                color: "#93c5fd",
+                color: AI_BLUE_TEXT,
               }}>AI</span>
             </span>
           )}
@@ -1400,7 +1404,7 @@ function BinaryOption({ label, detail, color, selected, onClick, aiMatch = false
             <span style={{
               fontSize: 9, fontWeight: 900,
               letterSpacing: "0.14em", textTransform: "uppercase",
-              color: "#93c5fd",
+              color: AI_BLUE_TEXT,
             }}>AI</span>
           </span>
         )}
@@ -2090,7 +2094,7 @@ function RoundReviewPanel({
                 borderRadius: RADIUS_PILL,
                 background: "linear-gradient(135deg, rgba(147,197,253,0.18) 0%, rgba(96,165,250,0.06) 100%)",
                 border: "1px solid rgba(147,197,253,0.32)",
-                color: "#bfdbfe",
+                color: AI_BLUE_TEXT,
                 fontSize: 12,
                 fontWeight: 800,
                 letterSpacing: "0.03em",
@@ -2122,7 +2126,7 @@ function RoundReviewPanel({
               label="Podium bonus"
               value={podiumBonus ? `+${podiumBonus.pts}` : "—"}
               detail={podiumBonus ? "Perfect podium" : null}
-              accent={podiumBonus ? "#93c5fd" : SUBTLE_TEXT}
+              accent={podiumBonus ? AI_BLUE_TEXT : SUBTLE_TEXT}
             />
           </div>
 
@@ -2384,7 +2388,7 @@ function RoundReviewPanel({
                         fontWeight: 800,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
-                        color: row.actual ? "#93c5fd" : SUBTLE_TEXT,
+                        color: row.actual ? AI_BLUE_TEXT : SUBTLE_TEXT,
                       }}
                     >
                       {row.actual || (raceHasPassed ? "Awaiting" : "Locked")}
@@ -2657,7 +2661,7 @@ function AiCompactPanel({ aiPredictions, isPro, picks, openAuth }) {
                 style={{
                   fontSize: 11,
                   fontWeight: 800,
-                  color: isMatched ? "#86efac" : TEXT_PRIMARY,
+                  color: isMatched ? SUCCESS_TEXT : TEXT_PRIMARY,
                   flex: 1,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -3252,28 +3256,6 @@ function BoardCommandBar({
             }}>{selectedLeague?.name || "Board"}</span>
           </div>
 
-          {/* Progress bar — replaces dot pattern with cleaner narrative */}
-          <div style={{
-            position: "relative",
-            height: 5,
-            borderRadius: 999,
-            background: "rgba(148,163,184,0.10)",
-            overflow: "hidden",
-          }}>
-            <div className="picks-cmd-fill" style={{
-              width: `${pct}%`,
-              height: "100%",
-              background: allFilled
-                ? `linear-gradient(90deg, ${SUCCESS}, #4ade80)`
-                : `linear-gradient(90deg, ${ACCENT}, #fbbf24)`,
-              borderRadius: 999,
-              boxShadow: allFilled
-                ? `0 0 12px ${hexToRgba(SUCCESS, 0.46)}`
-                : `0 0 12px ${hexToRgba(ACCENT, 0.36)}`,
-              transition: "width 360ms cubic-bezier(0.16,1,0.3,1), background 240ms ease, box-shadow 240ms ease",
-            }} />
-          </div>
-
           {/* Inline category jump pills — compact, scrollable, animated active */}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
             {allPrompts.map((prompt) => {
@@ -3491,13 +3473,18 @@ function PicksRaceHero({ race, lockCountdown, stateTone, aiInsight, isMobile, is
         textTransform: "uppercase",
         maxWidth: "18ch",
       }}>
-        {titleChars.map((ch, i) => (
-          <span
-            key={`${ch}-${i}-${race?.r}`}
-            className="picks-title-char"
-            style={{ animationDelay: `${80 + i * 36}ms` }}
-          >{ch === " " ? " " : ch}</span>
-        ))}
+        {titleChars.map((ch, i) => {
+          if (ch === " ") {
+            return <span key={`sp-${i}-${race?.r}`} className="picks-title-space" aria-hidden="true">&nbsp;</span>;
+          }
+          return (
+            <span
+              key={`${ch}-${i}-${race?.r}`}
+              className="picks-title-char"
+              style={{ animationDelay: `${80 + i * 36}ms` }}
+            >{ch}</span>
+          );
+        })}
       </h1>
 
       {/* Sub-line: circuit + city */}
@@ -3542,7 +3529,7 @@ function PicksRaceHero({ race, lockCountdown, stateTone, aiInsight, isMobile, is
             <span style={{
               fontSize: 10, fontWeight: 900,
               letterSpacing: "0.16em", textTransform: "uppercase",
-              color: "#93c5fd",
+              color: AI_BLUE_TEXT,
               flexShrink: 0,
             }}>AI Brief</span>
             <span style={{
@@ -3599,11 +3586,13 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
       <div
         style={{
           display: "flex",
-          gap: isMobile ? 8 : 10,
+          gap: isMobile ? 12 : 16,
           overflowX: "auto",
+          overflowY: "visible",
           scrollbarWidth: "none",
+          paddingTop: 10,
           paddingRight: 56,
-          paddingBottom: 4,
+          paddingBottom: 10,
         }}
       >
         {roundSummary.entries.map((entry) => {
@@ -3674,13 +3663,136 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
         aria-hidden="true"
         style={{
           position: "absolute",
-          top: 0, right: 0, bottom: 4,
+          top: 10, right: 0, bottom: 10,
           width: 56,
           background: `linear-gradient(to right, transparent, ${BG_BASE})`,
           pointerEvents: "none",
         }}
       />
     </div>
+  );
+}
+
+// Survival-mode banner — alive/eliminated state + members remaining + last
+// elimination, fetched live from league_members. Only renders when the active
+// league is a Survival league.
+function useSurvivalState({ league, user }) {
+  const [state, setState] = useState(null);
+
+  useEffect(() => {
+    if (!league?.id || league.gameMode !== "survival" || !user?.id) {
+      setState(null);
+      return undefined;
+    }
+    let cancelled = false;
+
+    async function load() {
+      const { data: members, error } = await supabase
+        .from("league_members")
+        .select("user_id, status, eliminated_at_race_id")
+        .eq("league_id", league.id);
+      if (cancelled) return;
+      if (error || !members) {
+        setState(null);
+        return;
+      }
+
+      const alive = members.filter((m) => m.status === "active");
+      const eliminated = members.filter((m) => m.status === "eliminated");
+      const me = members.find((m) => m.user_id === user.id) || null;
+
+      let lastEliminationRound = null;
+      if (eliminated.length) {
+        const raceIds = [...new Set(eliminated.map((m) => m.eliminated_at_race_id).filter(Boolean))];
+        if (raceIds.length) {
+          const { data: races } = await supabase
+            .from("races")
+            .select("id,round")
+            .in("id", raceIds);
+          if (races?.length) {
+            lastEliminationRound = Math.max(...races.map((r) => r.round ?? 0));
+          }
+        }
+      }
+
+      setState({
+        totalMembers: members.length,
+        aliveCount: alive.length,
+        eliminatedCount: eliminated.length,
+        userStatus: me?.status || "active",
+        userEliminatedRound: lastEliminationRound,
+        eliminationStartsRound: league?.settings?.elimination_starts_round ?? 3,
+      });
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [league?.id, league?.gameMode, league?.settings?.elimination_starts_round, user?.id]);
+
+  return state;
+}
+
+function SurvivalBanner({ league, survival, isMobile }) {
+  if (!league || league.gameMode !== "survival" || !survival) return null;
+
+  const isOut = survival.userStatus === "eliminated";
+  const railColor = isOut ? "#f87171" : "#86efac";
+  const railRgba = isOut ? "rgba(248,113,113," : "rgba(134,239,172,";
+
+  return (
+    <section
+      style={{
+        position: "relative",
+        borderRadius: SECTION_RADIUS,
+        border: `1px solid ${railRgba}0.22)`,
+        background: `radial-gradient(120% 100% at 0% 0%, ${railRgba}0.10) 0%, transparent 55%), ${PANEL_BG}`,
+        overflow: "hidden",
+        boxShadow: SOFT_SHADOW,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          background: `linear-gradient(180deg, ${railColor} 0%, ${railRgba}0.30) 100%)`,
+        }}
+      />
+      <div style={{ padding: isMobile ? "16px 18px 14px 22px" : "20px 24px 18px 28px", display: "grid", gap: 8 }}>
+        <span
+          style={{
+            display: "inline-flex",
+            width: "fit-content",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: RADIUS_PILL,
+            background: `${railRgba}0.12)`,
+            border: `1px solid ${railRgba}0.32)`,
+            color: railColor,
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        >
+          <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: railColor, boxShadow: `0 0 0 3px ${railRgba}0.18)` }} />
+          {isOut ? "Eliminated" : "Survival · Alive"}
+        </span>
+        <h2 style={{ margin: 0, fontFamily: "Sora, sans-serif", fontSize: isMobile ? 20 : 24, fontWeight: 800, letterSpacing: "-0.035em", color: TEXT_PRIMARY, lineHeight: 1.1 }}>
+          {isOut
+            ? `You were eliminated${survival.userEliminatedRound ? ` at Round ${survival.userEliminatedRound}` : ""}`
+            : `${survival.aliveCount} of ${survival.totalMembers} still in`}
+        </h2>
+        <div style={{ fontSize: 13, color: MUTED_TEXT, lineHeight: 1.55, fontFamily: "Manrope, sans-serif" }}>
+          {isOut
+            ? `Your board is locked. Watch the rest of ${league.name} play out — your final standing is on your profile.`
+            : `Lowest scorer each weekend is out — ties skip a round. Eliminations start at Round ${survival.eliminationStartsRound}.`}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -3740,17 +3852,6 @@ function PicksRoundsList({ calendar, race, liveRaces, resultsByRound, now, round
   }
 
   // Desktop: vertical rail in a polished card
-  const scoredCount = calendar.reduce((n, item) => {
-    const s = roundSidebarStatus(
-      item,
-      liveRaces[item.r] || null,
-      resultsByRound[item.r] || null,
-      now,
-      roundSummariesByRound[item.r] || null
-    );
-    return n + (s.kind === "scored" ? 1 : 0);
-  }, 0);
-  const activeRoundNumber = getRaceDisplayRound(race) || race.r;
   return (
     <div
       className="picks-rounds-list"
@@ -3824,15 +3925,6 @@ function PicksRoundsList({ calendar, race, liveRaces, resultsByRound, now, round
         >
           2026 Calendar
         </h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: MUTED_TEXT, fontFamily: "Manrope, sans-serif" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", color: TEXT_PRIMARY, fontWeight: 800 }}>
-            R{activeRoundNumber}
-          </span>
-          <span>·</span>
-          <span><span style={{ color: SUCCESS, fontWeight: 800, fontFamily: "var(--font-mono)" }}>{scoredCount}</span> scored</span>
-          <span>·</span>
-          <span><span style={{ color: TEXT_PRIMARY, fontWeight: 800, fontFamily: "var(--font-mono)" }}>{Math.max(0, calendar.length - scoredCount)}</span> to go</span>
-        </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "6px 0" }}>
         {calendar.map((item) => {
@@ -4335,7 +4427,7 @@ function PickFocusHeader({
             <span style={{
               fontSize: 10, fontWeight: 900,
               letterSpacing: "0.16em", textTransform: "uppercase",
-              color: "#93c5fd",
+              color: AI_BLUE_TEXT,
             }}>AI Insight</span>
             {(() => {
               const conf = (typeof activeAi.confidence === "string" ? activeAi.confidence.toLowerCase() : "medium") || "medium";
@@ -4398,6 +4490,7 @@ export default function PredictionsPage({
   const demoPreview = demoMode && !user;
   const [picks, setPicks] = useState({});
   const [predictionsByRound, setPredictionsByRound] = useState({});
+  const [leagueScoresByRound, setLeagueScoresByRound] = useState({});
   const [resultsByRound, setResultsByRound] = useState({});
   const [tab, setTab] = useState("race");
   const [saved, setSaved] = useState(false);
@@ -4550,9 +4643,9 @@ export default function PredictionsPage({
         const [{ data: membershipData }, { data: publicProLeague }] = await Promise.all([
           supabase
             .from("league_members")
-            .select("league_id, status, leagues!inner(id,name,game_mode,settings,type,season)")
+            .select("league_id, status, eliminated_at_race_id, leagues!inner(id,name,game_mode,settings,type,season)")
             .eq("user_id", user.id)
-            .eq("status", "active"),
+            .in("status", ["active", "eliminated"]),
           supabase
             .from("leagues")
             .select("id,name,game_mode,settings,type,season")
@@ -4562,7 +4655,7 @@ export default function PredictionsPage({
         if (cancelled) return;
 
         const nextLeagues = (membershipData || [])
-          .map((row) => normalizeLeagueContext(row.leagues))
+          .map((row) => normalizeLeagueContext(row.leagues, row.status))
           .filter((league) => league && (!league.season || league.season === 2026));
 
         const normalizedPublicProLeague = normalizeLeagueContext(publicProLeague) || createPublicProLeague();
@@ -4592,11 +4685,16 @@ export default function PredictionsPage({
   const loadPicks = async () => {
     if (!user) {
       setPredictionsByRound({});
+      setLeagueScoresByRound({});
       setPicks({});
       setDraftOverridesByRound({});
       return;
     }
-    const { data } = await supabase.from("predictions").select("*").eq("user_id", user.id);
+    const [predictionResponse, leagueScoreResponse] = await Promise.all([
+      supabase.from("predictions").select("*").eq("user_id", user.id),
+      supabase.from("league_round_scores").select("league_id,race_round,score,breakdown,game_mode,computed_at").eq("user_id", user.id),
+    ]);
+    const data = predictionResponse.data || [];
     if (data) {
       const mapped = {};
       data.forEach((row) => {
@@ -4604,6 +4702,17 @@ export default function PredictionsPage({
       });
       setPredictionsByRound(mapped);
       setDraftOverridesByRound({});
+    }
+
+    if (!leagueScoreResponse.error) {
+      const scoreMap = {};
+      (leagueScoreResponse.data || []).forEach((row) => {
+        if (!scoreMap[row.race_round]) scoreMap[row.race_round] = {};
+        scoreMap[row.race_round][row.league_id] = row;
+      });
+      setLeagueScoresByRound(scoreMap);
+    } else {
+      setLeagueScoresByRound({});
     }
   };
 
@@ -4664,6 +4773,8 @@ export default function PredictionsPage({
     () => availableLeagues.find((league) => league.id === activeLeagueId) || availableLeagues[0],
     [availableLeagues, activeLeagueId]
   );
+
+  const survivalState = useSurvivalState({ league: selectedLeague, user });
 
   useEffect(() => {
     if (!availableLeagues.length) return;
@@ -4893,6 +5004,9 @@ export default function PredictionsPage({
   const previousPrompt = activeIndex > 0 ? allPrompts[activeIndex - 1] : null;
   const nextPromptItem = activeIndex < allPrompts.length - 1 ? allPrompts[activeIndex + 1] : null;
   const selectedResult = resultsByRound[race.r] || null;
+  const selectedLeagueScore = selectedLeague?.id
+    ? (leagueScoresByRound[race.r]?.[selectedLeague.id] || null)
+    : null;
   const liveRace = liveRaces[race.r] || null;
   const selectedLeagueSubmission = selectedLeague
     ? (selectedRoundSubmissions[selectedLeague.id] || emptyLeagueSubmission(selectedLeague))
@@ -4974,13 +5088,15 @@ export default function PredictionsPage({
 
   const resultsEntered = !!selectedResult?.results_entered;
   const reviewReady = !!selectedLeague && !!selectedResult && resultsEntered && raceHasPassed && hasSavedPickContent(selectedLeagueSubmission?.picks);
-  const editingLocked = !!lockCountdown?.locked || raceHasPassed || resultsEntered;
+  const editingLocked = !!lockCountdown?.locked || raceHasPassed || resultsEntered || selectedLeague?.isEliminated;
   const selectedLeagueBlocked = !!selectedLeague && selectedLeague.type === "pro_community" && !isProSubscriber;
   const interactionLocked = editingLocked || selectedLeagueBlocked;
   const showReviewOnly = raceHasPassed || resultsEntered;
   const reviewRows = useMemo(
     () => {
-      const breakdown = selectedPrediction?.primaryLeagueId === selectedLeague?.id
+      const breakdown = Array.isArray(selectedLeagueScore?.breakdown)
+        ? selectedLeagueScore.breakdown
+        : selectedPrediction?.primaryLeagueId === selectedLeague?.id
         ? (selectedPrediction?.score_breakdown || [])
         : [];
       const baseRows = reviewRowsForPrompts(
@@ -5009,7 +5125,7 @@ export default function PredictionsPage({
         return row;
       });
     },
-    [allPrompts, selectedLeagueSubmission, selectedResult, selectedPrediction, selectedLeague]
+    [allPrompts, selectedLeagueSubmission, selectedResult, selectedPrediction, selectedLeague, selectedLeagueScore]
   );
   const summaryRows = reviewRows.filter((row) => row.pick || row.actual);
   const hits = reviewRows.filter((row) => row.hit).length;
@@ -5022,7 +5138,9 @@ export default function PredictionsPage({
     : Array.isArray(selectedPrediction?.score_breakdown)
     ? (selectedPrediction.score_breakdown.find((item) => item.label === "Perfect Podium Bonus") || (perfectPodiumHit ? { label: "Perfect Podium Bonus", pts: PTS.perfectPodium } : null))
     : (perfectPodiumHit ? { label: "Perfect Podium Bonus", pts: PTS.perfectPodium } : null);
-  const displayReviewScore = reviewRows.reduce((sum, row) => sum + Number(row.points || 0), 0) + Number(podiumBonus?.pts || 0);
+  const displayReviewScore = selectedLeagueScore
+    ? Number(selectedLeagueScore.score || 0)
+    : reviewRows.reduce((sum, row) => sum + Number(row.points || 0), 0) + Number(podiumBonus?.pts || 0);
   const lockLabel = resolvedLock?.lockAt ? formatLocalDateTime(resolvedLock.lockAt) : null;
   const roundHasSavedBoard = selectedLeagueProgress.hasAny;
   const saveLabel = isSaving
@@ -5156,6 +5274,10 @@ export default function PredictionsPage({
           opacity: 0;
           transform: translateY(8px);
           animation: picks-char-in 360ms cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .picks-title-space {
+          display: inline-block;
+          width: 0.32em;
         }
 
         @keyframes picks-fade-up {
@@ -5469,14 +5591,25 @@ export default function PredictionsPage({
         <main style={{ minHeight: "60vh", display: "grid", gap: 14, alignContent: "start" }}>
 
           {/* ── 3. League switcher pills (replaces inline league strip) ── */}
-          <LeagueSwitcherPills
-            roundSummary={roundSummary}
-            selectedLeague={selectedLeague}
-            editingLocked={editingLocked}
-            reviewReady={reviewReady}
-            onSelect={selectLeagueContext}
-            isMobile={isMobile}
-          />
+          <div style={{ marginTop: isMobile ? 8 : 14 }}>
+            <LeagueSwitcherPills
+              roundSummary={roundSummary}
+              selectedLeague={selectedLeague}
+              editingLocked={editingLocked}
+              reviewReady={reviewReady}
+              onSelect={selectLeagueContext}
+              isMobile={isMobile}
+            />
+          </div>
+
+          {/* ── 3b. Survival banner — alive/eliminated state for the league ── */}
+          {selectedLeague?.gameMode === "survival" && (
+            <SurvivalBanner
+              league={selectedLeague}
+              survival={survivalState}
+              isMobile={isMobile}
+            />
+          )}
 
           {/* Hidden — preserved as dead code for revertibility */}
           {false && (<div style={{ position: "relative" }}>
@@ -5621,7 +5754,7 @@ export default function PredictionsPage({
             const tone = resultsEntered
               ? { color: "#4ade80", bg: SUCCESS_BG, border: SUCCESS_BORDER, kicker: "Scored", title: "Picks scored", body: "Results are in — check your score below.", textColor: SUCCESS_TEXT, glow: "rgba(34,197,94,0.5)" }
               : raceHasPassed
-                ? { color: "#60a5fa", bg: "rgba(59,130,246,0.06)", border: "rgba(59,130,246,0.22)", kicker: "Awaiting", title: "Awaiting results", body: "Race weekend ended. Scores coming soon.", textColor: "#93c5fd", glow: "rgba(59,130,246,0.5)" }
+                ? { color: "#60a5fa", bg: "rgba(59,130,246,0.06)", border: "rgba(59,130,246,0.22)", kicker: "Awaiting", title: "Awaiting results", body: "Race weekend ended. Scores coming soon.", textColor: AI_BLUE_TEXT, glow: "rgba(59,130,246,0.5)" }
                 : { color: "#fcd34d", bg: WARN_BG, border: WARN_BORDER, kicker: "Locked", title: "Picks locked", body: lockLabel ? `Locked at ${lockLabel} · no more changes accepted` : "No more changes accepted.", textColor: WARN_TEXT, glow: "rgba(252,211,77,0.5)" };
 
             return (
@@ -6165,7 +6298,7 @@ export default function PredictionsPage({
                         style={{
                           background: "none",
                           border: "none",
-                          color: "#93c5fd",
+                          color: AI_BLUE_TEXT,
                           cursor: "pointer",
                           fontSize: 11.5,
                           fontWeight: 700,

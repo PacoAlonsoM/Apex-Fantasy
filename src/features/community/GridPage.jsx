@@ -31,7 +31,6 @@ import {
 // chip.
 const INFO_SOFT = "#9cd1ff";
 import { nextRace } from "@/src/constants/calendar";
-import { MOCK_PRO_USERNAMES } from "@/src/features/community/mockUsers";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import { requireActiveSession } from "@/src/shell/authProfile";
 import useViewport from "@/src/lib/useViewport";
@@ -154,27 +153,15 @@ const SEED_POSTS = {
   ],
 };
 
-// MOCK_PRO_USERNAMES lives in the shared mockUsers module so Grid and
-// Community decorate Pro authors from the same list.
-
 // Stable avatar colours for seed-post authors. Uses the same `support-*`
-// keys that real users pick in onboarding and that the CommunityPage mock
-// pros use — one avatar palette across every identity surface.
+// keys that real users pick in onboarding — one avatar palette across every
+// identity surface.
 const SEED_AUTHOR_COLORS = {
   paddockwatch:    "support-mclaren",
   grid_lurker:     "support-williams",
   tifosi_takes:    "support-ferrari",
   apex_anon:       "support-alpine",
   pitwall_pro:     "support-mercedes",
-  grid_racer_hk:   "support-mclaren",
-  apexhunter_v:    "support-ferrari",
-  tyre_whisperer:  "support-williams",
-  overcut_king:    "support-alpine",
-  drs_zone_r:      "support-red-bull",
-  stint_veteran:   "support-aston",
-  paddock_analyst: "support-rb",
-  lauda_line:      "support-haas",
-  box_box_bella:   "support-audi",
 };
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -241,8 +228,7 @@ function resolveAvatarColor(profile, name) {
 }
 
 function isProIdentity(profile, fallbackName = "") {
-  const username = String(profile?.username || fallbackName || "").trim().toLowerCase();
-  return profile?.subscription_status === "pro" || MOCK_PRO_USERNAMES.has(username);
+  return profile?.subscription_status === "pro";
 }
 
 function dateStampForGroup(key) {
@@ -603,47 +589,6 @@ function PaddockBriefing({
           <span style={{ color: "rgba(255,255,255,0.96)", fontWeight: 800 }}>{raceName}</span>.
         </p>
       </div>
-
-      {/* Row 3: pulse chips strip */}
-      {mood && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
-          gap: isMobile ? 8 : 10,
-          marginBottom: isMobile ? 16 : 20,
-        }}>
-          <PaddockBriefingChip
-            kicker="Winner consensus"
-            value={mood.winner?.name || "Open"}
-            sub={mood.winner ? `${mood.winner.share}% of the room` : "Picks fill this week"}
-            accent={ACCENT}
-            isMobile={isMobile}
-          />
-          <PaddockBriefingChip
-            kicker="Hot DNF call"
-            value={mood.dnf?.name || "—"}
-            sub={mood.dnf ? `${mood.dnf.share}% taking risk` : "Room deciding"}
-            accent={PRO_AMBER_DOT}
-            isMobile={isMobile}
-          />
-          <PaddockBriefingChip
-            kicker="Voices this week"
-            value={String(mood.voices ?? "—")}
-            sub={mood.proActive ? `${mood.proActive} Pro active` : "Members posting"}
-            accent="#7dd3fc"
-            isMobile={isMobile}
-            mono
-          />
-          <PaddockBriefingChip
-            kicker="Ideas in motion"
-            value={String(mood.ideas ?? "—")}
-            sub={mood.topIdea || "Submit an idea"}
-            accent={INFO_SOFT}
-            isMobile={isMobile}
-            mono
-          />
-        </div>
-      )}
 
       {/* Row 4: inline composer */}
       <InlineComposer
@@ -3139,8 +3084,8 @@ export default function GridPage({ user, openAuth, demoMode = false }) {
 
   // ─── Derive data ───────────────────────────────────────────────────────
 
-  const isSeedMode = !loading && threads.length === 0 && ideas.length === 0;
-
+  // Backend-only mode: empty Grid data should render empty states, not static demo posts.
+  const isSeedMode = false;
   const effectiveThreads = isSeedMode
     ? [...SEED_POSTS.race_discussion, ...SEED_POSTS.general]
     : threads;

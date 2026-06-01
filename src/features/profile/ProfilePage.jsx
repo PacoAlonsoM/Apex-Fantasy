@@ -850,17 +850,6 @@ function CoachHero({ coach, breakdown, isPro, isMobile, recentRaces }) {
                 borderRadius: RADIUS_PILL, padding: "3px 10px",
               }}>Preview</span>
             )}
-            {recentRaces?.length >= 3 && (
-              <span className="ov-hero-sparkline" style={{
-                marginLeft: "auto",
-                padding: "4px 10px 2px",
-                borderRadius: 10,
-                background: "rgba(6,16,27,0.42)",
-                border: `1px solid ${rgbaFromHex(AI_BLUE, 0.18)}`,
-              }}>
-                <CoachSparkline races={recentRaces} accent={AI_BLUE_TEXT} isMobile={isMobile} />
-              </span>
-            )}
           </div>
 
           {/* Typing-reveal archetype label */}
@@ -3413,7 +3402,7 @@ function CategoryLab({ breakdown, history, isMobile }) {
                   }}>{category.points} pts</span>
                 </div>
               </div>
-              {/* You bar */}
+              {/* You bar — solid so the fill matches the labeled accuracy */}
               <div style={{
                 position: "relative",
                 height: 4, borderRadius: 999,
@@ -3423,11 +3412,10 @@ function CategoryLab({ breakdown, history, isMobile }) {
                 <div className="in-cat-fill" style={{
                   width: `${category.accuracy}%`, height: "100%",
                   borderRadius: 999,
-                  background: `linear-gradient(90deg, ${ACCENT}, #fbbf24)`,
-                  boxShadow: `0 0 10px ${rgbaFromHex(ACCENT, 0.36)}`,
+                  background: ACCENT,
                 }} />
               </div>
-              {/* AI bar */}
+              {/* AI bar — solid blue, no gradient tail */}
               {showAi && aiCategory && (
                 <div style={{
                   position: "relative",
@@ -3437,8 +3425,7 @@ function CategoryLab({ breakdown, history, isMobile }) {
                   <div className="in-cat-fill" style={{
                     width: `${aiCategory.accuracy}%`, height: "100%",
                     borderRadius: 999,
-                    background: `linear-gradient(90deg, ${AI_BLUE_TEXT}, ${rgbaFromHex(AI_BLUE_TEXT, 0.55)})`,
-                    opacity: 0.92,
+                    background: AI_BLUE_TEXT,
                   }} />
                 </div>
               )}
@@ -5279,7 +5266,7 @@ export default function ProfilePage({ user, setUser, setPage }) {
       }}>
         {TABS.map(({ key, label, pro }) => {
           const active = profileTab === key;
-          const showProBadge = pro && !isPro;
+          const showProBadge = pro;
           return (
             <button
               key={key}
@@ -5652,32 +5639,13 @@ export default function ProfilePage({ user, setUser, setPage }) {
                     </div>
                   )}
 
-                  {/* 4. Filter rail */}
+                  {/* 4. Race log header */}
                   <div style={{ "--f1-i": 3, display: "grid", gap: isMobile ? 14 : 18 }}>
                     <SectionHead
                       kicker="Race log"
-                      title={
-                        historyFilter === "all"     ? "Round-by-round picks"
-                        : historyFilter === "wins"  ? "Your big weekends"
-                        : historyFilter === "best"  ? "Top 5 scored rounds"
-                        : historyFilter === "worst" ? "Bottom 5 scored rounds"
-                        : historyFilter === "pending" ? "Awaiting results"
-                        : "Round-by-round picks"
-                      }
+                      title="Round-by-round picks"
                       meta={`${filtered.length} ${filtered.length === 1 ? "race" : "races"}`}
                       color={ACCENT}
-                      isMobile={isMobile}
-                    />
-                    <FilterRail
-                      filters={filters}
-                      active={historyFilter}
-                      onChange={(next) => {
-                        if (typeof document !== "undefined" && document.startViewTransition) {
-                          document.startViewTransition(() => setHistoryFilter(next));
-                        } else {
-                          setHistoryFilter(next);
-                        }
-                      }}
                       isMobile={isMobile}
                     />
                   </div>

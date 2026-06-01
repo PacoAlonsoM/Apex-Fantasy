@@ -65,13 +65,13 @@ function formatEndDate(value) {
 const HEADLINE_FEATURES = [
   {
     title: "Pro game modes",
-    pitch: "Five formats that change how you compete. Set the rules. Own the room.",
+    pitch: "Formats that change how you compete. Set the rules. Own the room.",
     items: [
       { label: "Survival",      detail: "Lowest scorer eliminated each round." },
-      { label: "Draft",         detail: "Drivers claimed once in a season draft." },
       { label: "Double Down",   detail: "One pick scores 3× points." },
-      { label: "Head-to-Head",  detail: "Beat one opponent each weekend." },
       { label: "Budget",        detail: "Build your board under a credit cap." },
+      { label: "Draft",         detail: "Drivers claimed once in a season draft.", comingSoon: true },
+      { label: "Head-to-Head",  detail: "Beat one opponent each weekend.", comingSoon: true },
     ],
   },
   {
@@ -138,35 +138,103 @@ function HeadlineCard({ title, pitch, items = [], isMobile }) {
     <div
       className="pro-headline-card"
       style={{
-        background:    BG_ELEVATED,
-        border:        `1px solid ${rgbaFromHex(ACCENT, 0.16)}`,
+        position:      "relative",
+        background:    `radial-gradient(120% 100% at 0% 0%, ${rgbaFromHex(ACCENT, 0.08)} 0%, transparent 55%), ${BG_ELEVATED}`,
+        border:        `1px solid ${rgbaFromHex(ACCENT, 0.22)}`,
         borderRadius:  CARD_RADIUS,
         overflow:      "hidden",
         display:       "flex",
         flexDirection: "column",
+        boxShadow:     `0 14px 38px ${rgbaFromHex(ACCENT, 0.08)}`,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position:   "absolute",
+          inset:      "0 auto 0 0",
+          width:      3,
+          background: `linear-gradient(180deg, ${ACCENT} 0%, ${rgbaFromHex(ACCENT, 0.30)} 100%)`,
+          zIndex:     2,
+        }}
+      />
       <div
         style={{
-          padding:      isMobile ? "18px 18px 14px" : "22px 24px 16px",
+          padding:      isMobile ? "20px 20px 16px 24px" : "24px 26px 18px 28px",
           borderBottom: `1px solid ${HAIRLINE}`,
-          background:   rgbaFromHex(ACCENT, 0.04),
+          display:      "grid",
+          gap:          8,
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-0.03em", color: TEXT_PRIMARY, marginBottom: 10 }}>
+        <span
+          style={{
+            display:       "inline-flex",
+            width:         "fit-content",
+            alignItems:    "center",
+            gap:           6,
+            padding:       "4px 10px",
+            borderRadius:  RADIUS_PILL,
+            background:    rgbaFromHex(ACCENT, 0.12),
+            border:        `1px solid ${rgbaFromHex(ACCENT, 0.32)}`,
+            color:         ACCENT,
+            fontSize:      9,
+            fontWeight:    900,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily:    "Manrope, sans-serif",
+          }}
+        >
+          <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT, boxShadow: `0 0 0 3px ${rgbaFromHex(ACCENT, 0.18)}` }} />
+          Feature
+        </span>
+        <h3
+          style={{
+            margin:        0,
+            fontFamily:    "Sora, sans-serif",
+            fontSize:      isMobile ? 18 : 22,
+            fontWeight:    800,
+            letterSpacing: "-0.035em",
+            color:         TEXT_PRIMARY,
+            lineHeight:    1.15,
+          }}
+        >
           {title}
-        </div>
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: "38ch" }}>
+        </h3>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: MUTED_TEXT, maxWidth: "38ch", fontFamily: "Manrope, sans-serif" }}>
           {pitch}
         </p>
       </div>
 
-      <div style={{ padding: isMobile ? "14px 18px 18px" : "16px 24px 20px", display: "grid", gap: 10, flex: 1 }}>
+      <div style={{ padding: isMobile ? "14px 20px 20px 24px" : "16px 26px 22px 28px", display: "grid", gap: 10, flex: 1 }}>
         {items.map((item) => (
-          <div key={item.label} style={{ display: "flex", gap: 9, alignItems: "baseline" }}>
-            <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: "50%", background: rgbaFromHex(ACCENT, 0.35), marginTop: 7 }} />
-            <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT }}>
+          <div key={item.label} style={{ display: "flex", gap: 10, alignItems: "baseline", opacity: item.comingSoon ? 0.72 : 1 }}>
+            <span style={{
+              flexShrink: 0, width: 14, height: 14, borderRadius: "50%",
+              background: item.comingSoon ? "rgba(148,163,184,0.10)" : rgbaFromHex(ACCENT, 0.18),
+              border: item.comingSoon ? `1px solid rgba(148,163,184,0.32)` : `1px solid ${rgbaFromHex(ACCENT, 0.40)}`,
+              color: item.comingSoon ? SUBTLE_TEXT : ACCENT,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 9, fontWeight: 900, lineHeight: 1, marginTop: 2,
+            }}>
+              {item.comingSoon ? "…" : "✓"}
+            </span>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: MUTED_TEXT, fontFamily: "Manrope, sans-serif" }}>
               <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>{item.label}</span>
+              {item.comingSoon && (
+                <span style={{
+                  marginLeft: 6,
+                  padding: "1px 6px",
+                  borderRadius: RADIUS_PILL,
+                  background: "rgba(148,163,184,0.12)",
+                  border: "1px solid rgba(148,163,184,0.24)",
+                  color: SUBTLE_TEXT,
+                  fontSize: 9,
+                  fontWeight: 900,
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  verticalAlign: "1px",
+                }}>Coming soon</span>
+              )}
               {" — "}
               {item.detail}
             </div>
@@ -182,25 +250,36 @@ function UtilityCard({ title, items = [], isMobile }) {
     <div
       className="pro-utility-card"
       style={{
+        position:     "relative",
         background:   BG_ELEVATED,
         border:       PANEL_BORDER,
         borderRadius: CARD_RADIUS,
         overflow:     "hidden",
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position:   "absolute",
+          inset:      "0 auto 0 0",
+          width:      2,
+          background: `linear-gradient(180deg, ${rgbaFromHex(ACCENT, 0.55)} 0%, ${rgbaFromHex(ACCENT, 0.15)} 100%)`,
+          zIndex:     2,
+        }}
+      />
       <div
         style={{
-          padding:      isMobile ? "12px 14px 10px" : "14px 16px 11px",
+          padding:      isMobile ? "13px 14px 11px 16px" : "15px 16px 12px 18px",
           borderBottom: `1px solid ${HAIRLINE}`,
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "-0.02em", color: TEXT_PRIMARY }}>{title}</span>
+        <span style={{ fontFamily: "Sora, sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "-0.025em", color: TEXT_PRIMARY }}>{title}</span>
       </div>
-      <div style={{ padding: isMobile ? "10px 14px 12px" : "12px 16px 14px", display: "grid", gap: 7 }}>
+      <div style={{ padding: isMobile ? "11px 14px 13px 16px" : "13px 16px 15px 18px", display: "grid", gap: 7 }}>
         {items.map((item) => (
           <div key={item.label} style={{ display: "flex", gap: 7, alignItems: "baseline" }}>
-            <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: "50%", background: "rgba(148,163,184,0.25)", marginTop: 7 }} />
-            <div style={{ fontSize: 12, lineHeight: 1.45, color: MUTED_TEXT }}>
+            <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: "50%", background: rgbaFromHex(ACCENT, 0.40), marginTop: 7 }} />
+            <div style={{ fontSize: 12, lineHeight: 1.45, color: MUTED_TEXT, fontFamily: "Manrope, sans-serif" }}>
               <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>{item.label}</span>
               {" — "}
               {item.detail}
@@ -2048,17 +2127,7 @@ export default function ProPage({ user, setUser, setPage }) {
         proLeagueCount={proLeague.totalMembers}
       />
 
-      {/* ── 2. Pro Community League highlight — single, prominent perk card ── */}
-      <ProLeagueHighlight
-        proLeague={proLeague}
-        isPro={isPro}
-        user={user}
-        onView={openLeagues}
-        isMobile={isMobile}
-        isTablet={isTablet}
-      />
-
-      {/* ── 3. Pro vs Free comparison table ── */}
+      {/* ── 2. Pro vs Free comparison table ── */}
       <ProVsFreeTable isMobile={isMobile} />
 
       {/* ── 4. Features grid ── */}

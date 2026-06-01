@@ -314,6 +314,14 @@ select:focus {
   outline: none;
 }
 
+/* Buttons handle their own active/pressed visuals — the keyboard focus ring
+   piles on top and reads as a stuck outline after a click + keystroke. Drop
+   it for buttons (and button-role elements) globally. Inputs, links, and
+   textareas keep the ring for keyboard accessibility. */
+button:focus-visible,
+button:focus,
+[role="button"]:focus-visible,
+[role="button"]:focus,
 [data-navbar-tab="true"]:focus-visible {
   outline: none;
 }

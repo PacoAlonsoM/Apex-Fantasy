@@ -491,9 +491,7 @@ function Hero({ mode, state, currentRace, insight, meta, search, onSearchChange,
   const stats = isAi
     ? [
         { label: "Generated", value: insight?.generated_at ? relativeTime(insight.generated_at) : "—", caption: insight?.generated_at ? absoluteTime(insight.generated_at) : null, mono: true },
-        { label: "Sources read", value: insight?.source_count ? String(insight.source_count) : "—", caption: insight?.source_count ? "Race-week wire" : null, mono: true },
         { label: "Confidence", value: aiConf?.label || "—", accent: aiConf?.color, caption: aiConf ? `${Math.round(aiConf.value * 100)}%` : null },
-        { label: "Round", value: currentRace?.r ? `№ ${String(currentRace.r).padStart(2, "0")}` : "—", caption: currentRace?.circuit || null, mono: true },
       ]
     : [
         { label: "Stories", value: meta?.articles ? String(meta.articles) : "—", caption: "On the wire", mono: true },
@@ -623,7 +621,9 @@ function Hero({ mode, state, currentRace, insight, meta, search, onSearchChange,
         paddingTop:    isMobile ? 16 : 22,
         borderTop:     "1px solid rgba(255,255,255,0.10)",
         display:       "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gridTemplateColumns: isMobile
+          ? (stats.length <= 2 ? "1fr 1fr" : "1fr 1fr")
+          : `repeat(${stats.length}, minmax(0, 1fr))`,
         gap:           isMobile ? "16px 18px" : "0 22px",
       }}>
         {stats.map((s) => (
