@@ -225,3 +225,73 @@ export async function sendProCancellationEmail({ email, username, endsAt }) {
     html:    baseHtml(title, preview, body),
   });
 }
+
+/**
+ * Pick reminder.
+ *
+ * Sent before each race lockout to users who haven't completed their picks.
+ * Two windows (24h before, 3h before) × two variants (zero picks, incomplete).
+ *
+ * @param {{
+ *   email: string,
+ *   username?: string,
+ *   raceName: string,
+ *   raceCountry?: string,
+ *   reminderWindow: '24h' | '3h',
+ *   variant: 'zero' | 'incomplete',
+ *   pickCount?: number,
+ *   unsubscribeToken: string,
+ * }} opts
+ */
+export async function sendPickReminderEmail({
+  email, username, raceName, raceCountry,
+  reminderWindow, variant, pickCount = 0, unsubscribeToken,
+}) {
+  const resend = getResendClient();
+  const name = username ?? "Manager";
+
+  const timingPhrase = reminderWindow === "3h"
+    ? "in about 3 hours"
+    : "in about 24 hours";
+
+  const urgencyPrefix = reminderWindow === "3h" ? "Last chance — " : "";
+
+  let subjectLine, preview, heading, subText;
+
+  if (variant === "zero") {
+    subjectLine = `${urgencyPrefix}Make your ${raceName} picks`;
+    preview     = `Picks lock ${timingPhrase}. Don't miss it.`;
+    heading     = `${raceName} picks lock ${timingPhrase}`;
+    subText     = reminderWindow === "3h"
+      ? `Heads up ${name} — picks for ${raceName}${raceCountry ? ` (${raceCountry})` : ""} lock in about 3 hours. Lock yours in before qualifying starts.`
+      : `Just a reminder ${name} — picks for ${raceName}${raceCountry ? ` (${raceCountry})` : ""} lock ${timingPhrase}. Get your 6 picks in before qualifying.`;
+  } else {
+    const remaining = Math.max(0, 6 - pickCount);
+    subjectLine = `${urgencyPrefix}Finish your ${raceName} picks (${pickCount}/6)`;
+    preview     = `You've made ${pickCount} of 6 picks. ${remaining} to go.`;
+    heading     = `Finish your ${raceName} picks`;
+    subText     = `Hey ${name} — you've made ${pickCount} of 6 picks for ${raceName}${raceCountry ? ` (${raceCountry})` : ""}. Picks lock ${timingPhrase}, so finish the remaining ${remaining} to be in the running.`;
+  }
+
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}&cat=pick_reminders`;
+
+  const body = `
+    ${h1(heading)}
+    ${p(subText)}
+    ${cta("Make My Picks", `${SITE_URL}/picks`)}
+    <p style="margin:28px 0 0;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Don't want these? <a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Unsubscribe from pick reminders</a>.
+    </p>
+  `;
+
+  return resend.emails.send({
+    from:    FROM,
+    to:      email,
+    subject: subjectLine,
+    html:    baseHtml(subjectLine, preview, body),
+    headers: {
+      "List-Unsubscribe":      `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  });
+}
