@@ -6,11 +6,15 @@
 -- Auto-enrols every new profile via a trigger; backfills all
 -- existing profiles on first run.
 --
--- Owned by the same stint_system profile used by Pro Community.
+-- Owner resolution (in order):
+--   1. existing 'stint_system' profile (if Pro Community was seeded)
+--   2. owner of the existing Pro Community league
+--   3. first profile in the table (any real user) — placeholder only
+-- profiles.id is not gen-defaulted because it's normally seeded
+-- from auth.users.id; we never try to INSERT a new profile here.
 -- ============================================================
 
 -- Extend the leagues.type CHECK constraint to allow 'community'.
--- Postgres requires drop + add (no IF EXISTS for re-creating with same name).
 DO $$
 DECLARE
   v_constraint_name TEXT;
@@ -27,6 +31,9 @@ BEGIN
 END $$;
 
 ALTER TABLE public.leagues
+  DROP CONSTRAINT IF EXISTS leagues_type_check;
+
+ALTER TABLE public.leagues
   ADD CONSTRAINT leagues_type_check
   CHECK (type IN ('standard', 'pro_community', 'community'));
 
@@ -35,31 +42,37 @@ DECLARE
   v_system_user_id UUID;
   v_league_id      UUID;
 BEGIN
-  -- Reuse the existing stint_system profile (created by the Pro Community
-  -- migration). If it doesn't exist (e.g. fresh DB without that migration),
-  -- create it.
+  -- 1. Try to find an existing 'stint_system' profile
   SELECT id INTO v_system_user_id
   FROM public.profiles
   WHERE username = 'stint_system'
   LIMIT 1;
 
+  -- 2. Fallback: reuse the Pro Community league owner if available
   IF v_system_user_id IS NULL THEN
-    INSERT INTO public.profiles (username, points, avatar_color)
-    VALUES ('stint_system', 0, 'ember')
-    ON CONFLICT (username) DO NOTHING
-    RETURNING id INTO v_system_user_id;
-
-    IF v_system_user_id IS NULL THEN
-      SELECT id INTO v_system_user_id FROM public.profiles WHERE username = 'stint_system';
-    END IF;
+    SELECT owner_id INTO v_system_user_id
+    FROM public.leagues
+    WHERE type = 'pro_community'
+    LIMIT 1;
   END IF;
 
-  -- Create the league if it doesn't already exist
+  -- 3. Last resort: pick the oldest profile as the placeholder owner.
+  -- This row is never user-facing as an owner — owner_id is required
+  -- by FK but the league treats itself as system-owned in code.
+  IF v_system_user_id IS NULL THEN
+    SELECT id INTO v_system_user_id
+    FROM public.profiles
+    ORDER BY created_at ASC
+    LIMIT 1;
+  END IF;
+
+  -- Create the Stint Community league (idempotent)
   IF v_system_user_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.leagues WHERE type = 'community'
   ) THEN
     INSERT INTO public.leagues (
       name,
+      code,
       owner_id,
       type,
       game_mode,
@@ -70,6 +83,7 @@ BEGIN
       settings
     ) VALUES (
       'Stint Community',
+      'STINT',
       v_system_user_id,
       'community',
       'standard',
@@ -90,15 +104,13 @@ BEGIN
     );
   END IF;
 
-  -- Resolve the league id for backfill / trigger
   SELECT id INTO v_league_id FROM public.leagues WHERE type = 'community' LIMIT 1;
 
-  -- Backfill: enrol every existing profile (except the system user itself)
+  -- Backfill: enrol every existing profile
   IF v_league_id IS NOT NULL THEN
     INSERT INTO public.league_members (league_id, user_id, role, status, joined_at)
     SELECT v_league_id, p.id, 'member', 'active', NOW()
     FROM public.profiles p
-    WHERE p.username <> 'stint_system'
     ON CONFLICT (league_id, user_id) DO NOTHING;
   END IF;
 END $$;
@@ -112,11 +124,6 @@ RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
   v_league_id UUID;
 BEGIN
-  -- Skip the system profile itself
-  IF NEW.username = 'stint_system' THEN
-    RETURN NEW;
-  END IF;
-
   SELECT id INTO v_league_id FROM public.leagues WHERE type = 'community' LIMIT 1;
 
   IF v_league_id IS NOT NULL THEN
