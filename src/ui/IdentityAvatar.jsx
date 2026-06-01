@@ -1,20 +1,29 @@
 import {
   ACCENT,
   DEFAULT_AVATAR_COLOR,
+  PRO_AMBER,
   avatarTheme,
   rgbaFromHex,
 } from "@/src/constants/design";
 
 /**
- * Stint identity avatar — flat team-color disc + clean initials, no ring.
+ * IdentityAvatar — tool-watch dial.
  *
- * Visual language:
- *   • Flat-ish team-color fill with a subtle top sheen for dimension.
- *   • Clean Sora 900 initials in white with a soft drop shadow.
- *   • Tone-tinted ground shadow grounds the disc against the page.
- *   • Pro adds an outer ambient halo glow only — no ring border.
+ * The team color is the dial face. Initials are the brand wordmark at the
+ * centre. Two tiers share the same language; the upgrade is felt as
+ * precision, not loudness.
+ *
+ *   Free  — bare dial: tone-true team-color disc, hairline edge, white
+ *           initials, ground shadow. Stripped, raw, scan-fast.
+ *
+ *   Pro   — same dial with an amber bezel (a 1.5–3px inset ring in
+ *           PRO_AMBER) and a single amber index mark at 12 o'clock.
+ *           No glow, no halo, no second colour. The bezel reads at 20px;
+ *           the index rewards inspection at ≥40px.
  *
  * Scales fluidly from 20px (tight community row) to 104px (profile hero).
+ * The bezel thickness, the index dimensions and the ground shadow all key
+ * off `size` so a single component covers every surface in the app.
  *
  * @param {object} props
  * @param {string} [props.name]       — display name (fallback).
@@ -22,7 +31,7 @@ import {
  * @param {string} [props.colorKey]   — avatar theme key.
  * @param {number} [props.size=40]    — outer diameter in px.
  * @param {number} [props.fontSize]   — optional initials size override.
- * @param {boolean} [props.pro=false] — adds an outer halo glow.
+ * @param {boolean} [props.pro=false] — promotes the dial to the Pro bezel.
  * @param {object} [props.style]      — inline style overrides.
  * @param {string} [props.className]  — passed to the outer element.
  * @param {string} [props.title]      — optional tooltip.
@@ -46,17 +55,31 @@ export default function IdentityAvatar({
     ? `${display || "Member"} · Pro member`
     : (display || "Member");
 
-  // Fluid dimensions — all keyed to `size`.
-  const fontSize    = fontSizeOverride ?? Math.round(size * 0.40);
-  const groundY     = Math.max(2, Math.round(size * 0.08));
-  const groundBlur  = Math.max(8, Math.round(size * 0.24));
-  const haloGlow    = Math.max(10, Math.round(size * 0.32));
+  // Initials track the dial size. Pro pulls the cap down a hair so the
+  // 12-o'clock index has room to breathe; the eye still reads the dial as
+  // centered because the index is small enough to be felt, not seen.
+  const fontSize  = fontSizeOverride ?? Math.round(size * (pro ? 0.38 : 0.40));
 
-  // Shadow stack — base ground shadow + (Pro only) outer ambient halo.
-  const baseShadow = `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.32)}`;
-  const shadow = pro
-    ? `${baseShadow}, 0 0 ${haloGlow}px ${rgbaFromHex(ACCENT, 0.32)}`
-    : baseShadow;
+  // Ground shadow — team-tone tinted so the disc feels seated against the
+  // page. Same value across tiers; the bezel does the differentiation.
+  const groundY    = Math.max(2, Math.round(size * 0.08));
+  const groundBlur = Math.max(8, Math.round(size * 0.24));
+  const groundShadow = `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.30)}`;
+
+  // Bezel: precision ring. Hairline 1px on Free (defines the edge against
+  // both light and dark backgrounds without committing a colour). Amber
+  // 1.5–3px on Pro — visible at 20px, statement at 104px.
+  const bezelWidth = pro
+    ? Math.max(1.5, Math.min(3, size * 0.035))
+    : 1;
+  const bezelColor = pro ? PRO_AMBER : "rgba(8,12,20,0.22)";
+
+  // Index at 12 o'clock — a single amber tick. Suppressed below 26px where
+  // it would smudge into noise; the bezel alone identifies Pro at that scale.
+  const showIndex   = pro && size >= 26;
+  const indexWidth  = Math.max(3, Math.round(size * 0.16));
+  const indexHeight = Math.max(1, Math.round(size * 0.045));
+  const indexTop    = Math.max(2, Math.round(size * 0.10)) + bezelWidth;
 
   return (
     <div
@@ -70,32 +93,51 @@ export default function IdentityAvatar({
         height:         size,
         flexShrink:     0,
         borderRadius:   "50%",
-        // Mostly flat team color — a very subtle linear gradient gives it
-        // just enough dimension to feel like a struck disc.
-        background:     `linear-gradient(165deg, ${rgbaFromHex(tone, 0.98)} 0%, ${rgbaFromHex(tone, 0.78)} 100%)`,
+        // Flat team colour with a hint of vertical fall — reads as a struck
+        // disc, not a 3D orb. 100% at the cap, ~92% at the base.
+        background:     `linear-gradient(180deg, ${rgbaFromHex(tone, 1)} 0%, ${rgbaFromHex(tone, 0.92)} 100%)`,
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
-        boxShadow:      shadow,
-        overflow:       "hidden",
+        boxShadow:      groundShadow,
         isolation:      "isolate",
         ...style,
       }}
     >
-      {/* Subtle top sheen — gives the disc dimension without the orb effect.
-          Very low-opacity, top-quarter only, so the disc still reads as
-          mostly flat team color. */}
+      {/* Bezel — inset ring drawn as box-shadow so it never widens the
+          element's footprint. Tracks the disc's curvature exactly. */}
       <span
         aria-hidden="true"
         style={{
           position:      "absolute",
           inset:         0,
-          background:    "radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 32%, rgba(255,255,255,0) 60%)",
+          borderRadius:  "50%",
+          boxShadow:     `inset 0 0 0 ${bezelWidth}px ${bezelColor}`,
           pointerEvents: "none",
         }}
       />
 
-      {/* Initials — clean Sora 900, soft drop shadow only. No engraved bevel. */}
+      {/* 12-o'clock index — Pro only, ≥26px. Solid amber, hairline-thin,
+          pill-rounded ends so it reads as an applied marker, not a slot. */}
+      {showIndex && (
+        <span
+          aria-hidden="true"
+          style={{
+            position:      "absolute",
+            top:           indexTop,
+            left:          "50%",
+            transform:     "translateX(-50%)",
+            width:         indexWidth,
+            height:        indexHeight,
+            background:    PRO_AMBER,
+            borderRadius:  indexHeight,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/* Initials — Sora-weight, optically tight, a single soft drop
+          shadow to lift them off the dial. No bevels, no embossing. */}
       <span
         aria-hidden="true"
         style={{
@@ -104,10 +146,10 @@ export default function IdentityAvatar({
           color:              "#fff",
           fontSize,
           fontWeight:         900,
-          letterSpacing:      "-0.03em",
+          letterSpacing:      "-0.04em",
           lineHeight:         1,
           fontVariantNumeric: "tabular-nums",
-          textShadow:         "0 2px 6px rgba(6,16,27,0.45)",
+          textShadow:         "0 1px 2px rgba(6,16,27,0.5)",
         }}
       >
         {initials}
