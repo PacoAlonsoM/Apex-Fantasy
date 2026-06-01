@@ -7,34 +7,31 @@ import {
 } from "@/src/constants/design";
 
 /**
- * IdentityAvatar — tool-watch dial.
+ * IdentityAvatar — brake disc.
  *
- * The team color is the dial face. Initials are the brand wordmark at the
- * centre. Two tiers share the same language; the upgrade is felt as
- * precision, not loudness.
+ * A rotor seen face-on. Three concentric zones:
+ *   • Outer rim   — graphite metallic (Free) or red-hot amber (Pro)
+ *   • Slot ring   — dark surface punctuated by 8 drilled rotor holes
+ *   • Hub         — team-colour centre carrying the initials
  *
- *   Free  — bare dial: tone-true team-color disc, hairline edge, white
- *           initials, ground shadow. Stripped, raw, scan-fast.
+ * Free → cold disc, dark slots, graphite rim. Reads as machined hardware.
+ * Pro  → heat-cycle treatment: amber rim glow, amber-lit slots, outer
+ *        heat halo. The disc has been through a braking zone.
  *
- *   Pro   — same dial with an amber bezel (a 1.5–3px inset ring in
- *           PRO_AMBER) and a single amber index mark at 12 o'clock.
- *           No glow, no halo, no second colour. The bezel reads at 20px;
- *           the index rewards inspection at ≥40px.
- *
- * Scales fluidly from 20px (tight community row) to 104px (profile hero).
- * The bezel thickness, the index dimensions and the ground shadow all key
- * off `size` so a single component covers every surface in the app.
+ * Same component covers 20px (community rows) through 104px (profile
+ * hero). At ≤24px the slot detail is suppressed so the surface stays
+ * scan-fast; the hub + rim colour still carry the team + tier signal.
  *
  * @param {object} props
- * @param {string} [props.name]       — display name (fallback).
- * @param {string} [props.username]   — preferred label + initials source.
- * @param {string} [props.colorKey]   — avatar theme key.
- * @param {number} [props.size=40]    — outer diameter in px.
- * @param {number} [props.fontSize]   — optional initials size override.
- * @param {boolean} [props.pro=false] — promotes the dial to the Pro bezel.
- * @param {object} [props.style]      — inline style overrides.
- * @param {string} [props.className]  — passed to the outer element.
- * @param {string} [props.title]      — optional tooltip.
+ * @param {string} [props.name]
+ * @param {string} [props.username]
+ * @param {string} [props.colorKey]
+ * @param {number} [props.size=40]
+ * @param {number} [props.fontSize]   — optional initials size override
+ * @param {boolean} [props.pro=false]
+ * @param {object} [props.style]
+ * @param {string} [props.className]
+ * @param {string} [props.title]
  */
 export default function IdentityAvatar({
   name,
@@ -55,31 +52,31 @@ export default function IdentityAvatar({
     ? `${display || "Member"} · Pro member`
     : (display || "Member");
 
-  // Initials track the dial size. Pro pulls the cap down a hair so the
-  // 12-o'clock index has room to breathe; the eye still reads the dial as
-  // centered because the index is small enough to be felt, not seen.
-  const fontSize  = fontSizeOverride ?? Math.round(size * (pro ? 0.38 : 0.40));
+  // Initials sit in the hub (~60% of size). 0.32 lands the cap height
+  // comfortably inside the hub at every realistic size; small fonts get
+  // a 9px floor so the disc never renders an unreadable glyph.
+  const fontSize = fontSizeOverride
+    ?? Math.max(9, Math.round(size * 0.32));
 
-  // Ground shadow — team-tone tinted so the disc feels seated against the
-  // page. Same value across tiers; the bezel does the differentiation.
-  const groundY    = Math.max(2, Math.round(size * 0.08));
   const groundBlur = Math.max(8, Math.round(size * 0.24));
-  const groundShadow = `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.30)}`;
+  const groundY    = Math.max(2, Math.round(size * 0.08));
 
-  // Bezel: precision ring. Hairline 1px on Free (defines the edge against
-  // both light and dark backgrounds without committing a colour). Amber
-  // 1.5–3px on Pro — visible at 20px, statement at 104px.
-  const bezelWidth = pro
-    ? Math.max(1.5, Math.min(3, size * 0.035))
-    : 1;
-  const bezelColor = pro ? PRO_AMBER : "rgba(8,12,20,0.22)";
+  // Skip the drilled-slot detail below 24px — at small sizes the dots
+  // smudge into the slot ring and read as visual noise rather than
+  // hardware detail. Hub + rim alone carry the tier signal.
+  const showSlots = size >= 24;
+  const slotCount = 8;
+  const slots = Array.from({ length: slotCount }, (_, i) => i);
 
-  // Index at 12 o'clock — a single amber tick. Suppressed below 26px where
-  // it would smudge into noise; the bezel alone identifies Pro at that scale.
-  const showIndex   = pro && size >= 26;
-  const indexWidth  = Math.max(3, Math.round(size * 0.16));
-  const indexHeight = Math.max(1, Math.round(size * 0.045));
-  const indexTop    = Math.max(2, Math.round(size * 0.10)) + bezelWidth;
+  // Pro adds a soft outer heat halo on top of the standard ground shadow.
+  const shadow = pro
+    ? `0 ${groundY}px ${groundBlur}px ${rgbaFromHex("#fbbf24", 0.32)}, 0 0 ${Math.round(size * 0.5)}px ${rgbaFromHex("#fbbf24", 0.18)}`
+    : `0 ${groundY}px ${groundBlur}px ${rgbaFromHex(tone, 0.28)}`;
+
+  // Stable, unique gradient id per render to avoid collisions when many
+  // avatars share a page (`size`+tier is unique enough for the surfaces
+  // we have today; if it ever clashes, switch to useId).
+  const gradId = `rotor-rim-${size}-${pro ? "p" : "f"}`;
 
   return (
     <div
@@ -88,68 +85,90 @@ export default function IdentityAvatar({
       title={title}
       className={className}
       style={{
-        position:       "relative",
-        width:          size,
-        height:         size,
-        flexShrink:     0,
-        borderRadius:   "50%",
-        // Flat team colour with a hint of vertical fall — reads as a struck
-        // disc, not a 3D orb. 100% at the cap, ~92% at the base.
-        background:     `linear-gradient(180deg, ${rgbaFromHex(tone, 1)} 0%, ${rgbaFromHex(tone, 0.92)} 100%)`,
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "center",
-        boxShadow:      groundShadow,
-        isolation:      "isolate",
+        position:   "relative",
+        width:      size,
+        height:     size,
+        flexShrink: 0,
+        borderRadius: "50%",
+        boxShadow:  shadow,
+        isolation:  "isolate",
         ...style,
       }}
     >
-      {/* Bezel — inset ring drawn as box-shadow so it never widens the
-          element's footprint. Tracks the disc's curvature exactly. */}
+      <svg
+        viewBox="0 0 100 100"
+        width={size}
+        height={size}
+        style={{ position: "absolute", inset: 0, display: "block" }}
+        aria-hidden="true"
+      >
+        <defs>
+          <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
+            {pro ? (
+              <>
+                <stop offset="0%"   stopColor="#1a1208" />
+                <stop offset="76%"  stopColor="#3a2a10" />
+                <stop offset="92%"  stopColor={PRO_AMBER} />
+                <stop offset="100%" stopColor="#7a4a08" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%"   stopColor="#0d1521" />
+                <stop offset="80%"  stopColor="#1c2a3d" />
+                <stop offset="100%" stopColor="#2a3a52" />
+              </>
+            )}
+          </radialGradient>
+        </defs>
+
+        {/* Outer rim */}
+        <circle cx="50" cy="50" r="50" fill={`url(#${gradId})`} />
+
+        {/* Slot ring — slightly lighter dark surface */}
+        <circle cx="50" cy="50" r="42" fill="#161e2e" />
+
+        {/* Drilled rotor slots — 8 radial holes */}
+        {showSlots && slots.map((i) => {
+          const angle = (i * (360 / slotCount) - 90) * (Math.PI / 180);
+          const r = 36;
+          const cx = 50 + Math.cos(angle) * r;
+          const cy = 50 + Math.sin(angle) * r;
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={cy}
+              r="2.6"
+              fill={pro ? rgbaFromHex(PRO_AMBER, 0.85) : "rgba(0,0,0,0.55)"}
+            />
+          );
+        })}
+
+        {/* Hub — team-colour centre */}
+        <circle cx="50" cy="50" r="30" fill={tone} />
+        {/* Hub edge highlight — tiny white rim catches the light */}
+        <circle cx="50" cy="50" r="29.5" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+        {/* Hub bolt at centre */}
+        <circle cx="50" cy="50" r="1.5" fill="rgba(0,0,0,0.35)" />
+      </svg>
+
+      {/* Initials sit in the hub. Centred via absolute positioning so the
+          SVG renders cleanly underneath without inheriting flex layout. */}
       <span
         aria-hidden="true"
         style={{
-          position:      "absolute",
-          inset:         0,
-          borderRadius:  "50%",
-          boxShadow:     `inset 0 0 0 ${bezelWidth}px ${bezelColor}`,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* 12-o'clock index — Pro only, ≥26px. Solid amber, hairline-thin,
-          pill-rounded ends so it reads as an applied marker, not a slot. */}
-      {showIndex && (
-        <span
-          aria-hidden="true"
-          style={{
-            position:      "absolute",
-            top:           indexTop,
-            left:          "50%",
-            transform:     "translateX(-50%)",
-            width:         indexWidth,
-            height:        indexHeight,
-            background:    PRO_AMBER,
-            borderRadius:  indexHeight,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-
-      {/* Initials — Sora-weight, optically tight, a single soft drop
-          shadow to lift them off the dial. No bevels, no embossing. */}
-      <span
-        aria-hidden="true"
-        style={{
-          position:           "relative",
-          zIndex:             1,
+          position:           "absolute",
+          inset:              0,
+          display:            "flex",
+          alignItems:         "center",
+          justifyContent:     "center",
           color:              "#fff",
           fontSize,
           fontWeight:         900,
-          letterSpacing:      "-0.04em",
+          letterSpacing:      "-0.03em",
           lineHeight:         1,
           fontVariantNumeric: "tabular-nums",
-          textShadow:         "0 1px 2px rgba(6,16,27,0.5)",
+          textShadow:         "0 1px 2px rgba(6,16,27,0.6)",
         }}
       >
         {initials}
