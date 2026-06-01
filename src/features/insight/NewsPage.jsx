@@ -36,6 +36,7 @@ import { DRV, TEAMS } from "@/src/constants/teams";
 import useRaceCalendar from "@/src/lib/useRaceCalendar";
 import usePageMetadata from "@/src/lib/usePageMetadata";
 import { previewText } from "@/src/lib/format";
+import { ProBadge } from "@/src/ui/ProBadge";
 import SectionLabel from "@/src/ui/SectionLabel";
 import PageShell from "@/src/ui/PageShell";
 import useViewport from "@/src/lib/useViewport";
@@ -990,7 +991,7 @@ function TheCalls({ aiPredictions, isPro, isMobile, currentRace }) {
       <section className="nw-calls" style={{ marginBottom: isMobile ? 32 : 44 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
           <SectionLabel color={INFO_SOFT} rule>The Calls</SectionLabel>
-          <span style={{ fontSize: 10, fontWeight: 800, color: "var(--brand)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Pro</span>
+          <ProBadge size="sm" title="Pro insight" />
         </div>
         <div style={{ position: "relative", borderRadius: CARD_RADIUS, overflow: "hidden", border: `1px solid ${HAIRLINE}`, background: PANEL_BG_ALT }}>
           <div style={{

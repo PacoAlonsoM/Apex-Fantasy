@@ -33,6 +33,7 @@ import { requireActiveSession } from "@/src/shell/authProfile";
 import { formatDnfDrivers, matchesDnfPick } from "@/src/lib/resultHelpers";
 import useViewport from "@/src/lib/useViewport";
 import { hexToRgba } from "@/src/lib/colors";
+import { ProBadge } from "@/src/ui/ProBadge";
 import { formatStamp } from "@/src/lib/format";
 import IdentityAvatar from "@/src/ui/IdentityAvatar";
 import PageMasthead from "@/src/ui/PageMasthead";
@@ -2040,7 +2041,7 @@ function CreateLeagueModal({ user, isMobile, viewportHeight, leagueName, setLeag
                       {comingSoon ? (
                         <span style={{ fontSize: 9, fontWeight: 900, color: SUBTLE_TEXT, background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 999, padding: "2px 7px", letterSpacing: "0.10em", textTransform: "uppercase" }}>Soon</span>
                       ) : locked ? (
-                        <span style={{ fontSize: 10, fontWeight: 900, color: "var(--brand)", background: "rgba(255,106,26,0.12)", borderRadius: 999, padding: "1px 5px", letterSpacing: "0.06em" }}>PRO</span>
+                        <ProBadge size="xs" title="Pro game mode" />
                       ) : null}
                     </span>
                     <span style={{ fontSize: 11, lineHeight: 1.4, color: isSelected ? "rgba(255,255,255,0.6)" : SUBTLE_TEXT }}>{desc}</span>

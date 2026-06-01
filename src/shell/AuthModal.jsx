@@ -464,6 +464,13 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
             avatarColor: teamSupportKey(f.favoriteTeam),
             favoriteTeam: f.favoriteTeam,
           });
+          // Fire-and-forget welcome — errors are logged server-side and the
+          // signup flow never blocks on the email.
+          fetch("/api/auth/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: data.user.id }),
+          }).catch(() => {});
           onAuth(profile || { id: data.user.id, username, points: 0 });
           closeModal();
           setLoading(false);
@@ -471,6 +478,11 @@ export default function AuthModal({ mode, setMode, onClose, onAuth, redirectTarg
         }
 
         if (data.user && !data.session) {
+          fetch("/api/auth/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: data.user.id }),
+          }).catch(() => {});
           switchMode("login");
           setNote("Account created. Check your email to confirm it, then sign in.");
           setLoading(false);

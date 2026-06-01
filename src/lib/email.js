@@ -227,6 +227,76 @@ export async function sendProCancellationEmail({ email, username, endsAt }) {
 }
 
 /**
+ * Welcome email — sent once when a new account is created.
+ *
+ * Goal: make the new user feel like they joined something alive. Lead with
+ * Stint Community (the global league everyone is auto-enrolled in), then
+ * three concrete first actions, then a soft pro mention.
+ *
+ * @param {{
+ *   email: string,
+ *   username?: string,
+ *   favoriteTeam?: string,
+ *   unsubscribeToken: string,
+ * }} opts
+ */
+export async function sendWelcomeEmail({ email, username, favoriteTeam, unsubscribeToken }) {
+  const resend = getResendClient();
+  const name = username ?? "Manager";
+
+  const teamLine = favoriteTeam
+    ? `You're flying the ${favoriteTeam} flag — your picks will get that team colour treatment.`
+    : "Pick a team in your profile and the app will paint your picks in their colours.";
+
+  const subjectLine = `Welcome to Stint, ${name}`;
+  const preview     = "You're in the Stint Community. Here's where to start.";
+
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}&cat=all`;
+
+  const body = `
+    ${h1(`Welcome to Stint, ${name}`)}
+    ${p("You're in. Your account is live and you've been auto-added to the Stint Community league — every other Stint user is in there, so you're already racing.")}
+    ${p(teamLine)}
+
+    <h2 style="margin:24px 0 12px;font-size:14px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.5);">First three things to do</h2>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;width:100%;">
+      ${[
+        ["Make your race picks", "Lock in pole, winner, podium, fastest lap and a DNF for the next Grand Prix.", "Make picks"],
+        ["Start a private league", "Invite friends with a 6-character code. Settings, scoring, and bragging rights are yours.", "Create league"],
+        ["Read the latest brief", "AI-powered race-week storylines, free for everyone, refreshed each round.", "Read brief"],
+      ].map(([title, desc, _cta]) => `
+        <tr>
+          <td style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em;margin-bottom:3px;">${title}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.55);line-height:1.55;">${desc}</div>
+          </td>
+        </tr>
+      `).join("")}
+    </table>
+
+    ${cta("Open Stint", SITE_URL)}
+
+    <p style="margin:28px 0 0;font-size:12px;color:rgba(255,255,255,0.4);line-height:1.6;">
+      Want more — Pro game modes, AI race coach, unlimited leagues? <a href="${SITE_URL}/pro" style="color:#FFC247;text-decoration:none;">Have a look at Pro.</a>
+    </p>
+    <p style="margin:18px 0 0;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Don't want emails from Stint? <a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Unsubscribe</a>.
+    </p>
+  `;
+
+  return resend.emails.send({
+    from:    FROM,
+    to:      email,
+    subject: subjectLine,
+    html:    baseHtml(subjectLine, preview, body),
+    headers: {
+      "List-Unsubscribe":      `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  });
+}
+
+/**
  * Pick reminder.
  *
  * Sent before each race lockout to users who haven't completed their picks.

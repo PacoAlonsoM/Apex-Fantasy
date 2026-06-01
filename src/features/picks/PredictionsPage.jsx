@@ -6,6 +6,7 @@ import { fmt, fmtFull, nextRace } from "@/src/constants/calendar";
 import { PTS } from "@/src/constants/scoring";
 import { fetchMeetingSessions, fetchRaceSessions } from "@/src/lib/openf1";
 import { getRaceDisplayRound, mapRaceSessionsByCalendar } from "@/src/lib/raceCalendar";
+import { ProBadge } from "@/src/ui/ProBadge";
 import { resolveBoardLock } from "@/src/lib/raceWeekend";
 import {
   ACCENT,
@@ -3627,17 +3628,7 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
               }}
             >
               <span>{entry.league.name}</span>
-              {entry.blocked && (
-                <span style={{
-                  fontSize: 9, fontWeight: 900,
-                  letterSpacing: "0.10em", textTransform: "uppercase",
-                  color: "#f97316",
-                  background: hexToRgba("#f97316", 0.12),
-                  border: `1px solid ${hexToRgba("#f97316", 0.28)}`,
-                  borderRadius: 999,
-                  padding: "2px 7px",
-                }}>Pro</span>
-              )}
+              {entry.blocked && <ProBadge size="xs" title="Pro league" />}
               {entry.progress.total > 0 && (
                 <span style={{
                   fontSize: 10, fontWeight: 900,
@@ -4450,13 +4441,7 @@ function PickFocusHeader({
               );
             })()}
             {!isProSubscriber && (
-              <span style={{
-                fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase",
-                color: "var(--brand)",
-                background: hexToRgba(ACCENT, 0.12),
-                borderRadius: 999, padding: "2px 7px",
-                border: `1px solid ${hexToRgba(ACCENT, 0.26)}`,
-              }}>Pro</span>
+              <ProBadge size="xs" title="Pro feature" />
             )}
           </div>
           <div style={{
@@ -6253,13 +6238,7 @@ export default function PredictionsPage({
                             </span>
                           );
                         })()}
-                        {!isProSubscriber && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
-                            color: "var(--brand)", background: hexToRgba(ACCENT, 0.1), borderRadius: 4, padding: "1px 5px",
-                            border: `1px solid ${hexToRgba(ACCENT, 0.22)}`,
-                          }}>Pro</span>
-                        )}
+                        {!isProSubscriber && <ProBadge size="xs" title="Pro feature" />}
                       </div>
                       <span
                         style={{

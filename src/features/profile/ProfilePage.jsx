@@ -5292,18 +5292,7 @@ export default function ProfilePage({ user, setUser, setPage }) {
               }}
             >
               {label}
-              {showProBadge && (
-                <span style={{
-                  fontSize:      9,
-                  fontWeight:    900,
-                  color:         "var(--brand)",
-                  background:    rgbaFromHex(ACCENT, 0.16),
-                  border:        `1px solid ${rgbaFromHex(ACCENT, 0.30)}`,
-                  borderRadius:  999,
-                  padding:       "2px 7px",
-                  letterSpacing: "0.10em",
-                }}>PRO</span>
-              )}
+              {showProBadge && <ProBadge size="xs" title="Pro tab" />}
             </button>
           );
         })}
