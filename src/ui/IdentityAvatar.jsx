@@ -7,20 +7,22 @@ import {
 } from "@/src/constants/design";
 
 /**
- * IdentityAvatar — brake disc.
+ * IdentityAvatar — Pro brake disc, Free clean disc.
  *
- * A rotor seen face-on. Three concentric zones:
- *   • Outer rim   — graphite metallic (Free) or red-hot amber (Pro)
+ * Pro renders a brake rotor seen face-on:
+ *   • Outer rim   — red-hot amber
  *   • Slot ring   — dark surface punctuated by 8 drilled rotor holes
  *   • Hub         — team-colour centre carrying the initials
+ *   • Outer halo  — amber heat glow on the page
  *
- * Free → cold disc, dark slots, graphite rim. Reads as machined hardware.
- * Pro  → heat-cycle treatment: amber rim glow, amber-lit slots, outer
- *        heat halo. The disc has been through a braking zone.
+ * Free renders a single full-diameter team-colour disc with the initials
+ * centred. Same outer diameter as Pro so layouts line up cleanly; the
+ * tier difference is structural (machined hardware vs. plain disc), not
+ * just colour.
  *
  * Same component covers 20px (community rows) through 104px (profile
- * hero). At ≤24px the slot detail is suppressed so the surface stays
- * scan-fast; the hub + rim colour still carry the team + tier signal.
+ * hero). At ≤24px Pro suppresses the slot detail so the surface stays
+ * scan-fast; the rim + hub still carry the team + tier signal.
  *
  * @param {object} props
  * @param {string} [props.name]
@@ -52,11 +54,11 @@ export default function IdentityAvatar({
     ? `${display || "Member"} · Pro member`
     : (display || "Member");
 
-  // Initials sit in the hub (~60% of size). 0.32 lands the cap height
-  // comfortably inside the hub at every realistic size; small fonts get
-  // a 9px floor so the disc never renders an unreadable glyph.
+  // Pro initials sit in the hub (~60% of size) → smaller font ratio.
+  // Free initials use the whole disc → bigger ratio. 9px floor so the
+  // disc never renders an unreadable glyph at tiny sizes.
   const fontSize = fontSizeOverride
-    ?? Math.max(9, Math.round(size * 0.32));
+    ?? Math.max(9, Math.round(size * (pro ? 0.32 : 0.40)));
 
   const groundBlur = Math.max(8, Math.round(size * 0.24));
   const groundY    = Math.max(2, Math.round(size * 0.08));
@@ -102,54 +104,68 @@ export default function IdentityAvatar({
         style={{ position: "absolute", inset: 0, display: "block" }}
         aria-hidden="true"
       >
-        <defs>
-          <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
-            {pro ? (
-              <>
+        {pro ? (
+          <>
+            <defs>
+              <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
                 <stop offset="0%"   stopColor="#1a1208" />
                 <stop offset="76%"  stopColor="#3a2a10" />
                 <stop offset="92%"  stopColor={PRO_AMBER} />
                 <stop offset="100%" stopColor="#7a4a08" />
-              </>
-            ) : (
-              <>
-                <stop offset="0%"   stopColor="#0d1521" />
-                <stop offset="80%"  stopColor="#1c2a3d" />
-                <stop offset="100%" stopColor="#2a3a52" />
-              </>
-            )}
-          </radialGradient>
-        </defs>
+              </radialGradient>
+            </defs>
 
-        {/* Outer rim */}
-        <circle cx="50" cy="50" r="50" fill={`url(#${gradId})`} />
+            {/* Outer rim — amber heat */}
+            <circle cx="50" cy="50" r="50" fill={`url(#${gradId})`} />
 
-        {/* Slot ring — slightly lighter dark surface */}
-        <circle cx="50" cy="50" r="42" fill="#161e2e" />
+            {/* Slot ring — dark machined surface */}
+            <circle cx="50" cy="50" r="42" fill="#161e2e" />
 
-        {/* Drilled rotor slots — 8 radial holes */}
-        {showSlots && slots.map((i) => {
-          const angle = (i * (360 / slotCount) - 90) * (Math.PI / 180);
-          const r = 36;
-          const cx = 50 + Math.cos(angle) * r;
-          const cy = 50 + Math.sin(angle) * r;
-          return (
+            {/* Drilled rotor slots — 8 radial holes glowing amber */}
+            {showSlots && slots.map((i) => {
+              const angle = (i * (360 / slotCount) - 90) * (Math.PI / 180);
+              const r = 36;
+              const cx = 50 + Math.cos(angle) * r;
+              const cy = 50 + Math.sin(angle) * r;
+              return (
+                <circle
+                  key={i}
+                  cx={cx}
+                  cy={cy}
+                  r="2.6"
+                  fill={rgbaFromHex(PRO_AMBER, 0.85)}
+                />
+              );
+            })}
+
+            {/* Hub — team-colour centre */}
+            <circle cx="50" cy="50" r="30" fill={tone} />
+            {/* Hub edge highlight */}
+            <circle cx="50" cy="50" r="29.5" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+            {/* Hub bolt */}
+            <circle cx="50" cy="50" r="1.5" fill="rgba(0,0,0,0.35)" />
+          </>
+        ) : (
+          <>
+            {/* Free — single full-diameter team-colour disc.
+                Subtle top→bottom fall keeps it from looking like a flat
+                fill, and a 1px hairline edge defines it against any
+                surface. No rim, no slots — same diameter as Pro. */}
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={tone} stopOpacity="1" />
+                <stop offset="100%" stopColor={tone} stopOpacity="0.88" />
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="50" fill={`url(#${gradId})`} />
             <circle
-              key={i}
-              cx={cx}
-              cy={cy}
-              r="2.6"
-              fill={pro ? rgbaFromHex(PRO_AMBER, 0.85) : "rgba(0,0,0,0.55)"}
+              cx="50" cy="50" r="49.5"
+              fill="none"
+              stroke="rgba(8,12,20,0.32)"
+              strokeWidth="1"
             />
-          );
-        })}
-
-        {/* Hub — team-colour centre */}
-        <circle cx="50" cy="50" r="30" fill={tone} />
-        {/* Hub edge highlight — tiny white rim catches the light */}
-        <circle cx="50" cy="50" r="29.5" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-        {/* Hub bolt at centre */}
-        <circle cx="50" cy="50" r="1.5" fill="rgba(0,0,0,0.35)" />
+          </>
+        )}
       </svg>
 
       {/* Initials sit in the hub. Centred via absolute positioning so the
