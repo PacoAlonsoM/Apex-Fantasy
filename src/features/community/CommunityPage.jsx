@@ -2433,7 +2433,13 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     if (!data) return;
     const nextLeagues = data
       .map((entry) => entry.leagues)
-      .filter((league) => league && league.type !== "pro_community");
+      .filter((league) => league && league.type !== "pro_community")
+      .sort((a, b) => {
+        // Pin Stint Community to the top so new users land somewhere alive.
+        if (a.type === "community" && b.type !== "community") return -1;
+        if (b.type === "community" && a.type !== "community") return 1;
+        return 0;
+      });
     setLeagues(nextLeagues);
     if (!nextLeagues.find((league) => league.id === selectedLeagueId) && selectedLeagueId !== visibleProLeagueId) {
       setSelectedLeagueId(visibleProLeagueId || nextLeagues[0]?.id || null);
@@ -2952,11 +2958,15 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
                       >
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                           <span style={{ fontSize: 13, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: "-0.01em", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{league.name}</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: SUBTLE_TEXT, letterSpacing: "0.14em", fontFamily: "monospace", flexShrink: 0 }}>{league.code}</span>
+                          {league.type === "community" ? (
+                            <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: hexToRgba(ACCENT, 0.85), padding: "2px 7px", borderRadius: 999, letterSpacing: "0.1em", flexShrink: 0 }}>GLOBAL</span>
+                          ) : (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: SUBTLE_TEXT, letterSpacing: "0.14em", fontFamily: "monospace", flexShrink: 0 }}>{league.code}</span>
+                          )}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
                           <span style={{ color: active ? hexToRgba(ACCENT, 0.8) : SUBTLE_TEXT }}>
-                            {league.owner_id === user.id ? "Owner" : "Member"}
+                            {league.type === "community" ? "Everyone competes" : (league.owner_id === user.id ? "Owner" : "Member")}
                           </span>
                           {(leagueStandings[league.id] || []).length > 0 && (
                             <>

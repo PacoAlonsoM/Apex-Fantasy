@@ -8,14 +8,15 @@ import {
 export const runtime = "nodejs";
 
 /**
- * GET /api/pro/leaderboard?userId=optional
+ * GET /api/community/leaderboard?userId=optional
  *
- * Returns the Stint Pro Community League roster:
+ * Returns the Stint Community League roster — the open league every
+ * signup is auto-enrolled in:
  *   - leaderboard: top 10 members by points
  *   - totalMembers: full active roster size
  *   - myRank: 1-based rank of the provided userId, or null if absent
  *
- * Public endpoint. Used on /pro, /profile, and /pro/success.
+ * Public endpoint. Used on /leagues and the community landing card.
  */
 export async function GET(request) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request) {
     const userId = url.searchParams.get("userId") || null;
 
     const payload = await fetchCommunityLeaderboard({
-      leagueType: "pro_community",
+      leagueType: "community",
       userId,
     });
 
@@ -32,7 +33,7 @@ export async function GET(request) {
 
     return new Response(JSON.stringify(payload), { status: 200, headers });
   } catch (err) {
-    console.error("[pro/leaderboard]", err.message);
+    console.error("[community/leaderboard]", err.message);
     return NextResponse.json({ leaderboard: [], totalMembers: 0, myRank: null });
   }
 }
