@@ -3,6 +3,9 @@
 import AvatarLivery from "@/src/ui/avatars/AvatarLivery";
 import AvatarTacho  from "@/src/ui/avatars/AvatarTacho";
 import AvatarVisor  from "@/src/ui/avatars/AvatarVisor";
+import AvatarNotch  from "@/src/ui/avatars/AvatarNotch";
+import AvatarPlate  from "@/src/ui/avatars/AvatarPlate";
+import AvatarRotor  from "@/src/ui/avatars/AvatarRotor";
 import IdentityAvatar from "@/src/ui/IdentityAvatar";
 
 // Internal preview — render all avatar concepts at every realistic surface
@@ -13,10 +16,13 @@ export default function AvatarsPreviewPage() {
   const COLOUR_KEYS = ["support-mclaren", "support-ferrari", "support-mercedes", "support-red-bull"];
 
   const concepts = [
-    { name: "A · Watch dial (current)", Comp: IdentityAvatar, propName: "pro" },
-    { name: "B · Livery panel",         Comp: AvatarLivery,   propName: "pro" },
-    { name: "C · Tachometer",           Comp: AvatarTacho,    propName: "pro" },
-    { name: "D · Visor",                Comp: AvatarVisor,    propName: "pro" },
+    { name: "E · NOTCH (silhouette break)", Comp: AvatarNotch, propName: "pro" },
+    { name: "F · PLATE (number plate)",     Comp: AvatarPlate, propName: "pro" },
+    { name: "G · ROTOR (brake disc)",       Comp: AvatarRotor, propName: "pro" },
+    { name: "A · Watch dial",               Comp: IdentityAvatar, propName: "pro" },
+    { name: "B · Livery panel",             Comp: AvatarLivery,   propName: "pro" },
+    { name: "C · Tachometer",               Comp: AvatarTacho,    propName: "pro" },
+    { name: "D · Visor",                    Comp: AvatarVisor,    propName: "pro" },
   ];
 
   return (
