@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/admin/insights/generate-post-race?cron=1",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
