@@ -3,7 +3,8 @@ import { Resend } from "resend";
 
 let resendClient = null;
 
-const FROM = process.env.RESEND_FROM_EMAIL || "STINT <noreply@stint.app>";
+const FROM = process.env.RESEND_FROM_EMAIL || "Stint <noreply@stint-web.com>";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.stint-web.com";
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -52,9 +53,9 @@ function baseHtml(title, previewText, bodyHtml) {
             <td style="padding:20px 40px 28px;border-top:1px solid rgba(255,255,255,0.07);">
               <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;">
                 You're receiving this because you have a Stint Pro subscription.<br />
-                <a href="https://stint.app/pro" style="color:#FF6A1A;text-decoration:none;">Manage subscription</a>
+                <a href="${SITE_URL}/pro" style="color:#FF6A1A;text-decoration:none;">Manage subscription</a>
                 &nbsp;·&nbsp;
-                <a href="https://stint.app/privacy" style="color:rgba(255,255,255,0.35);text-decoration:none;">Privacy</a>
+                <a href="${SITE_URL}/privacy" style="color:rgba(255,255,255,0.35);text-decoration:none;">Privacy</a>
               </p>
             </td>
           </tr>
@@ -110,7 +111,7 @@ export async function sendProWelcomeEmail({ email, username }) {
         </tr>
       `).join("")}
     </table>
-    ${cta("Go to My Dashboard", "https://stint.app")}
+    ${cta("Go to My Dashboard", SITE_URL)}
   `;
 
   return resend.emails.send({
@@ -155,7 +156,7 @@ export async function sendInsightReadyEmail({ email, username, insightType, race
   const body = `
     ${h1(`Hey ${name} — ${heading}`)}
     ${p(subText)}
-    ${cta("Read My Insight", "https://stint.app/profile?tab=insights")}
+    ${cta("Read My Insight", `${SITE_URL}/profile?tab=insights`)}
   `;
 
   return resend.emails.send({
@@ -182,7 +183,7 @@ export async function sendProRenewalReminderEmail({ email, username, renewalDate
     ${h1("Your Stint Pro renews soon")}
     ${p(`Hi ${name}, just a heads-up: your Stint Pro subscription renews on <strong style="color:#fff;">${renewalDate}</strong>.`)}
     ${p("No action needed — your subscription will continue automatically. If you'd like to make changes, visit the billing portal.")}
-    ${cta("Manage Subscription", "https://stint.app/pro")}
+    ${cta("Manage Subscription", `${SITE_URL}/pro`)}
   `;
 
   return resend.emails.send({
@@ -214,7 +215,7 @@ export async function sendProCancellationEmail({ email, username, endsAt }) {
     ${p("Your Stint Pro subscription has been cancelled.")}
     ${p(endCopy)}
     ${p("You'll keep your pick history, league memberships and stats — we'll be here if you ever want to come back.", "color:rgba(255,255,255,0.5);")}
-    ${cta("Reactivate Pro", "https://stint.app/pro")}
+    ${cta("Reactivate Pro", `${SITE_URL}/pro`)}
   `;
 
   return resend.emails.send({
