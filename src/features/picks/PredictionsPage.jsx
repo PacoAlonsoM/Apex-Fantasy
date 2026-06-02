@@ -5598,7 +5598,11 @@ export default function PredictionsPage({
         )}
 
         {/* ── Right column / main ──────────────────────────── */}
-        <main style={{ minHeight: "60vh", display: "grid", gap: 14, alignContent: "start" }}>
+        {/* minWidth: 0 lets the grid item respect its track's minmax(0,1fr).
+            Without it the league tab strip's intrinsic width forces the
+            main column wider than the viewport, pushing the last tab off
+            screen instead of scrolling inside its container. */}
+        <main style={{ minWidth: 0, minHeight: "60vh", display: "grid", gap: 14, alignContent: "start" }}>
 
           {/* ── 3. League switcher pills (replaces inline league strip) ── */}
           <div style={{ marginTop: isMobile ? 8 : 14 }}>
