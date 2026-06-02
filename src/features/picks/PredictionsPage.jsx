@@ -3586,14 +3586,18 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
     <div style={{ position: "relative" }}>
       <div
         style={{
-          display: "flex",
-          gap: isMobile ? 12 : 16,
-          overflowX: "auto",
-          overflowY: "visible",
+          display:        "flex",
+          // Desktop: wrap into rows so every league is visible. Mobile:
+          // single-row horizontal scroll because rows eat too much screen.
+          flexWrap:       isMobile ? "nowrap" : "wrap",
+          columnGap:      isMobile ? 12 : 12,
+          rowGap:         10,
+          overflowX:      isMobile ? "auto" : "visible",
+          overflowY:      "visible",
           scrollbarWidth: "none",
-          paddingTop: 10,
-          paddingRight: 56,
-          paddingBottom: 10,
+          paddingTop:     10,
+          paddingRight:   isMobile ? 56 : 0,
+          paddingBottom:  10,
         }}
       >
         {roundSummary.entries.map((entry) => {
@@ -3650,41 +3654,45 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
           );
         })}
       </div>
-      {/* Right-edge fade so users can see the strip is scrollable. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position:      "absolute",
-          top:           10,
-          right:         0,
-          bottom:        10,
-          width:         72,
-          background:    `linear-gradient(to right, transparent 0%, ${BG_BASE} 75%)`,
-          pointerEvents: "none",
-        }}
-      />
-      {/* Scroll-more hint chevron — sits inside the fade. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position:      "absolute",
-          top:           "50%",
-          right:         8,
-          transform:     "translateY(-50%)",
-          width:         24,
-          height:        24,
-          display:       "flex",
-          alignItems:    "center",
-          justifyContent: "center",
-          color:         SUBTLE_TEXT,
-          fontSize:      14,
-          fontWeight:    900,
-          pointerEvents: "none",
-          opacity:       0.7,
-        }}
-      >
-        ▸
-      </div>
+      {/* Mobile only: right-edge fade + chevron so the horizontal scroll is
+          obviously scrollable. Desktop wraps to rows so no affordance needed. */}
+      {isMobile && (
+        <>
+          <div
+            aria-hidden="true"
+            style={{
+              position:      "absolute",
+              top:           10,
+              right:         0,
+              bottom:        10,
+              width:         72,
+              background:    `linear-gradient(to right, transparent 0%, ${BG_BASE} 75%)`,
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position:       "absolute",
+              top:            "50%",
+              right:          8,
+              transform:      "translateY(-50%)",
+              width:          24,
+              height:         24,
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              color:          SUBTLE_TEXT,
+              fontSize:       14,
+              fontWeight:     900,
+              pointerEvents:  "none",
+              opacity:        0.7,
+            }}
+          >
+            ▸
+          </div>
+        </>
+      )}
     </div>
   );
 }
