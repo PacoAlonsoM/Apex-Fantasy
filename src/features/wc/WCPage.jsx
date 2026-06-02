@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isAdminUser } from "@/src/constants/design";
+import { isAdminUser, isWcAllowed } from "@/src/constants/design";
 import { WC_GROUPS, WC_TEAM_BY_CODE, WC_TEAMS, WC_TOURNAMENT_START } from "@/src/constants/wc/teams";
 import { wcStageLabel, wcMatchTeams } from "@/src/constants/wc/fixtures";
 import { WC_THEME } from "@/src/constants/wc/theme";
@@ -1859,6 +1859,33 @@ function KnockoutSlotPanel({ matches, refresh }) {
 
 export default function WCPage({ page, user, openAuth, setPage }) {
   const { isMobile, isTablet } = useViewport();
+
+  // WC mode is currently allowlisted (beta). Non-allowed users — including
+  // anonymous visitors who type /world-cup directly — get bounced back to F1.
+  useEffect(() => {
+    if (!isWcAllowed(user) && typeof setPage === "function") {
+      setPage("home");
+    }
+  }, [user, setPage]);
+
+  if (!isWcAllowed(user)) {
+    return (
+      <div style={{
+        minHeight:      "60vh",
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        padding:        "48px 24px",
+        textAlign:      "center",
+        color:          "rgba(255,255,255,0.6)",
+        fontSize:       14,
+        lineHeight:     1.6,
+      }}>
+        World Cup mode is in private beta. Sending you back to F1…
+      </div>
+    );
+  }
+
   const view = viewByPage[page] || "home";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

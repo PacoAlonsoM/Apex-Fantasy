@@ -9,6 +9,7 @@ import {
   TEXT_PRIMARY,
   TEXT_SECONDARY,
   isAdminUser,
+  isWcAllowed,
   rgbaFromHex,
 } from "@/src/constants/design";
 import { isWcPage, pageToHref } from "@/src/shell/routing";
@@ -214,7 +215,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
             <BrandLockup mobile={isMobile} descriptor={false} />
           </a>
 
-          <div
+          {isWcAllowed(user) && <div
             aria-label="Sport switch"
             role="tablist"
             style={{
@@ -228,7 +229,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
           >
             {[
               ["home", "F1"],
-              ["wc-fixtures", "WC"],
+              ...(isWcAllowed(user) ? [["wc-fixtures", "WC"]] : []),
             ].map(([target, label]) => {
               const active = target === "wc-fixtures" ? wcMode : !wcMode;
               return (
@@ -270,7 +271,7 @@ export default function Navbar({ page, setPage, user, openAuth, onLogout, demoMo
                 </a>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         <div

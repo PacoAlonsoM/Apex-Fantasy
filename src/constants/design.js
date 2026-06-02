@@ -265,3 +265,16 @@ export function getUserAccentTheme(user) {
 export function isAdminUser(user) {
   return !!user && user.id === ADMIN_ID;
 }
+
+// Beta-gate the World Cup mode while it's still rough. Add user IDs here to
+// expand access; remove this allowlist (and the isWcAllowed call sites)
+// when WC mode is ready for the public.
+export const WC_ALLOWED_USER_IDS = new Set([
+  ADMIN_ID,                                          // Paco
+  "6ad06759-dfe6-4d15-a89b-7132493bd75a",            // Cookie (Isabela)
+]);
+
+export function isWcAllowed(user) {
+  if (!user?.id) return false;
+  return WC_ALLOWED_USER_IDS.has(user.id);
+}
