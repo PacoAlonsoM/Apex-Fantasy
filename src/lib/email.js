@@ -227,6 +227,87 @@ export async function sendProCancellationEmail({ email, username, endsAt }) {
 }
 
 /**
+ * Results published email.
+ *
+ * Sent once per (user, race_round) right after the admin awards points
+ * for a round. Leads with the score (the thing the user actually wants
+ * to know) and surfaces a single most-interesting pick — the highest-
+ * scoring one, or the one they missed if they scored zero.
+ *
+ * @param {{
+ *   email: string,
+ *   username?: string,
+ *   raceName: string,
+ *   raceCountry?: string,
+ *   raceRound: number,
+ *   score: number,
+ *   bestPick?: { type: string, value: string, points: number } | null,
+ *   unsubscribeToken: string,
+ * }} opts
+ */
+export async function sendResultsPublishedEmail({
+  email, username, raceName, raceCountry, raceRound,
+  score, bestPick, unsubscribeToken,
+}) {
+  const resend = getResendClient();
+  const name = username ?? "Manager";
+
+  const scoreLine = score > 0
+    ? `<span style="color:#FFC247;font-weight:900;font-size:48px;letter-spacing:-0.04em;line-height:1;">${score}</span> <span style="color:rgba(255,255,255,0.5);font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">pts</span>`
+    : `<span style="color:rgba(255,255,255,0.7);font-weight:900;font-size:32px;letter-spacing:-0.03em;line-height:1;">No points this round</span>`;
+
+  const bestPickBlock = bestPick && bestPick.points > 0
+    ? `
+      <table cellpadding="0" cellspacing="0" style="margin:24px 0 8px;width:100%;background:rgba(255,194,71,0.06);border:1px solid rgba(255,194,71,0.18);border-radius:10px;">
+        <tr><td style="padding:14px 18px;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,194,71,0.85);margin-bottom:4px;">Top pick</div>
+          <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-0.01em;">${bestPick.value}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;">${bestPick.type.replace(/_/g, " ")} · ${bestPick.points} pts</div>
+        </td></tr>
+      </table>
+    `
+    : "";
+
+  const subjectLine = score > 0
+    ? `${raceName}: ${score} pts`
+    : `${raceName} results are in`;
+  const preview = score > 0
+    ? `You scored ${score} points. See your breakdown.`
+    : `See where you finished this round.`;
+
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}&cat=results_published`;
+
+  const body = `
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px;">Round ${raceRound}${raceCountry ? ` · ${raceCountry}` : ""}</div>
+    ${h1(raceName)}
+
+    <div style="margin:24px 0 8px;">
+      ${scoreLine}
+    </div>
+    ${p(`Hey ${name} — official results are in for ${raceName}. Your standings, league rank and full breakdown are all updated.`, "margin-top:18px;")}
+
+    ${bestPickBlock}
+
+    ${cta("View My Breakdown", `${SITE_URL}/picks`)}
+
+    <p style="margin:28px 0 0;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Don't want results emails? <a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Turn them off</a>.
+    </p>
+  `;
+
+  return resend.emails.send({
+    from:    FROM,
+    to:      email,
+    subject: subjectLine,
+    html:    baseHtml(subjectLine, preview, body),
+    headers: {
+      "List-Unsubscribe":      `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  });
+}
+
+/**
  * Welcome email — sent once when a new account is created.
  *
  * Goal: make the new user feel like they joined something alive. Lead with

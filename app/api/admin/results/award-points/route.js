@@ -1,9 +1,12 @@
+import { after } from "next/server";
+
 import { jsonError, jsonOk } from "../../_lib/response";
 import { upsertCanonicalHistoryFromResults } from "../../_lib/canonicalHistory";
 import { appendOperationRun, buildOperationRun, updateLocalAdminStore } from "../../_lib/localAdminStore";
 import { adminAccessErrorResponse, requireAdminRequest } from "../../_lib/localAdminAccess";
 import { getSupabaseAdmin, requireServiceRole } from "../../_lib/supabaseAdmin";
 import { awardRoundPoints } from "../../_lib/scoring";
+import { dispatchResultsEmails } from "../../../_lib/sendResultsEmails";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +69,20 @@ export async function POST(request) {
       appendOperationRun(store, run);
       return store;
     });
+
+    // Fire "Results published" emails — full scope only (the race result is
+    // the moment; sprint scoring updates don't trigger their own send).
+    // Runs after the response is returned so the admin click feels instant.
+    if (scope === "full") {
+      after(async () => {
+        try {
+          const summary = await dispatchResultsEmails(supabase, round);
+          console.log("[results-emails] dispatched", JSON.stringify(summary));
+        } catch (err) {
+          console.error("[results-emails] failed", err?.message || err);
+        }
+      });
+    }
 
     return jsonOk(message, {
       runId: run.id,
