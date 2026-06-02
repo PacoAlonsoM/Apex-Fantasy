@@ -3607,11 +3607,12 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
               className="picks-league-pill"
               style={{
                 flexShrink: 0,
+                boxSizing: "border-box",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 9,
-                padding: isMobile ? "10px 16px" : "10px 18px",
-                minHeight: isMobile ? 42 : 40,
+                padding: isMobile ? "0 16px" : "0 18px",
+                height: isMobile ? 42 : 40,
                 borderRadius: RADIUS_PILL,
                 background: isActive ? hexToRgba(tone, 0.13) : "rgba(148,163,184,0.04)",
                 border: isActive ? `1px solid ${hexToRgba(tone, 0.34)}` : `1px solid ${HAIRLINE}`,
@@ -3623,8 +3624,7 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
                 fontFamily: "inherit",
                 whiteSpace: "nowrap",
                 viewTransitionName: isActive ? "picks-active-league" : undefined,
-                boxShadow: isActive ? `0 4px 14px ${hexToRgba(tone, 0.18)}` : "none",
-                transition: "background 200ms ease, border-color 200ms ease, color 200ms ease, transform 160ms cubic-bezier(0.23,1,0.32,1)",
+                transition: "background 200ms ease, border-color 200ms ease, color 200ms ease",
               }}
             >
               <span>{entry.league.name}</span>
@@ -3650,16 +3650,41 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
           );
         })}
       </div>
+      {/* Right-edge fade so users can see the strip is scrollable. */}
       <div
         aria-hidden="true"
         style={{
-          position: "absolute",
-          top: 10, right: 0, bottom: 10,
-          width: 56,
-          background: `linear-gradient(to right, transparent, ${BG_BASE})`,
+          position:      "absolute",
+          top:           10,
+          right:         0,
+          bottom:        10,
+          width:         72,
+          background:    `linear-gradient(to right, transparent 0%, ${BG_BASE} 75%)`,
           pointerEvents: "none",
         }}
       />
+      {/* Scroll-more hint chevron — sits inside the fade. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:      "absolute",
+          top:           "50%",
+          right:         8,
+          transform:     "translateY(-50%)",
+          width:         24,
+          height:        24,
+          display:       "flex",
+          alignItems:    "center",
+          justifyContent: "center",
+          color:         SUBTLE_TEXT,
+          fontSize:      14,
+          fontWeight:    900,
+          pointerEvents: "none",
+          opacity:       0.7,
+        }}
+      >
+        ▸
+      </div>
     </div>
   );
 }
