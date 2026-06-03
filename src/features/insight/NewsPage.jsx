@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/src/lib/supabase";
 import { chooseInsightForRace } from "@/src/lib/aiInsight";
 import { nextRace } from "@/src/constants/calendar";
@@ -360,7 +360,7 @@ function SourceFallback({ source, aspect = "square", size = 72 }) {
   );
 }
 
-function Thumbnail({ src, size = 72, aspect = "square", source }) {
+function Thumbnail({ src, size = 72, aspect = "square", source, loading = "lazy", fetchPriority = "auto" }) {
   const [failed, setFailed] = useState(false);
   const usable = isUsableArticleImage(src) && !IS_SNAPSHOT && !failed;
   if (!usable) {
@@ -382,6 +382,9 @@ function Thumbnail({ src, size = 72, aspect = "square", source }) {
         alt=""
         aria-hidden="true"
         referrerPolicy="no-referrer"
+        loading={loading}
+        decoding="async"
+        fetchPriority={fetchPriority}
         onError={() => setFailed(true)}
         style={{
           width:      "100%",
@@ -1538,7 +1541,7 @@ function WatchBeforeLock({ watchlist, isMobile }) {
 // time-grouped feed; everything else flows as image-thumbnail rows with
 // stronger dividers between time groups.
 
-function TopStoryRow({ article, isMobile }) {
+const TopStoryRow = memo(function TopStoryRow({ article, isMobile }) {
   return (
     <a
       href={article.url}
@@ -1631,12 +1634,12 @@ function TopStoryRow({ article, isMobile }) {
           }}>{article.summary}</p>
         )}
       </div>
-      <Thumbnail src={article.image_url} aspect="wide" source={article.source} />
+      <Thumbnail src={article.image_url} aspect="wide" source={article.source} loading="eager" fetchPriority="high" />
     </a>
   );
-}
+});
 
-function FeedRow({ article, isMobile }) {
+const FeedRow = memo(function FeedRow({ article, isMobile }) {
   return (
     <a
       href={article.url}
@@ -1655,6 +1658,8 @@ function FeedRow({ article, isMobile }) {
         borderTop:       `1px solid ${HAIRLINE}`,
         alignItems:      "center",
         borderRadius:    8,
+        contentVisibility: "auto",
+        containIntrinsicSize: isMobile ? "130px" : "142px",
       }}
     >
       <div style={{ minWidth: 0 }}>
@@ -1684,9 +1689,9 @@ function FeedRow({ article, isMobile }) {
       <Thumbnail src={article.image_url} size={isMobile ? 72 : 104} aspect="square" source={article.source} />
     </a>
   );
-}
+});
 
-function TimeGroupDivider({ label, date, count, first = false }) {
+const TimeGroupDivider = memo(function TimeGroupDivider({ label, date, count, first = false }) {
   return (
     <div style={{
       display:       "flex",
@@ -1735,9 +1740,9 @@ function TimeGroupDivider({ label, date, count, first = false }) {
       )}
     </div>
   );
-}
+});
 
-function SourcesDrawer({ isMobile }) {
+const SourcesDrawer = memo(function SourcesDrawer({ isMobile }) {
   const [open, setOpen] = useState(false);
   return (
     <section style={{
@@ -1856,9 +1861,9 @@ function SourcesDrawer({ isMobile }) {
       </div>
     </section>
   );
-}
+});
 
-function WireEmptyState({ isMobile, query }) {
+const WireEmptyState = memo(function WireEmptyState({ isMobile, query }) {
   if (query) {
     return (
       <section style={{
@@ -1923,7 +1928,7 @@ function WireEmptyState({ isMobile, query }) {
       </p>
     </section>
   );
-}
+});
 
 // ─── Cross-link footer ──────────────────────────────────────────────────────
 // Both modes end by pointing at the other — the editorial system braids
@@ -2027,6 +2032,54 @@ function CrossLinkFooter({ mode, insight, meta, isMobile }) {
   );
 }
 
+const WireFeedSurface = memo(function WireFeedSurface({
+  visibleArticles,
+  featured,
+  timeGroupedFeed,
+  searchQuery,
+  wireMeta,
+  isMobile,
+}) {
+  if (!visibleArticles.length) {
+    return (
+      <>
+        <WireEmptyState isMobile={isMobile} query={null} />
+        <CrossLinkFooter mode="news" meta={wireMeta} isMobile={isMobile} />
+      </>
+    );
+  }
+
+  const hasTopStory = !searchQuery && !!featured;
+  const hasResults  = timeGroupedFeed.length > 0;
+
+  return (
+    <>
+      <section className="nw-feed" style={{ marginBottom: 8 }}>
+        {hasTopStory && (
+          <TopStoryRow article={featured} isMobile={isMobile} />
+        )}
+        {hasResults
+          ? timeGroupedFeed.map((group, groupIdx) => (
+            <div key={group.key}>
+              <TimeGroupDivider
+                label={group.label}
+                date={group.date}
+                count={group.items.length}
+                first={groupIdx === 0 && !hasTopStory}
+              />
+              {group.items.map((article) => (
+                <FeedRow key={article.id} article={article} isMobile={isMobile} />
+              ))}
+            </div>
+          ))
+          : <WireEmptyState isMobile={isMobile} query={searchQuery} />}
+      </section>
+      <SourcesDrawer isMobile={isMobile} />
+      <CrossLinkFooter mode="news" meta={wireMeta} isMobile={isMobile} />
+    </>
+  );
+});
+
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function NewsPage({ initialTab = "news", lockedTab = null, user = null }) {
@@ -2039,7 +2092,12 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
   const [hasTable, setHasTable]           = useState(true);
   const [tab, setTab]                     = useState(lockedTab || initialTab);
   const [searchQuery, setSearchQuery]     = useState("");
+  const deferredSearchQuery               = useDeferredValue(searchQuery);
+  const normalizedSearchQuery             = deferredSearchQuery.trim();
   const currentRace = useMemo(() => nextRace(calendar) || calendar[0] || null, [calendar]);
+  const handleSearchChange = useCallback((value) => {
+    setSearchQuery(value);
+  }, []);
 
   usePageMetadata({
     title: tab === "news" ? "F1 Wire" : "AI Race Brief",
@@ -2106,19 +2164,19 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
   );
   const featured = useMemo(() => pickFeaturedArticle(visibleArticles), [visibleArticles]);
   const feedFiltered = useMemo(() => {
-    if (!searchQuery.trim()) return visibleArticles;
-    const q = searchQuery.toLowerCase();
+    if (!normalizedSearchQuery) return visibleArticles;
+    const q = normalizedSearchQuery.toLowerCase();
     return visibleArticles.filter(
       (a) =>
         a.title?.toLowerCase().includes(q) ||
         a.summary?.toLowerCase().includes(q) ||
         a.source?.toLowerCase().includes(q),
     );
-  }, [visibleArticles, searchQuery]);
+  }, [visibleArticles, normalizedSearchQuery]);
 
   const timeGroupedFeed = useMemo(() => {
     const buckets = { today: [], yesterday: [], week: [], earlier: [] };
-    const seenFeatured = !!featured && !searchQuery.trim();
+    const seenFeatured = !!featured && !normalizedSearchQuery;
     for (const a of feedFiltered) {
       if (seenFeatured && a.id === featured.id) continue;
       buckets[timeGroupKey(a.published_at)].push(a);
@@ -2135,18 +2193,18 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
     return order
       .map((k) => ({ key: k, label: TIME_GROUP_LABELS[k], date: dateFor(k), items: buckets[k] }))
       .filter((g) => g.items.length > 0);
-  }, [feedFiltered, featured, searchQuery]);
+  }, [feedFiltered, featured, normalizedSearchQuery]);
 
   const sourceCount = useMemo(
     () => new Set(visibleArticles.map((a) => a.source).filter(Boolean)).size,
     [visibleArticles],
   );
 
-  const wireMeta = {
+  const wireMeta = useMemo(() => ({
     articles:    visibleArticles.length,
     sources:     sourceCount,
     lastUpdated: visibleArticles[0]?.published_at || null,
-  };
+  }), [sourceCount, visibleArticles]);
 
   // AI Insight data ---------------------------------------------------------
   const aiPredictions = useMemo(
@@ -2397,7 +2455,7 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
         insight={insight}
         meta={wireMeta}
         search={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         isMobile={isMobile}
         isTablet={isTablet}
         loading={loading}
@@ -2438,43 +2496,14 @@ export default function NewsPage({ initialTab = "news", lockedTab = null, user =
         )
       ) : (
         // ─── Wire surface ───────────────────────────────────────────────
-        visibleArticles.length > 0 ? (
-          (() => {
-            const hasTopStory = !searchQuery.trim() && !!featured;
-            const hasResults  = timeGroupedFeed.length > 0;
-            return (
-              <>
-                <section className="nw-feed" style={{ marginBottom: 8 }}>
-                  {hasTopStory && (
-                    <TopStoryRow article={featured} isMobile={isMobile} />
-                  )}
-                  {hasResults
-                    ? timeGroupedFeed.map((group, groupIdx) => (
-                      <div key={group.key}>
-                        <TimeGroupDivider
-                          label={group.label}
-                          date={group.date}
-                          count={group.items.length}
-                          first={groupIdx === 0 && !hasTopStory}
-                        />
-                        {group.items.map((article) => (
-                          <FeedRow key={article.id} article={article} isMobile={isMobile} />
-                        ))}
-                      </div>
-                    ))
-                    : <WireEmptyState isMobile={isMobile} query={searchQuery.trim()} />}
-                </section>
-                <SourcesDrawer isMobile={isMobile} />
-                <CrossLinkFooter mode="news" meta={wireMeta} isMobile={isMobile} />
-              </>
-            );
-          })()
-        ) : (
-          <>
-            <WireEmptyState isMobile={isMobile} query={null} />
-            <CrossLinkFooter mode="news" meta={wireMeta} isMobile={isMobile} />
-          </>
-        )
+        <WireFeedSurface
+          visibleArticles={visibleArticles}
+          featured={featured}
+          timeGroupedFeed={timeGroupedFeed}
+          searchQuery={normalizedSearchQuery}
+          wireMeta={wireMeta}
+          isMobile={isMobile}
+        />
       )}
     </PageShell>
   );
