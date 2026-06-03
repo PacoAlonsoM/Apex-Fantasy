@@ -21,7 +21,30 @@ function getResendClient() {
 
 // ─── Template helpers ──────────────────────────────────────────────────────────
 
-function baseHtml(title, previewText, bodyHtml) {
+// Promotions-tab notes:
+//   • The always-on "PRO" badge in the header reads to Gmail as "this is a
+//     subscription product" — we now only render it for actual Pro emails.
+//   • The footer line also no longer claims "Pro subscription" universally —
+//     non-Pro emails get a neutral line and a category-specific unsubscribe.
+function baseHtml(title, previewText, bodyHtml, options = {}) {
+  const { pro = false, unsubscribeUrl = null, category = null } = options;
+
+  const proBadge = pro
+    ? `<span style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:#fff;background:#FF6A1A;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle;">PRO</span>`
+    : "";
+
+  const footerReason = pro
+    ? "You're receiving this because you have a Stint Pro subscription."
+    : "You're receiving this because you have a Stint account.";
+
+  const unsubLink = unsubscribeUrl
+    ? `<a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.55);text-decoration:underline;">${category ? `Unsubscribe from ${category}` : "Unsubscribe"}</a> &nbsp;·&nbsp; `
+    : "";
+
+  const manageLink = pro
+    ? `<a href="${SITE_URL}/pro" style="color:#FF6A1A;text-decoration:none;">Manage subscription</a> &nbsp;·&nbsp; `
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,7 +62,7 @@ function baseHtml(title, previewText, bodyHtml) {
           <tr>
             <td style="padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,255,0.07);">
               <span style="font-size:22px;font-weight:900;letter-spacing:-0.5px;color:#fff;">STINT</span>
-              <span style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:#fff;background:#FF6A1A;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle;">PRO</span>
+              ${proBadge}
             </td>
           </tr>
           <!-- Body -->
@@ -52,10 +75,8 @@ function baseHtml(title, previewText, bodyHtml) {
           <tr>
             <td style="padding:20px 40px 28px;border-top:1px solid rgba(255,255,255,0.07);">
               <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;">
-                You're receiving this because you have a Stint Pro subscription.<br />
-                <a href="${SITE_URL}/pro" style="color:#FF6A1A;text-decoration:none;">Manage subscription</a>
-                &nbsp;·&nbsp;
-                <a href="${SITE_URL}/privacy" style="color:rgba(255,255,255,0.35);text-decoration:none;">Privacy</a>
+                ${footerReason}<br />
+                ${manageLink}${unsubLink}<a href="${SITE_URL}/privacy" style="color:rgba(255,255,255,0.35);text-decoration:none;">Privacy</a>
               </p>
             </td>
           </tr>
@@ -118,7 +139,7 @@ export async function sendProWelcomeEmail({ email, username }) {
     from:    FROM,
     to:      email,
     subject: "Welcome to Stint Pro 🏁",
-    html:    baseHtml(title, preview, body),
+    html:    baseHtml(title, preview, body, { pro: true }),
   });
 }
 
@@ -163,7 +184,7 @@ export async function sendInsightReadyEmail({ email, username, insightType, race
     from:    FROM,
     to:      email,
     subject: subjectLine,
-    html:    baseHtml(subjectLine, preview, body),
+    html:    baseHtml(subjectLine, preview, body, { pro: true }),
   });
 }
 
@@ -190,7 +211,7 @@ export async function sendProRenewalReminderEmail({ email, username, renewalDate
     from:    FROM,
     to:      email,
     subject: `Your Stint Pro renews on ${renewalDate}`,
-    html:    baseHtml(title, preview, body),
+    html:    baseHtml(title, preview, body, { pro: true }),
   });
 }
 
@@ -222,7 +243,7 @@ export async function sendProCancellationEmail({ email, username, endsAt }) {
     from:    FROM,
     to:      email,
     subject: "Stint Pro cancelled — we'll miss you",
-    html:    baseHtml(title, preview, body),
+    html:    baseHtml(title, preview, body, { pro: true }),
   });
 }
 
@@ -299,7 +320,7 @@ export async function sendResultsPublishedEmail({
     from:    FROM,
     to:      email,
     subject: subjectLine,
-    html:    baseHtml(subjectLine, preview, body),
+    html:    baseHtml(subjectLine, preview, body, { unsubscribeUrl, category: "results emails" }),
     headers: {
       "List-Unsubscribe":      `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -369,7 +390,7 @@ export async function sendWelcomeEmail({ email, username, favoriteTeam, unsubscr
     from:    FROM,
     to:      email,
     subject: subjectLine,
-    html:    baseHtml(subjectLine, preview, body),
+    html:    baseHtml(subjectLine, preview, body, { unsubscribeUrl, category: "all Stint emails" }),
     headers: {
       "List-Unsubscribe":      `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -439,7 +460,7 @@ export async function sendPickReminderEmail({
     from:    FROM,
     to:      email,
     subject: subjectLine,
-    html:    baseHtml(subjectLine, preview, body),
+    html:    baseHtml(subjectLine, preview, body, { unsubscribeUrl, category: "pick reminders" }),
     headers: {
       "List-Unsubscribe":      `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",

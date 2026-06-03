@@ -9,6 +9,7 @@ import {
   sendProCancellationEmail,
 } from "@/src/lib/email";
 import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
+import { getSupabaseAdmin } from "../_lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,68 +37,105 @@ function hasValidCronSecret(request) {
   return auth === `Bearer ${expected}`;
 }
 
-const SAMPLE_TOKEN = "test-token-not-real-do-not-rely-on-it";
+const FALLBACK_TOKEN = "test-token-not-real-do-not-rely-on-it";
 
-const SAMPLE_PAYLOADS = {
-  welcome: (to) => ({
-    email: to,
-    username: "TestUser",
-    favoriteTeam: "McLaren",
-    unsubscribeToken: SAMPLE_TOKEN,
-  }),
+// Looks up the real user behind a test recipient so the template renders
+// with their actual username, favourite team, and a working unsubscribe
+// link. Falls back to safe placeholders when the email isn't in our DB.
+async function resolveRecipient(supabase, email) {
+  // 1. auth user by email
+  let userId = null;
+  try {
+    const page = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const match = (page?.data?.users || []).find(
+      (u) => String(u.email || "").toLowerCase() === String(email).toLowerCase()
+    );
+    userId = match?.id || null;
+  } catch (_) {}
 
-  pick_reminder: (to, variant) => {
-    // variant: "24h_zero" | "24h_incomplete" | "3h_zero" | "3h_incomplete"
-    const [windowKey, kind] = (variant || "24h_zero").split("_");
+  if (!userId) {
     return {
+      username: "Manager",
+      favoriteTeam: null,
+      unsubscribeToken: FALLBACK_TOKEN,
+      foundUser: false,
+    };
+  }
+
+  const [{ data: profile }, { data: prefs }] = await Promise.all([
+    supabase.from("profiles").select("username, favorite_team").eq("id", userId).maybeSingle(),
+    supabase.from("email_preferences").select("unsubscribe_token").eq("user_id", userId).maybeSingle(),
+  ]);
+
+  return {
+    username:         profile?.username || "Manager",
+    favoriteTeam:     profile?.favorite_team || null,
+    unsubscribeToken: prefs?.unsubscribe_token || FALLBACK_TOKEN,
+    foundUser:        true,
+  };
+}
+
+function buildSamplePayloads({ to, recipient, variant }) {
+  const { username, favoriteTeam, unsubscribeToken } = recipient;
+
+  return {
+    welcome: {
       email: to,
-      username: "TestUser",
+      username,
+      favoriteTeam: favoriteTeam || "McLaren",
+      unsubscribeToken,
+    },
+
+    pick_reminder: (() => {
+      const [windowKey, kind] = (variant || "24h_zero").split("_");
+      return {
+        email: to,
+        username,
+        raceName: "Monaco GP",
+        raceCountry: "Monaco",
+        reminderWindow: windowKey === "3h" ? "3h" : "24h",
+        variant: kind === "incomplete" ? "incomplete" : "zero",
+        pickCount: kind === "incomplete" ? 3 : 0,
+        unsubscribeToken,
+      };
+    })(),
+
+    results: {
+      email: to,
+      username,
       raceName: "Monaco GP",
       raceCountry: "Monaco",
-      reminderWindow: windowKey === "3h" ? "3h" : "24h",
-      variant: kind === "incomplete" ? "incomplete" : "zero",
-      pickCount: kind === "incomplete" ? 3 : 0,
-      unsubscribeToken: SAMPLE_TOKEN,
-    };
-  },
+      raceRound: 6,
+      score: variant === "zero" ? 0 : 38,
+      bestPick: variant === "zero" ? null : { type: "winner", value: "Lando Norris", points: 25 },
+      unsubscribeToken,
+    },
 
-  results: (to, variant) => ({
-    // variant: "scored" (default) | "zero"
-    email: to,
-    username: "TestUser",
-    raceName: "Monaco GP",
-    raceCountry: "Monaco",
-    raceRound: 6,
-    score: variant === "zero" ? 0 : 38,
-    bestPick: variant === "zero" ? null : { type: "winner", value: "Lando Norris", points: 25 },
-    unsubscribeToken: SAMPLE_TOKEN,
-  }),
+    pro_welcome: {
+      email: to,
+      username,
+    },
 
-  pro_welcome: (to) => ({
-    email: to,
-    username: "TestUser",
-  }),
+    insight_ready: {
+      email: to,
+      username,
+      insightType: variant === "pre_race" ? "pre_race" : variant === "monthly" ? "monthly" : "post_race",
+      raceName: variant === "monthly" ? undefined : "Monaco GP",
+    },
 
-  insight_ready: (to, variant) => ({
-    // variant: "post_race" (default) | "pre_race" | "monthly"
-    email: to,
-    username: "TestUser",
-    insightType: variant === "pre_race" ? "pre_race" : variant === "monthly" ? "monthly" : "post_race",
-    raceName: variant === "monthly" ? undefined : "Monaco GP",
-  }),
+    renewal: {
+      email: to,
+      username,
+      renewalDate: "July 1, 2026",
+    },
 
-  renewal: (to) => ({
-    email: to,
-    username: "TestUser",
-    renewalDate: "July 1, 2026",
-  }),
-
-  cancellation: (to) => ({
-    email: to,
-    username: "TestUser",
-    endsAt: "June 30, 2026",
-  }),
-};
+    cancellation: {
+      email: to,
+      username,
+      endsAt: "June 30, 2026",
+    },
+  };
+}
 
 const SENDERS = {
   welcome:        sendWelcomeEmail,
@@ -131,10 +169,8 @@ export async function POST(request) {
   if (!to)       return NextResponse.json({ error: "`to` is required" }, { status: 400 });
   if (!template) return NextResponse.json({ error: "`template` is required" }, { status: 400 });
 
-  const sender  = SENDERS[template];
-  const payload = SAMPLE_PAYLOADS[template]?.(to, variant);
-
-  if (!sender || !payload) {
+  const sender = SENDERS[template];
+  if (!sender) {
     return NextResponse.json({
       error: "Unknown template",
       valid: Object.keys(SENDERS),
@@ -142,14 +178,21 @@ export async function POST(request) {
   }
 
   try {
+    const supabase  = getSupabaseAdmin();
+    const recipient = await resolveRecipient(supabase, to);
+    const payloads  = buildSamplePayloads({ to, recipient, variant });
+    const payload   = payloads[template];
+
     const result = await sender(payload);
     return NextResponse.json({
       ok: true,
       template,
       variant,
       to,
-      resend_id: result?.data?.id ?? null,
-      resend_error: result?.error ?? null,
+      used_real_user: recipient.foundUser,
+      username_used:  recipient.username,
+      resend_id:      result?.data?.id ?? null,
+      resend_error:   result?.error ?? null,
     });
   } catch (err) {
     return NextResponse.json({
