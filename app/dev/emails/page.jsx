@@ -2,20 +2,20 @@
 
 // Email design concept preview page.
 //
-// Renders the five candidate light/beige email treatments (Pit Wall Memo,
-// Carbon Pearl, Telex / Wire, Tally Sheet, Pressed Linen) side-by-side using
-// isolated iframes so the email DOM never collides with the app's own styles.
-// Both the welcome and post-race results variants are shown for each concept,
-// populated with the same sample data, so the team can pick a single direction
-// to ship across all email templates.
+// Renders five radically different email structures (Big Number, Postcard,
+// Plain-Text Note, Race Poster, Telemetry Card) side-by-side using isolated
+// iframes so the email DOM never collides with the app's own styles. Both the
+// welcome and post-race results variants are shown for each concept, populated
+// with the same sample data, so the team can pick a single direction to ship
+// across all email templates.
 
-import * as pitWallMemo from "../../../src/lib/emailConcepts/pitWallMemo";
-import * as carbonPearl from "../../../src/lib/emailConcepts/carbonPearl";
-import * as telexWire from "../../../src/lib/emailConcepts/telexWire";
-import * as tallySheet from "../../../src/lib/emailConcepts/tallySheet";
-import * as pressedLinen from "../../../src/lib/emailConcepts/pressedLinen";
+import * as bigNumber from "../../../src/lib/emailConcepts/bigNumber";
+import * as postcard from "../../../src/lib/emailConcepts/postcard";
+import * as plainTextIllusion from "../../../src/lib/emailConcepts/plainTextIllusion";
+import * as racePoster from "../../../src/lib/emailConcepts/racePoster";
+import * as telemetryCard from "../../../src/lib/emailConcepts/telemetryCard";
 
-const CONCEPTS = [pitWallMemo, carbonPearl, telexWire, tallySheet, pressedLinen];
+const CONCEPTS = [bigNumber, postcard, plainTextIllusion, racePoster, telemetryCard];
 
 const SAMPLE = {
   username: "Paco",
@@ -130,8 +130,8 @@ function Frame({ label, html }) {
         srcDoc={html}
         style={{
           width: "100%",
-          height: 720,
-          minHeight: 600,
+          height: 820,
+          minHeight: 720,
           border: `1px solid ${HAIRLINE}`,
           borderRadius: 8,
           background: "#fff",
@@ -213,8 +213,8 @@ export default function EmailConceptsPreviewPage() {
               margin: 0,
             }}
           >
-            Five light/beige directions, all using the site's Sora + Manrope
-            typography. Pick one and we ship it across all email templates.
+            Five radically different email structures, each breaking the
+            template mold a different way. Pick one and we ship it everywhere.
           </p>
         </header>
 
