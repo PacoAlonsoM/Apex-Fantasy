@@ -7,7 +7,7 @@ const FROM = process.env.RESEND_FROM_EMAIL || "Stint <noreply@stint-web.com>";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.stint-web.com";
 
 function getResendClient() {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY || process.env.Resend_API_KEY;
   if (!apiKey) {
     throw new Error("RESEND_API_KEY is not set");
   }
