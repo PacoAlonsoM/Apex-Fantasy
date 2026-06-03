@@ -12,6 +12,7 @@ import {
   saveRoundDraft,
   saveScheduleOverride,
   seedProLeague,
+  sendTestEmail,
   setAdminProStatus,
   syncNewsFeed,
   syncSchedule,
@@ -535,6 +536,9 @@ export default function AdminPage({ user }) {
           );
         })()}
 
+        {/* ── Test Emails ── */}
+        <TestEmailsCard defaultTo={user?.email || ""} />
+
         {dashboard && <CurrentRoundHealth dashboard={dashboard} />}
 
         <div ref={workspaceRef} style={{ display: "grid", gap: 18 }}>
@@ -638,6 +642,175 @@ export default function AdminPage({ user }) {
             {dashboardLoading ? "Refreshing dashboard..." : "Loading round workspace..."}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── TestEmailsCard ────────────────────────────────────────────────
+// Inline admin card for firing any email template at any address. Used
+// to QA template copy, dark-mode rendering, DKIM/SPF alignment, and the
+// List-Unsubscribe one-click flow without waiting for a real signup or
+// scoring run.
+
+const TEMPLATE_OPTIONS = [
+  { value: "welcome",       label: "Welcome (new signup)",        variants: [] },
+  { value: "pick_reminder", label: "Pick reminder",                variants: ["24h_zero", "24h_incomplete", "3h_zero", "3h_incomplete"] },
+  { value: "results",       label: "Results published",            variants: ["scored", "zero"] },
+  { value: "pro_welcome",   label: "Pro welcome (post-checkout)",  variants: [] },
+  { value: "insight_ready", label: "AI insight ready (Pro)",       variants: ["post_race", "pre_race", "monthly"] },
+  { value: "renewal",       label: "Pro renewal reminder",         variants: [] },
+  { value: "cancellation",  label: "Pro cancellation",             variants: [] },
+];
+
+function TestEmailsCard({ defaultTo = "" }) {
+  const [to, setTo]             = useState(defaultTo);
+  const [template, setTemplate] = useState("welcome");
+  const [variant, setVariant]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [note, setNote]         = useState(null);
+
+  const currentTemplate = TEMPLATE_OPTIONS.find((t) => t.value === template) || TEMPLATE_OPTIONS[0];
+  const variantOptions  = currentTemplate.variants;
+
+  // Reset variant whenever template changes (variants don't carry over)
+  useEffect(() => {
+    setVariant(variantOptions[0] || "");
+  }, [template]); // eslint-disable-line
+
+  async function handleSend() {
+    if (!to.trim()) {
+      setNote({ kind: "error", text: "Enter an email address first." });
+      return;
+    }
+    setLoading(true);
+    setNote(null);
+    try {
+      const result = await sendTestEmail({ to: to.trim(), template, variant: variant || null });
+      if (result?.ok) {
+        setNote({ kind: "success", text: `Sent — Resend id ${result.resend_id?.slice(0, 8) || "?"}…` });
+      } else {
+        setNote({ kind: "error", text: result?.error || "Unknown send failure." });
+      }
+    } catch (err) {
+      setNote({ kind: "error", text: err?.message || "Request failed." });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNote(null), 10000);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        border:       PANEL_BORDER,
+        background:   PANEL_BG,
+        padding:      "16px 18px",
+        display:      "grid",
+        gap:          12,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(96,165,250,0.7)", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 800, color: SUBTLE_TEXT, letterSpacing: "0.06em", textTransform: "uppercase" }}>Test emails</span>
+        {note && (
+          <span style={{
+            marginLeft: "auto",
+            fontSize:   11,
+            color:      note.kind === "success" ? "rgba(74,222,128,0.85)" : "rgba(248,113,113,0.85)",
+          }}>
+            {note.text}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr auto", gap: 10, alignItems: "center" }}>
+        <input
+          type="email"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          placeholder="you@example.com"
+          style={{
+            padding:      "9px 12px",
+            borderRadius: 8,
+            border:       PANEL_BORDER,
+            background:   "rgba(8,12,20,0.4)",
+            color:        "#fff",
+            fontSize:     13,
+            fontWeight:   600,
+            fontFamily:   "inherit",
+            outline:      "none",
+          }}
+        />
+
+        <select
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          style={{
+            padding:      "9px 12px",
+            borderRadius: 8,
+            border:       PANEL_BORDER,
+            background:   "rgba(8,12,20,0.4)",
+            color:        "#fff",
+            fontSize:     13,
+            fontWeight:   600,
+            fontFamily:   "inherit",
+            outline:      "none",
+            cursor:       "pointer",
+          }}
+        >
+          {TEMPLATE_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value} style={{ background: "#0d1929" }}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={variant}
+          onChange={(e) => setVariant(e.target.value)}
+          disabled={variantOptions.length === 0}
+          style={{
+            padding:      "9px 12px",
+            borderRadius: 8,
+            border:       PANEL_BORDER,
+            background:   "rgba(8,12,20,0.4)",
+            color:        variantOptions.length === 0 ? "rgba(214,223,239,0.32)" : "#fff",
+            fontSize:     13,
+            fontWeight:   600,
+            fontFamily:   "inherit",
+            outline:      "none",
+            cursor:       variantOptions.length === 0 ? "default" : "pointer",
+          }}
+        >
+          {variantOptions.length === 0 ? (
+            <option value="">— no variants —</option>
+          ) : (
+            variantOptions.map((v) => (
+              <option key={v} value={v} style={{ background: "#0d1929" }}>{v}</option>
+            ))
+          )}
+        </select>
+
+        <button
+          onClick={handleSend}
+          disabled={loading}
+          style={{
+            background:    BRAND_GRADIENT,
+            border:        "none",
+            borderRadius:  999,
+            color:         "#fff",
+            cursor:        loading ? "wait" : "pointer",
+            fontSize:      12,
+            fontWeight:    800,
+            padding:       "9px 20px",
+            letterSpacing: "-0.01em",
+            whiteSpace:    "nowrap",
+          }}
+        >
+          {loading ? "Sending…" : "Send test"}
+        </button>
       </div>
     </div>
   );

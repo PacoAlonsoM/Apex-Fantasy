@@ -8,6 +8,7 @@ import {
   sendProRenewalReminderEmail,
   sendProCancellationEmail,
 } from "@/src/lib/email";
+import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,13 +110,19 @@ const SENDERS = {
 };
 
 export async function POST(request) {
-  if (!hasValidCronSecret(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body;
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  // Accept either: CRON_SECRET bearer (for curl/automation) OR a valid
+  // admin Supabase session (for the in-app Test Emails panel).
+  if (!hasValidCronSecret(request)) {
+    try {
+      await requireAdminRequest(request, body);
+    } catch (error) {
+      return adminAccessErrorResponse(error);
+    }
+  }
 
   const to       = String(body?.to || "").trim();
   const template = String(body?.template || "").trim();

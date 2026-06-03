@@ -220,3 +220,7 @@ export function setAdminProStatus(status) {
 export function seedProLeague() {
   return postJson("/api/admin/leagues/seed-pro", {});
 }
+
+export function sendTestEmail({ to, template, variant }) {
+  return postJson("/api/admin/test-email", { to, template, variant: variant || null });
+}
