@@ -8,7 +8,7 @@ import {
 } from "../_lib/leagueServer";
 
 export async function DELETE(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let body = {};
   try {

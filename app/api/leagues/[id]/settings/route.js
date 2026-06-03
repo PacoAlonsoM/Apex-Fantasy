@@ -13,7 +13,7 @@ import {
  * Returns current league settings. Comisionado only.
  */
 export async function GET(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let auth;
   try {
@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
  * Body: Partial league settings object. Merged into existing settings.
  */
 export async function PATCH(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let body;
   try {

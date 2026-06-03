@@ -17,7 +17,7 @@ async function verifyComisionado(supabase, leagueId, userId) {
  * Returns all members. Comisionado gets full detail; members get public view.
  */
 export async function GET(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let auth;
   try {
@@ -83,7 +83,7 @@ export async function GET(request, { params }) {
  * Update a member's status. Comisionado only.
  */
 export async function PATCH(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let body;
   try {
@@ -159,7 +159,7 @@ export async function PATCH(request, { params }) {
  * { targetUserId }. League owners should delete the league instead of leaving.
  */
 export async function DELETE(request, { params }) {
-  const { id: leagueId } = params;
+  const { id: leagueId } = await params;
 
   let body = {};
   try {
