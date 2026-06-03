@@ -2,18 +2,20 @@
 
 // Email design concept preview page.
 //
-// Renders all four candidate email treatments (Plain Letter, Pit Board,
-// Editorial, Race Card / Heritage) side-by-side using isolated iframes so
-// the email DOM never collides with the app's own styles. Both the welcome
-// and post-race results variants are shown for each concept, populated with
-// the same sample data, so the team can pick a single direction to ship.
+// Renders the five candidate light/beige email treatments (Pit Wall Memo,
+// Carbon Pearl, Telex / Wire, Tally Sheet, Pressed Linen) side-by-side using
+// isolated iframes so the email DOM never collides with the app's own styles.
+// Both the welcome and post-race results variants are shown for each concept,
+// populated with the same sample data, so the team can pick a single direction
+// to ship across all email templates.
 
-import * as plainLetter from "../../../src/lib/emailConcepts/plainLetter";
-import * as pitBoard from "../../../src/lib/emailConcepts/pitBoard";
-import * as editorial from "../../../src/lib/emailConcepts/editorial";
-import * as raceCard from "../../../src/lib/emailConcepts/raceCard";
+import * as pitWallMemo from "../../../src/lib/emailConcepts/pitWallMemo";
+import * as carbonPearl from "../../../src/lib/emailConcepts/carbonPearl";
+import * as telexWire from "../../../src/lib/emailConcepts/telexWire";
+import * as tallySheet from "../../../src/lib/emailConcepts/tallySheet";
+import * as pressedLinen from "../../../src/lib/emailConcepts/pressedLinen";
 
-const CONCEPTS = [plainLetter, pitBoard, editorial, raceCard];
+const CONCEPTS = [pitWallMemo, carbonPearl, telexWire, tallySheet, pressedLinen];
 
 const SAMPLE = {
   username: "Paco",
@@ -211,9 +213,8 @@ export default function EmailConceptsPreviewPage() {
               margin: 0,
             }}
           >
-            Four candidate treatments for Stint transactional + lifecycle
-            email. Each concept is shown in both its welcome and post-race
-            results variants, rendered in an isolated iframe with sample data.
+            Five light/beige directions, all using the site's Sora + Manrope
+            typography. Pick one and we ship it across all email templates.
           </p>
         </header>
 
