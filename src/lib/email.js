@@ -20,17 +20,25 @@ function getResendClient() {
 }
 
 // ─── Template helpers ──────────────────────────────────────────────────────────
+//
+// Stint emails are a true extension of the website:
+//   • Dark navy #06101B page background (matches BG_BASE in dark mode)
+//   • Card surface #0d1f2e (matches PANEL_BG)
+//   • 1px hairline borders rgba(255,255,255,0.07) (matches HAIRLINE)
+//   • CARD_RADIUS 16, soft shadow, 32px padding (SPACE.8)
+//   • Sora 900 display + Manrope body via Google Fonts with system fallback
+//   • Brand orange #FF6A1A used as a single sharp accent (one place per email)
+//   • Real Stint logo image in the header (no text wordmark fallback)
 
-// Promotions-tab notes:
-//   • The always-on "PRO" badge in the header reads to Gmail as "this is a
-//     subscription product" — we now only render it for actual Pro emails.
-//   • The footer line also no longer claims "Pro subscription" universally —
-//     non-Pro emails get a neutral line and a category-specific unsubscribe.
+const SORA   = "'Sora','Helvetica Neue',system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif";
+const MANROPE = "'Manrope','Helvetica Neue',system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif";
+const FONTS_LINK = `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />`;
+
 function baseHtml(title, previewText, bodyHtml, options = {}) {
   const { pro = false, unsubscribeUrl = null, category = null } = options;
 
   const proBadge = pro
-    ? `<span style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:#fff;background:#FF6A1A;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle;">PRO</span>`
+    ? `<span style="display:inline-block;margin-left:10px;padding:3px 9px;background:#f59e0b;color:#1a0f00;font-family:${MANROPE};font-size:9px;font-weight:900;letter-spacing:0.14em;border-radius:999px;vertical-align:middle;">PRO</span>`
     : "";
 
   const footerReason = pro
@@ -38,7 +46,7 @@ function baseHtml(title, previewText, bodyHtml, options = {}) {
     : "You're receiving this because you have a Stint account.";
 
   const unsubLink = unsubscribeUrl
-    ? `<a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.55);text-decoration:underline;">${category ? `Unsubscribe from ${category}` : "Unsubscribe"}</a> &nbsp;·&nbsp; `
+    ? `<a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.5);text-decoration:underline;">${category ? `Unsubscribe from ${category}` : "Unsubscribe"}</a> &nbsp;·&nbsp; `
     : "";
 
   const manageLink = pro
@@ -51,36 +59,39 @@ function baseHtml(title, previewText, bodyHtml, options = {}) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
+  ${FONTS_LINK}
 </head>
-<body style="margin:0;padding:0;background:#06101b;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <span style="display:none;font-size:1px;color:#06101b;max-height:0;overflow:hidden;">${previewText}</span>
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#06101b;padding:40px 0;">
+<body style="margin:0;padding:0;background:#06101B;font-family:${MANROPE};color:rgba(255,255,255,0.92);-webkit-font-smoothing:antialiased;">
+  <span style="display:none;font-size:1px;color:#06101B;max-height:0;overflow:hidden;">${previewText}</span>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#06101B;padding:48px 16px;">
     <tr>
       <td align="center">
-        <table width="540" cellpadding="0" cellspacing="0" style="background:#0d1f2e;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.07);">
+        <table width="540" cellpadding="0" cellspacing="0" style="max-width:540px;background:#0d1f2e;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.32);">
           <!-- Header -->
           <tr>
-            <td style="padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,255,0.07);">
-              <span style="font-size:22px;font-weight:900;letter-spacing:-0.5px;color:#fff;">STINT</span>
-              ${proBadge}
+            <td style="padding:26px 32px;border-bottom:1px solid rgba(255,255,255,0.07);">
+              <img src="${SITE_URL}/images/logo-primary.png" alt="Stint" height="30" style="display:inline-block;height:30px;width:auto;vertical-align:middle;" />${proBadge}
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:36px 40px;">
+            <td style="padding:32px 32px 28px;">
               ${bodyHtml}
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 40px 28px;border-top:1px solid rgba(255,255,255,0.07);">
-              <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;">
+            <td style="padding:20px 32px 26px;border-top:1px solid rgba(255,255,255,0.07);">
+              <p style="margin:0;font-family:${MANROPE};font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;">
                 ${footerReason}<br />
-                ${manageLink}${unsubLink}<a href="${SITE_URL}/privacy" style="color:rgba(255,255,255,0.35);text-decoration:none;">Privacy</a>
+                ${manageLink}${unsubLink}<a href="${SITE_URL}/privacy" style="color:rgba(255,255,255,0.4);text-decoration:none;">Privacy</a>
               </p>
             </td>
           </tr>
         </table>
+        <p style="margin:14px 0 0;font-family:${MANROPE};font-size:10px;font-weight:700;color:rgba(255,255,255,0.22);letter-spacing:0.16em;text-transform:uppercase;">
+          Stint · F1 Predictions · 2026
+        </p>
       </td>
     </tr>
   </table>
@@ -89,15 +100,30 @@ function baseHtml(title, previewText, bodyHtml, options = {}) {
 }
 
 function h1(text) {
-  return `<h1 style="margin:0 0 16px;font-size:24px;font-weight:900;letter-spacing:-0.5px;color:#fff;line-height:1.25;">${text}</h1>`;
+  return `<h1 style="margin:0 0 14px;font-family:${SORA};font-size:30px;font-weight:900;letter-spacing:-0.04em;color:#fff;line-height:1.1;">${text}</h1>`;
+}
+
+function eyebrow(text) {
+  return `<div style="margin:0 0 14px;font-family:${MANROPE};font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#FF6A1A;">${text}</div>`;
 }
 
 function p(text, style = "") {
-  return `<p style="margin:0 0 16px;font-size:15px;color:rgba(255,255,255,0.75);line-height:1.65;${style}">${text}</p>`;
+  return `<p style="margin:0 0 16px;font-family:${MANROPE};font-size:15px;color:rgba(255,255,255,0.7);line-height:1.7;${style}">${text}</p>`;
 }
 
 function cta(text, href) {
-  return `<a href="${href}" style="display:inline-block;margin-top:8px;padding:13px 28px;background:#FF6A1A;color:#fff;font-size:14px;font-weight:800;letter-spacing:-0.01em;border-radius:999px;text-decoration:none;">${text}</a>`;
+  return `<a href="${href}" style="display:inline-block;margin-top:6px;padding:12px 24px;background:#FF6A1A;color:#fff;font-family:${MANROPE};font-size:13px;font-weight:800;letter-spacing:-0.005em;border-radius:999px;text-decoration:none;">${text}</a>`;
+}
+
+// Hero score / metric tile — used on results email and similar.
+function metricTile({ label, value, sub = "" }) {
+  return `<table cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0 24px;background:rgba(255,106,26,0.05);border:1px solid rgba(255,106,26,0.16);border-radius:12px;">
+    <tr><td style="padding:22px 22px 18px;">
+      <div style="font-family:${MANROPE};font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,194,71,0.85);">${label}</div>
+      <div style="margin-top:4px;font-family:${SORA};font-size:48px;font-weight:900;letter-spacing:-0.05em;color:#FFC247;line-height:1;">${value}</div>
+      ${sub ? `<div style="margin-top:10px;font-family:${MANROPE};font-size:13px;color:rgba(255,255,255,0.55);line-height:1.55;">${sub}</div>` : ""}
+    </td></tr>
+  </table>`;
 }
 
 // ─── Email senders ─────────────────────────────────────────────────────────────
@@ -273,22 +299,6 @@ export async function sendResultsPublishedEmail({
   const resend = getResendClient();
   const name = username ?? "Manager";
 
-  const scoreLine = score > 0
-    ? `<span style="color:#FFC247;font-weight:900;font-size:48px;letter-spacing:-0.04em;line-height:1;">${score}</span> <span style="color:rgba(255,255,255,0.5);font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">pts</span>`
-    : `<span style="color:rgba(255,255,255,0.7);font-weight:900;font-size:32px;letter-spacing:-0.03em;line-height:1;">No points this round</span>`;
-
-  const bestPickBlock = bestPick && bestPick.points > 0
-    ? `
-      <table cellpadding="0" cellspacing="0" style="margin:24px 0 8px;width:100%;background:rgba(255,194,71,0.06);border:1px solid rgba(255,194,71,0.18);border-radius:10px;">
-        <tr><td style="padding:14px 18px;">
-          <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,194,71,0.85);margin-bottom:4px;">Top pick</div>
-          <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-0.01em;">${bestPick.value}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;">${bestPick.type.replace(/_/g, " ")} · ${bestPick.points} pts</div>
-        </td></tr>
-      </table>
-    `
-    : "";
-
   const subjectLine = score > 0
     ? `${raceName}: ${score} pts`
     : `${raceName} results are in`;
@@ -298,22 +308,27 @@ export async function sendResultsPublishedEmail({
 
   const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}&cat=results_published`;
 
+  const scoreTile = score > 0
+    ? metricTile({
+        label: "Your score",
+        value: `${score} <span style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;letter-spacing:0.04em;color:rgba(255,194,71,0.7);">pts</span>`,
+        sub: bestPick && bestPick.points > 0
+          ? `Top pick — <strong style="color:#fff;font-weight:700;">${bestPick.value}</strong> for ${bestPick.type.replace(/_/g, " ")} (+${bestPick.points} pts)`
+          : "",
+      })
+    : `<table cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0 24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
+        <tr><td style="padding:22px 22px 18px;">
+          <div style="font-family:'Manrope',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.5);">No points this round</div>
+          <div style="margin-top:8px;font-family:'Sora',sans-serif;font-size:24px;font-weight:900;letter-spacing:-0.03em;color:#fff;line-height:1.2;">Race weekends like this happen.</div>
+        </td></tr>
+      </table>`;
+
   const body = `
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px;">Round ${raceRound}${raceCountry ? ` · ${raceCountry}` : ""}</div>
+    ${eyebrow(`Round ${raceRound}${raceCountry ? ` · ${raceCountry}` : ""}`)}
     ${h1(raceName)}
-
-    <div style="margin:24px 0 8px;">
-      ${scoreLine}
-    </div>
-    ${p(`Hey ${name} — official results are in for ${raceName}. Your standings, league rank and full breakdown are all updated.`, "margin-top:18px;")}
-
-    ${bestPickBlock}
-
-    ${cta("View My Breakdown", `${SITE_URL}/picks`)}
-
-    <p style="margin:28px 0 0;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;">
-      Don't want results emails? <a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Turn them off</a>.
-    </p>
+    ${p(`Hey ${name} — official results are in. Your standings, league rank and full breakdown are all updated.`)}
+    ${scoreTile}
+    ${cta("View my breakdown", `${SITE_URL}/picks`)}
   `;
 
   return resend.emails.send({
