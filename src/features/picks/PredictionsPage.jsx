@@ -3697,6 +3697,122 @@ function LeagueSwitcherPills({ roundSummary, selectedLeague, editingLocked, revi
   );
 }
 
+function LeagueCopyToolbar({
+  selectedLeague,
+  copySources,
+  copyTargets,
+  canCopyToRest,
+  copyMessage,
+  disabled,
+  onCopyFromLeague,
+  onCopyToRest,
+  isMobile,
+}) {
+  if (!selectedLeague || (!copySources.length && !copyTargets.length && !copyMessage)) return null;
+
+  const buttonBase = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: isMobile ? 36 : 34,
+    borderRadius: RADIUS_PILL,
+    fontFamily: "inherit",
+    fontSize: isMobile ? 12 : 12.5,
+    fontWeight: 850,
+    letterSpacing: "-0.005em",
+    whiteSpace: "nowrap",
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease, opacity 180ms ease",
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 8,
+        padding: "0 0 4px",
+      }}
+    >
+      {copyTargets.length > 0 && (
+        <button
+          type="button"
+          onClick={onCopyToRest}
+          disabled={!canCopyToRest}
+          className="stint-pressable"
+          style={{
+            ...buttonBase,
+            padding: "0 14px",
+            border: `1px solid ${canCopyToRest ? hexToRgba(ACCENT, 0.36) : HAIRLINE}`,
+            background: canCopyToRest ? hexToRgba(ACCENT, 0.14) : "rgba(148,163,184,0.05)",
+            color: canCopyToRest ? ACCENT : SUBTLE_TEXT,
+            cursor: canCopyToRest ? "pointer" : "default",
+            opacity: canCopyToRest ? 1 : 0.62,
+          }}
+        >
+          Copy to rest
+        </button>
+      )}
+
+      {copySources.length > 0 && (
+        <>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: SUBTLE_TEXT,
+            }}
+          >
+            Paste from
+          </span>
+          {copySources.map((league) => (
+            <button
+              key={league.id}
+              type="button"
+              onClick={() => onCopyFromLeague(league.id)}
+              disabled={disabled}
+              className="stint-pressable"
+              style={{
+                ...buttonBase,
+                padding: "0 13px",
+                border: `1px solid ${HAIRLINE}`,
+                background: "rgba(148,163,184,0.05)",
+                color: disabled ? SUBTLE_TEXT : TEXT_PRIMARY,
+                cursor: disabled ? "default" : "pointer",
+                opacity: disabled ? 0.62 : 1,
+              }}
+            >
+              {league.name}
+            </button>
+          ))}
+        </>
+      )}
+
+      {copyMessage && (
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: isMobile ? 34 : 32,
+            padding: "0 10px",
+            borderRadius: RADIUS_PILL,
+            border: `1px solid ${hexToRgba(SUCCESS, 0.24)}`,
+            background: hexToRgba(SUCCESS, 0.09),
+            color: SUCCESS_TEXT,
+            fontSize: isMobile ? 11.5 : 12,
+            fontWeight: 750,
+            letterSpacing: "-0.005em",
+          }}
+        >
+          {copyMessage}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Survival-mode banner — alive/eliminated state + members remaining + last
 // elimination, fetched live from league_members. Only renders when the active
 // league is a Survival league.
@@ -4514,6 +4630,7 @@ export default function PredictionsPage({
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPartialWarning, setShowPartialWarning] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
   const [liveRaces, setLiveRaces] = useState({});
   const [liveMeetings, setLiveMeetings] = useState({});
   const [localWeekendState, setLocalWeekendState] = useState({ controlsByRound: {}, sessionsByRound: {} });
@@ -4744,6 +4861,7 @@ export default function PredictionsPage({
       () => {
         setRace(selectedRace);
         setSaved(false);
+        setCopyMessage("");
         setTab("race");
       },
       { name: "race-header" }
@@ -4773,6 +4891,7 @@ export default function PredictionsPage({
 
     setRace(targetRace);
     setSaved(false);
+    setCopyMessage("");
     setTab("race");
     onInitialRaceConsumed();
   }, [calendar, initialRaceRound, onInitialRaceConsumed, predictionsByRound]);
@@ -4861,6 +4980,7 @@ export default function PredictionsPage({
     setPicks(nextPicks);
     setBudgetAmounts(nextBudgetAmounts);
     setDoubleDownKey(nextDoubleDownKey);
+    setCopyMessage("");
     syncActiveLeagueDraft({
       picks: nextPicks,
       betAmounts: nextBudgetAmounts,
@@ -5063,9 +5183,17 @@ export default function PredictionsPage({
   const copySources = useMemo(
     () => availableLeagues.filter((league) => (
       league.id !== selectedLeague?.id
+      && !(league.type === "pro_community" && !isProSubscriber)
       && hasSavedPickContent(selectedRoundSubmissions[league.id]?.picks)
     )),
-    [availableLeagues, selectedLeague, selectedRoundSubmissions]
+    [availableLeagues, selectedLeague, selectedRoundSubmissions, isProSubscriber]
+  );
+  const copyTargets = useMemo(
+    () => availableLeagues.filter((league) => (
+      league.id !== selectedLeague?.id
+      && !(league.type === "pro_community" && !isProSubscriber)
+    )),
+    [availableLeagues, selectedLeague, isProSubscriber]
   );
 
   const aiTargetsRace = insightMatchesRace(aiInsight, race);
@@ -5109,6 +5237,7 @@ export default function PredictionsPage({
   const editingLocked = !!lockCountdown?.locked || raceHasPassed || resultsEntered || selectedLeague?.isEliminated;
   const selectedLeagueBlocked = !!selectedLeague && selectedLeague.type === "pro_community" && !isProSubscriber;
   const interactionLocked = editingLocked || selectedLeagueBlocked;
+  const canCopyActiveToRest = !interactionLocked && !demoPreview && hasSavedPickContent(picks) && copyTargets.length > 0;
   const showReviewOnly = raceHasPassed || resultsEntered;
   const reviewRows = useMemo(
     () => {
@@ -5212,6 +5341,7 @@ export default function PredictionsPage({
     setActiveLeagueId(leagueId);
     setSaved(false);
     setShowPartialWarning(false);
+    setCopyMessage("");
   };
 
   const adjustBudgetAmount = (promptKey, delta) => {
@@ -5223,6 +5353,7 @@ export default function PredictionsPage({
     else nextBudgetAmounts[promptKey] = nextValue;
 
     setBudgetAmounts(nextBudgetAmounts);
+    setCopyMessage("");
     syncActiveLeagueDraft({
       picks,
       betAmounts: nextBudgetAmounts,
@@ -5234,6 +5365,7 @@ export default function PredictionsPage({
     if (interactionLocked || selectedLeague?.gameMode !== "double_down" || !picks[promptKey]) return;
     const nextDoubleDownKey = doubleDownKey === promptKey ? null : promptKey;
     setDoubleDownKey(nextDoubleDownKey);
+    setCopyMessage("");
     syncActiveLeagueDraft({
       picks,
       betAmounts: budgetAmounts,
@@ -5241,8 +5373,63 @@ export default function PredictionsPage({
     });
   };
 
+  const copyActiveLeagueToRest = () => {
+    if (interactionLocked || demoPreview || !selectedLeague || !race) return;
+    if (!hasSavedPickContent(picks)) {
+      setCopyMessage("Make a pick first.");
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    const sourceSubmission = normalizeLeagueSubmission(
+      {
+        picks,
+        betAmounts: budgetAmounts,
+        doubleDownKey,
+        updatedAt,
+      },
+      selectedLeague
+    );
+    const copiedSubmissions = {};
+    const copiedTargets = [];
+
+    copyTargets.forEach((targetLeague) => {
+      const copiedSubmission = normalizeLeagueSubmission(
+        {
+          ...copyCompatibleSubmission(sourceSubmission, selectedLeague, targetLeague, race),
+          updatedAt,
+        },
+        targetLeague
+      );
+      if (!hasSavedPickContent(copiedSubmission.picks)) return;
+      copiedSubmissions[targetLeague.id] = copiedSubmission;
+      copiedTargets.push(targetLeague);
+    });
+
+    if (!copiedTargets.length) {
+      setCopyMessage("No compatible picks to copy.");
+      return;
+    }
+
+    setDraftOverridesByRound((current) => {
+      const roundDrafts = current[race.r] || {};
+      return {
+        ...current,
+        [race.r]: {
+          ...roundDrafts,
+          ...copiedSubmissions,
+          [selectedLeague.id]: sourceSubmission,
+        },
+      };
+    });
+    setSaved(false);
+    setShowPartialWarning(false);
+    const targetLabel = copiedTargets.length === 1 ? copiedTargets[0].name : `${copiedTargets.length} leagues`;
+    setCopyMessage(`Copied ${selectedLeague.name} to ${targetLabel}. Save once.`);
+  };
+
   const copyFromLeague = (sourceLeagueId) => {
-    if (selectedLeagueBlocked) return;
+    if (interactionLocked || demoPreview) return;
     const sourceLeague = availableLeagues.find((league) => league.id === sourceLeagueId);
     if (!sourceLeague || !selectedLeague) return;
 
@@ -5256,6 +5443,7 @@ export default function PredictionsPage({
     setPicks(copiedSubmission.picks);
     setBudgetAmounts(copiedSubmission.betAmounts);
     setDoubleDownKey(copiedSubmission.doubleDownKey);
+    setCopyMessage(`Pasted from ${sourceLeague.name}. Save once.`);
     syncActiveLeagueDraft(copiedSubmission);
 
     const firstCopiedKey = Object.keys(copiedSubmission.picks || {})[0];
@@ -5622,6 +5810,19 @@ export default function PredictionsPage({
               onSelect={selectLeagueContext}
               isMobile={isMobile}
             />
+            {!showReviewOnly && (
+              <LeagueCopyToolbar
+                selectedLeague={selectedLeague}
+                copySources={copySources}
+                copyTargets={copyTargets}
+                canCopyToRest={canCopyActiveToRest}
+                copyMessage={copyMessage}
+                disabled={interactionLocked || demoPreview}
+                onCopyFromLeague={copyFromLeague}
+                onCopyToRest={copyActiveLeagueToRest}
+                isMobile={isMobile}
+              />
+            )}
           </div>
 
           {/* ── 3b. Survival banner — alive/eliminated state for the league ── */}
