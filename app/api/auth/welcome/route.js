@@ -65,12 +65,36 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, status: "already_sent" });
   }
 
-  // 5. Send + mark.
+  // 5. Fetch Stint Community member count for the welcome email.
+  // Fall back to 0 on any failure — never block the send.
+  let communityMemberCount = 0;
+  try {
+    const { data: league } = await supabase
+      .from("leagues")
+      .select("id")
+      .eq("type", "community")
+      .maybeSingle();
+
+    if (league?.id) {
+      const { count } = await supabase
+        .from("league_members")
+        .select("user_id", { count: "exact", head: true })
+        .eq("status", "active")
+        .in("league_id", [league.id]);
+      communityMemberCount = count ?? 0;
+    }
+  } catch (err) {
+    console.error("[auth/welcome] community count failed", err?.message || err);
+    communityMemberCount = 0;
+  }
+
+  // 6. Send + mark.
   try {
     await sendWelcomeEmail({
       email,
       username: profile.username,
       favoriteTeam: profile.favorite_team,
+      communityMemberCount,
       unsubscribeToken: prefs.unsubscribe_token,
     });
   } catch (err) {

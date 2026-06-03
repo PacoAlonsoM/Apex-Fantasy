@@ -5,7 +5,7 @@ import {
   sendResultsPublishedEmail,
   sendProWelcomeEmail,
   sendInsightReadyEmail,
-  sendProRenewalReminderEmail,
+  sendProReceiptEmail,
   sendProCancellationEmail,
 } from "@/src/lib/email";
 import { adminAccessErrorResponse, requireAdminRequest } from "../_lib/localAdminAccess";
@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 // {
 //   "to":        "you@example.com",
 //   "template":  "welcome" | "pick_reminder" | "results" | "pro_welcome"
-//              | "insight_ready" | "renewal" | "cancellation",
+//              | "insight_ready" | "receipt" | "cancellation",
 //   "variant":   (template-specific) — see SAMPLE_PAYLOADS below
 // }
 
@@ -83,6 +83,7 @@ function buildSamplePayloads({ to, recipient, variant }) {
       email: to,
       username,
       favoriteTeam: favoriteTeam || "McLaren",
+      communityMemberCount: 2847,
       unsubscribeToken,
     },
 
@@ -100,16 +101,27 @@ function buildSamplePayloads({ to, recipient, variant }) {
       };
     })(),
 
-    results: {
-      email: to,
-      username,
-      raceName: "Monaco GP",
-      raceCountry: "Monaco",
-      raceRound: 6,
-      score: variant === "zero" ? 0 : 38,
-      bestPick: variant === "zero" ? null : { type: "winner", value: "Lando Norris", points: 25 },
-      unsubscribeToken,
-    },
+    results: (() => {
+      // variant: "zero" | "down" | "flat" | "up" (default)
+      let leagueRankDelta = 3;
+      let currentLeagueRank = 14;
+      if (variant === "down") { leagueRankDelta = -2; currentLeagueRank = 23; }
+      else if (variant === "flat") { leagueRankDelta = 0; currentLeagueRank = 21; }
+      else if (variant === "zero") { leagueRankDelta = -5; currentLeagueRank = 26; }
+      return {
+        email: to,
+        username,
+        raceName: "Monaco GP",
+        raceCountry: "Monaco",
+        raceRound: 6,
+        score: variant === "zero" ? 0 : 38,
+        bestPick: variant === "zero" ? null : { type: "winner", value: "Lando Norris", points: 25 },
+        leagueRankDelta,
+        currentLeagueRank,
+        leagueName: "Stint Community",
+        unsubscribeToken,
+      };
+    })(),
 
     pro_welcome: {
       email: to,
@@ -121,18 +133,25 @@ function buildSamplePayloads({ to, recipient, variant }) {
       username,
       insightType: variant === "pre_race" ? "pre_race" : variant === "monthly" ? "monthly" : "post_race",
       raceName: variant === "monthly" ? undefined : "Monaco GP",
+      headlineLine: "Your DNF call was the most contrarian play in your league.",
+      unsubscribeToken,
     },
 
-    renewal: {
+    receipt: {
       email: to,
       username,
-      renewalDate: "July 1, 2026",
+      amount: 4.00,
+      currency: "usd",
+      billingPeriodLabel: "Monthly",
+      nextBillingDate: "July 1, 2026",
+      invoiceUrl: "https://invoice.stripe.com/i/test/sample",
     },
 
     cancellation: {
       email: to,
       username,
       endsAt: "June 30, 2026",
+      feedbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.stint-web.com"}/support?reason=pro-cancel`,
     },
   };
 }
@@ -143,7 +162,7 @@ const SENDERS = {
   results:        sendResultsPublishedEmail,
   pro_welcome:    sendProWelcomeEmail,
   insight_ready:  sendInsightReadyEmail,
-  renewal:        sendProRenewalReminderEmail,
+  receipt:        sendProReceiptEmail,
   cancellation:   sendProCancellationEmail,
 };
 

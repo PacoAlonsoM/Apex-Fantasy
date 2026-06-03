@@ -72,6 +72,92 @@ export async function dispatchResultsEmails(supabase, raceRound) {
     if (page > 10) break;
   }
 
+  // 4b. Compute Stint Community league rank deltas. If anything in this
+  // block fails we fall back to (delta=0, rank=null, name=null) per user
+  // so the email still sends with the round summary.
+  let rankByUser = new Map(); // user_id -> { delta, currentRank, leagueName }
+  let communityLeagueName = null;
+  try {
+    const { data: community, error: leagueErr } = await supabase
+      .from("leagues")
+      .select("id, name")
+      .eq("type", "community")
+      .maybeSingle();
+
+    if (leagueErr) throw leagueErr;
+
+    if (community?.id) {
+      communityLeagueName = community.name || "Stint Community";
+
+      // Pull every scored row for the community league once, then compute
+      // prev/new totals and ranks across all members in JS.
+      const { data: allScores, error: scoresErr } = await supabase
+        .from("league_round_scores")
+        .select("user_id, race_round, score")
+        .eq("league_id", community.id);
+
+      if (scoresErr) throw scoresErr;
+
+      const prevTotals = new Map(); // user_id -> total through race_round - 1
+      const newTotals  = new Map(); // user_id -> total through race_round
+
+      for (const row of allScores || []) {
+        const uid = row.user_id;
+        const round = Number(row.race_round);
+        const pts = Number(row.score || 0);
+        if (round < raceRound) {
+          prevTotals.set(uid, (prevTotals.get(uid) || 0) + pts);
+          newTotals.set(uid,  (newTotals.get(uid)  || 0) + pts);
+        } else if (round === raceRound) {
+          newTotals.set(uid,  (newTotals.get(uid)  || 0) + pts);
+        }
+      }
+
+      // Members of the community league set the rank universe.
+      const { data: members, error: membersErr } = await supabase
+        .from("league_members")
+        .select("user_id")
+        .eq("league_id", community.id);
+
+      if (membersErr) throw membersErr;
+
+      const memberIds = (members || []).map((m) => m.user_id);
+      const prevSorted = memberIds
+        .map((uid) => prevTotals.get(uid) || 0)
+        .sort((a, b) => b - a);
+      const newSorted = memberIds
+        .map((uid) => newTotals.get(uid) || 0)
+        .sort((a, b) => b - a);
+
+      const rankFor = (sorted, total) => {
+        // Count strictly greater totals, then +1. Matches the spec:
+        // count(totals > userTotal) + 1.
+        let count = 0;
+        for (const v of sorted) {
+          if (v > total) count += 1;
+          else break; // sorted desc
+        }
+        return count + 1;
+      };
+
+      for (const uid of memberIds) {
+        const prevTotal = prevTotals.get(uid) || 0;
+        const newTotal  = newTotals.get(uid)  || 0;
+        const prevRank = rankFor(prevSorted, prevTotal);
+        const newRank  = rankFor(newSorted,  newTotal);
+        rankByUser.set(uid, {
+          delta: prevRank - newRank,
+          currentRank: newRank,
+          leagueName: communityLeagueName,
+        });
+      }
+    }
+  } catch (err) {
+    summary.errors.push({ phase: "league_rank", error: err?.message || String(err) });
+    rankByUser = new Map();
+    communityLeagueName = null;
+  }
+
   // 5. Send + mark.
   for (const prediction of pending) {
     const pref = prefsByUser.get(prediction.user_id);
@@ -103,6 +189,11 @@ export async function dispatchResultsEmails(supabase, raceRound) {
       }
     }
 
+    const rankInfo = rankByUser.get(prediction.user_id) || null;
+    const leagueRankDelta   = rankInfo ? rankInfo.delta       : 0;
+    const currentLeagueRank = rankInfo ? rankInfo.currentRank : null;
+    const leagueName        = rankInfo ? rankInfo.leagueName  : null;
+
     try {
       await sendResultsPublishedEmail({
         email,
@@ -112,6 +203,9 @@ export async function dispatchResultsEmails(supabase, raceRound) {
         raceRound,
         score: Number(prediction.score || 0),
         bestPick,
+        leagueRankDelta,
+        currentLeagueRank,
+        leagueName,
         unsubscribeToken: pref.unsubscribe_token,
       });
 

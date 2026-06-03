@@ -40,3 +40,4 @@ yarn-error.log*
 * 2.ts
 * 2.tsx
 * 2.sql
+tmp/

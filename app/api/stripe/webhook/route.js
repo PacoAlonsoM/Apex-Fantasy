@@ -11,7 +11,11 @@ import {
   reserveStripeWebhookEvent,
   syncSubscriptionState,
 } from "@/src/lib/subscription";
-import { sendProWelcomeEmail, sendProCancellationEmail } from "@/src/lib/email";
+import {
+  sendProWelcomeEmail,
+  sendProReceiptEmail,
+  sendProCancellationEmail,
+} from "@/src/lib/email";
 
 export const runtime = "nodejs";
 
@@ -102,12 +106,42 @@ async function handleEvent(event) {
       // Extend subscription_end on each successful renewal
       const customerId = obj.customer;
       const lines = obj.lines?.data ?? [];
-      const periodEnd = lines[0]?.period?.end
-        ? new Date(lines[0].period.end * 1000)
+      const firstLine = lines[0];
+      const periodEnd = firstLine?.period?.end
+        ? new Date(firstLine.period.end * 1000)
         : null;
 
       if (customerId && periodEnd) {
         await extendSubscription({ stripeCustomerId: customerId, newEnd: periodEnd });
+      }
+
+      // Only send receipt on renewal cycles. Skip initial subscription_create
+      // (handled by pro_welcome on checkout.session.completed) and other reasons
+      // like manual invoices.
+      if (obj.billing_reason === "subscription_cycle" && customerId) {
+        const profile = await getProfileByStripeCustomer(customerId);
+        if (profile) {
+          const supabase = getAdminClient();
+          const authUser = await getAuthUser(supabase, profile.id);
+          if (authUser?.email) {
+            const nextBillingDate = periodEnd
+              ? periodEnd.toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : null;
+            await sendProReceiptEmail({
+              email: authUser.email,
+              username: authUser.username,
+              amount: (obj.amount_paid ?? 0) / 100,
+              currency: obj.currency || "usd",
+              billingPeriodLabel: deriveBillingPeriodLabel(obj),
+              nextBillingDate,
+              invoiceUrl: obj.hosted_invoice_url,
+            }).catch(console.error);
+          }
+        }
       }
       return "processed";
     }
@@ -175,6 +209,44 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+/**
+ * Derive a human-friendly billing period label from a Stripe invoice.
+ * Prefers price metadata (e.g. metadata.period_label), then falls back to
+ * the line's recurring interval, then to the period length in days.
+ */
+function deriveBillingPeriodLabel(invoice) {
+  const line = invoice?.lines?.data?.[0];
+  if (!line) return "Monthly";
+
+  const price = line.price ?? line.plan ?? null;
+  const metaLabel =
+    price?.metadata?.period_label ||
+    price?.metadata?.billing_period_label ||
+    line.metadata?.period_label;
+  if (metaLabel) return metaLabel;
+
+  const interval = price?.recurring?.interval || price?.interval;
+  const intervalCount = price?.recurring?.interval_count || price?.interval_count || 1;
+  if (interval) {
+    if (interval === "month" && intervalCount === 1) return "Monthly";
+    if (interval === "year"  && intervalCount === 1) return "Annual";
+    if (interval === "week"  && intervalCount === 1) return "Weekly";
+    if (interval === "day"   && intervalCount === 1) return "Daily";
+    return `Every ${intervalCount} ${interval}${intervalCount === 1 ? "" : "s"}`;
+  }
+
+  const start = line.period?.start;
+  const end   = line.period?.end;
+  if (start && end) {
+    const days = Math.round((end - start) / 86400);
+    if (days >= 300) return "Season";
+    if (days >= 28 && days <= 31) return "Monthly";
+    return `${days} days`;
+  }
+
+  return "Monthly";
 }
 
 async function getAuthUser(supabase, userId) {

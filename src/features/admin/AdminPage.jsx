@@ -659,7 +659,7 @@ const TEMPLATE_OPTIONS = [
   { value: "results",       label: "Results published",            variants: ["scored", "zero"] },
   { value: "pro_welcome",   label: "Pro welcome (post-checkout)",  variants: [] },
   { value: "insight_ready", label: "AI insight ready (Pro)",       variants: ["post_race", "pre_race", "monthly"] },
-  { value: "renewal",       label: "Pro renewal reminder",         variants: [] },
+  { value: "receipt",       label: "Pro receipt (after renewal)",  variants: [] },
   { value: "cancellation",  label: "Pro cancellation",             variants: [] },
 ];
 
