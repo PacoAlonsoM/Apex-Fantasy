@@ -185,7 +185,11 @@ async function persistReplayRound({ supabase, round, inputs, insight, overwrite 
   }
 
   if (overwrite !== false) {
-    const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", round);
+    const { error: deleteError } = await supabase
+      .from("ai_race_predictions")
+      .delete()
+      .eq("race_round", round)
+      .eq("scope", "historical_replay");
     if (deleteError) throw deleteError;
   }
 

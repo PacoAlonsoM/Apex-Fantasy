@@ -339,6 +339,77 @@ function actualForCategory(categoryKey, results) {
   }
 }
 
+function aiPredictionProviderInfo(row) {
+  const provider = String(row?.provider || "").trim().toLowerCase();
+  const scope = String(row?.scope || "").trim().toLowerCase();
+  const isReplay = provider.includes("replay") || scope.includes("replay");
+  const isFallback = provider.includes("fallback");
+  const isOpenAi = provider.includes("openai") && !isFallback;
+
+  return {
+    provider,
+    scope,
+    isReplay,
+    isFallback,
+    isOpenAi,
+    priority: !isReplay && isOpenAi ? 50
+      : isReplay && isOpenAi ? 40
+        : !isReplay && !isFallback ? 30
+          : !isReplay && isFallback ? 20
+            : isReplay && isFallback ? 10
+              : 0,
+  };
+}
+
+function chooseAiBenchmarkRow(current, candidate) {
+  if (!current) return candidate;
+
+  const currentInfo = aiPredictionProviderInfo(current);
+  const candidateInfo = aiPredictionProviderInfo(candidate);
+  if (candidateInfo.priority !== currentInfo.priority) {
+    return candidateInfo.priority > currentInfo.priority ? candidate : current;
+  }
+
+  const currentTime = new Date(current?.generated_at || 0).getTime();
+  const candidateTime = new Date(candidate?.generated_at || 0).getTime();
+  return candidateTime >= currentTime ? candidate : current;
+}
+
+function summarizeAiHistorySource(rows) {
+  const counts = rows.reduce((summary, row) => {
+    const info = aiPredictionProviderInfo(row);
+    if (info.isReplay) summary.replay += 1;
+    else summary.live += 1;
+    if (info.isOpenAi) summary.openai += 1;
+    if (info.isFallback) summary.fallback += 1;
+    return summary;
+  }, { live: 0, replay: 0, openai: 0, fallback: 0 });
+
+  const hasLiveOpenAi = rows.some((row) => {
+    const info = aiPredictionProviderInfo(row);
+    return !info.isReplay && info.isOpenAi;
+  });
+  const hasReplayOpenAi = rows.some((row) => {
+    const info = aiPredictionProviderInfo(row);
+    return info.isReplay && info.isOpenAi;
+  });
+  const hasLiveFallback = rows.some((row) => {
+    const info = aiPredictionProviderInfo(row);
+    return !info.isReplay && info.isFallback;
+  });
+
+  if (hasLiveOpenAi) {
+    return { mode: "live", label: "Live AI history", detail: "latest pre-race OpenAI board", counts };
+  }
+  if (hasReplayOpenAi) {
+    return { mode: "replay", label: "Replay AI history", detail: "historical OpenAI replay benchmark", counts };
+  }
+  if (hasLiveFallback) {
+    return { mode: "fallback", label: "Fallback AI history", detail: "stored fallback board", counts };
+  }
+  return { mode: "fallback_replay", label: "Fallback replay history", detail: "historical fallback benchmark", counts };
+}
+
 function describeRaceDrillDown(prediction, result) {
   const breakdown = Array.isArray(prediction?.score_breakdown) ? prediction.score_breakdown : [];
   const pointsByLabel = new Map(breakdown.map((row) => [row?.label, Number(row?.pts || 0)]));
@@ -370,16 +441,16 @@ function buildAiHistoryBreakdown(predictionRows, resultsRows) {
   );
 
   const latestRowsByCategoryRace = new Map();
+  let eligibleStoredRows = 0;
   for (const row of Array.isArray(predictionRows) ? predictionRows : []) {
     const round = Number(row?.race_round || 0);
     const categoryKey = String(row?.category_key || "");
     if (!round || !categoryKey || !resultsByRound.has(round)) continue;
 
     const dedupeKey = `${round}:${categoryKey}`;
+    eligibleStoredRows += 1;
     const existing = latestRowsByCategoryRace.get(dedupeKey);
-    const existingTime = new Date(existing?.generated_at || 0).getTime();
-    const nextTime = new Date(row?.generated_at || 0).getTime();
-    if (!existing || nextTime >= existingTime) latestRowsByCategoryRace.set(dedupeKey, row);
+    latestRowsByCategoryRace.set(dedupeKey, chooseAiBenchmarkRow(existing, row));
   }
 
   const categories = new Map(
@@ -390,16 +461,16 @@ function buildAiHistoryBreakdown(predictionRows, resultsRows) {
   let totalPicks = 0;
   let totalCorrect = 0;
   let latestGeneratedAt = null;
-  const providers = new Set();
   const raceSummaries = new Map();
+  const benchmarkRows = [...latestRowsByCategoryRace.values()].sort((a, b) => (a.race_round || 0) - (b.race_round || 0));
+  const sourceSummary = summarizeAiHistorySource(benchmarkRows);
 
-  for (const row of [...latestRowsByCategoryRace.values()].sort((a, b) => (a.race_round || 0) - (b.race_round || 0))) {
+  for (const row of benchmarkRows) {
     const round = Number(row?.race_round || 0);
     const categoryKey = String(row?.category_key || "");
     const result = resultsByRound.get(round);
     const category = categories.get(categoryKey);
     if (!result || !category) continue;
-    if (row?.provider) providers.add(String(row.provider));
 
     const hit = didPredictionHit(categoryKey, row?.predicted_value, result);
     const awardedPoints = hit ? Number(PTS[categoryKey] || 0) : 0;
@@ -446,7 +517,12 @@ function buildAiHistoryBreakdown(predictionRows, resultsRows) {
 
   return {
     available:       raceList.length > 0,
-    mode:            [...providers].some((provider) => provider.includes("replay")) ? "replay" : "live",
+    mode:            sourceSummary.mode,
+    sourceLabel:     sourceSummary.label,
+    sourceDetail:    sourceSummary.detail,
+    sourceCounts:    sourceSummary.counts,
+    storedRows:      eligibleStoredRows,
+    benchmarkRows:   benchmarkRows.length,
     scoredRounds:    raceList.length,
     totalPoints,
     totalPicks,
@@ -515,12 +591,12 @@ function buildAiCoach(breakdown, aiHistory) {
         : (breakdown?.trendDelta ?? 0) >= 5 ? "Form is improving"
           : "Early pattern read";
 
-  const historyStatusLabel  = comparisonAvailable ? (aiHistory?.mode === "replay" ? "Replay history" : "AI history") : "No AI history";
+  const historyStatusLabel  = comparisonAvailable ? (aiHistory?.sourceLabel || "AI history") : "No AI history";
   const historyStatusDetail = comparisonAvailable
-    ? `${aiHistory.scoredRounds} race${aiHistory.scoredRounds === 1 ? "" : "s"} loaded`
+    ? `${aiHistory.scoredRounds} race${aiHistory.scoredRounds === 1 ? "" : "s"} · ${aiHistory.totalPicks} benchmark picks`
     : "No stored races yet";
   const comparisonSummary   = comparisonAvailable
-    ? `${comparisonWins.length}/${comparisonRows.length} tracked categories are ahead of stored AI picks.`
+    ? `${comparisonWins.length}/${comparisonRows.length} tracked categories are ahead of ${String(aiHistory?.sourceLabel || "stored AI").toLowerCase()}.`
     : "No stored AI history yet.";
 
   let nextMoveTitle  = "Protect the floor";
@@ -3105,7 +3181,7 @@ function AiVsYouSpread({ coach, breakdown, history, isMobile }) {
           fontSize: 10, fontWeight: 900,
           letterSpacing: "0.18em", textTransform: "uppercase",
           color: AI_BLUE_TEXT, marginBottom: 6,
-        }}>AI vs You · Head-to-head spread</div>
+        }}>AI vs You · {history?.sourceLabel || "Stored benchmark"}</div>
         <h2 className="stint-section-title" style={{
           margin: 0,
           fontSize: isMobile ? 22 : 30,
@@ -3188,7 +3264,7 @@ function AiVsYouSpread({ coach, breakdown, history, isMobile }) {
           <div style={{
             fontSize: 12, fontWeight: 700, color: MUTED_TEXT,
             marginTop: 8,
-          }}>{coach.historyStatusDetail || "Stored AI picks"}</div>
+          }}>{history?.sourceDetail || coach.historyStatusDetail || "Stored AI picks"}</div>
         </div>
       </div>
 
@@ -3358,7 +3434,7 @@ function CategoryLab({ breakdown, history, isMobile }) {
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 8, height: 2, background: AI_BLUE_TEXT, borderRadius: 2 }} />
-              AI
+              {history?.sourceLabel || "AI"}
             </span>
           </span>
         )}
@@ -3842,7 +3918,7 @@ function BreakdownPanel({
                 )}
               </div>
               <div style={{ fontSize: 12, color: MUTED_TEXT, lineHeight: 1.6, marginBottom: 10 }}>
-                {coach.historyStatusDetail} · {coach.comparisonSummary}
+                {coach.historyStatusDetail} · {history?.sourceDetail || "stored AI benchmark"} · {coach.comparisonSummary}
               </div>
               {coach.comparisonWins.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
@@ -4107,7 +4183,7 @@ export default function ProfilePage({ user, setUser, setPage }) {
     const [predictionsResponse, profilesResponse, aiPredictionResponse, raceResultsResponse] = await Promise.all([
       supabase.from("predictions").select("*").eq("user_id", user.id).order("race_round", { ascending: true }),
       supabase.from("profiles").select("id,points").order("points", { ascending: false }),
-      supabase.from("ai_race_predictions").select("race_round,race_name,category_key,predicted_value,generated_at,provider").order("race_round", { ascending: true }),
+      supabase.from("ai_race_predictions").select("race_round,race_name,insight_key,scope,category_key,category_label,category_type,predicted_value,reason,confidence,provider,model,generated_at").order("race_round", { ascending: true }),
       supabase.from("race_results").select("*").eq("results_entered", true).order("race_round", { ascending: true }),
     ]);
     const loadIssues = [];

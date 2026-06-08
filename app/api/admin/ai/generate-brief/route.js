@@ -116,12 +116,6 @@ async function persistAiBrief({
 
   if (savedInsightRow && generatedPredictionRows.length) {
     try {
-      const raceRound = generatedPredictionRows[0]?.race_round || null;
-      if (raceRound) {
-        const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", raceRound);
-        if (deleteError) throw deleteError;
-      }
-
       const { error: insertError } = await supabase.from("ai_race_predictions").insert(generatedPredictionRows);
       if (insertError) throw insertError;
     } catch (predictionError) {

@@ -2153,9 +2153,6 @@ Deno.serve(async (req: Request) => {
 
     if (savedInsightRow && aiPredictionRows.length) {
       try {
-        const { error: deleteError } = await supabase.from("ai_race_predictions").delete().eq("race_round", historicalContext.targetRound);
-        if (deleteError) throw deleteError;
-
         const { error: insertError } = await supabase.from("ai_race_predictions").insert(aiPredictionRows);
         if (insertError) throw insertError;
       } catch (predictionError) {
