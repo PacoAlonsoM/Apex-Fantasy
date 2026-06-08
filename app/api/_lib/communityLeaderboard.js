@@ -66,14 +66,15 @@ export async function fetchCommunityLeaderboard({ leagueType, userId = null, top
       scoreMap.set(row.user_id, prev + (row.score ?? 0));
     }
   }
+  const hasLeagueScores = !scoresError && (leagueScores ?? []).length > 0;
 
   const ranked = members
     .map((member) => ({
       user_id: member.user_id,
       username: member.profiles?.username ?? "Anonymous",
       avatar_url: member.profiles?.avatar_url ?? null,
-      points: scoreMap.has(member.user_id)
-        ? scoreMap.get(member.user_id)
+      points: hasLeagueScores
+        ? (scoreMap.get(member.user_id) ?? 0)
         : (member.profiles?.points ?? 0),
     }))
     .sort((a, b) => b.points - a.points);

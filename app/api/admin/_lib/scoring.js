@@ -304,6 +304,56 @@ export async function awardRoundPoints(supabase, raceRound, { scope = "full" } =
     }
   }
 
+  const leagueScoreKeys = new Set(
+    leagueScoreRows.map((row) => `${row.league_id}:${row.user_id}:${row.race_round}`)
+  );
+  const recalculatedByUserId = new Map(
+    recalculated.map((entry) => [entry.prediction.user_id, entry])
+  );
+  const scoringUserIds = [...recalculatedByUserId.keys()];
+  if (scoringUserIds.length) {
+    const { data: standardMemberships, error: membershipError } = await supabase
+      .from("league_members")
+      .select("user_id, league_id, status, leagues(id, game_mode, settings)")
+      .in("user_id", scoringUserIds)
+      .in("status", ["active", "eliminated"]);
+
+    if (membershipError) {
+      console.warn("[scoring] standard league membership fallback skipped:", membershipError.message);
+    } else {
+      for (const membership of standardMemberships || []) {
+        const league = membership.leagues || {};
+        if ((league.game_mode || "standard") !== "standard") continue;
+
+        const key = `${membership.league_id}:${membership.user_id}:${raceRound}`;
+        if (leagueScoreKeys.has(key)) continue;
+
+        const entry = recalculatedByUserId.get(membership.user_id);
+        if (!entry) continue;
+
+        const { points, breakdown, gameMode } = scoreLeagueRound(
+          { picks: entry.prediction.picks || {}, gameMode: "standard" },
+          results,
+          {
+            scope: scoringScope,
+            leagueSettings: league.settings || {},
+          }
+        );
+
+        leagueScoreRows.push({
+          league_id: membership.league_id,
+          user_id: entry.prediction.user_id,
+          race_round: raceRound,
+          score: points,
+          breakdown,
+          game_mode: gameMode,
+          computed_at: new Date().toISOString(),
+        });
+        leagueScoreKeys.add(key);
+      }
+    }
+  }
+
   if (leagueScoreRows.length) {
     const { error: leagueScoreErr } = await supabase
       .from("league_round_scores")

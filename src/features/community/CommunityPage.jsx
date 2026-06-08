@@ -2496,11 +2496,12 @@ export default function CommunityPage({ user, openAuth, demoMode = false, setPag
     for (const row of roundScores || []) {
       pointsByUser.set(row.user_id, (pointsByUser.get(row.user_id) || 0) + (row.score || 0));
     }
+    const hasLeagueScores = (roundScores || []).length > 0;
     const memberStatusById = new Map((members || []).map((m) => [m.user_id, m.status]));
 
     const enriched = (profiles || []).map((profile) => {
       const leagueScore = pointsByUser.get(profile.id);
-      const points = leagueScore !== undefined ? leagueScore : (profile.points ?? 0);
+      const points = hasLeagueScores ? (leagueScore ?? 0) : (profile.points ?? 0);
       return { ...profile, points, member_status: memberStatusById.get(profile.id) || "active" };
     });
 
